@@ -1,60 +1,59 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 
 module ControlledFixpoint.Engine where
 
-import Control.Monad.Identity (Identity)
-import Control.Monad.Reader (ReaderT)
-import Control.Monad.State (StateT)
-import Control.Monad.Writer (WriterT)
+import Control.Monad (when)
+import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
+import Control.Monad.Reader (ReaderT (runReaderT))
+import Control.Monad.State (MonadState (get, put), StateT (runStateT), modify)
+import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
+import qualified ControlledFixpoint.Common as Common
+import ControlledFixpoint.Common.Msg (Msg (..))
+import qualified ControlledFixpoint.Common.Msg as Msg
 import ControlledFixpoint.Grammar
-import Data.Map (Map)
-import qualified Data.Map as Map
-import ListT (ListT (..))
-import Text.PrettyPrint.HughesPJ (braces, comma, hsep, nest, punctuate, text, ($+$))
+import ListT (ListT (..), toList)
+import Text.PrettyPrint.HughesPJ ((<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
---------------------------------------------------------------------------------
--- Types
---------------------------------------------------------------------------------
-
-newtype Subst = Subst (Map Var Expr)
+-- | Engine configuration
+data Config = Config
+  { initialGas :: Int,
+    rules :: [Rule]
+  }
   deriving (Show)
 
-instance Pretty Subst where
-  pPrint (Subst m) =
-    braces $
-      m
-        & Map.toList
-        <&> (\(x, e) -> pPrint x <> pPrint e)
-        & punctuate comma
-        & hsep
-
-data Context = Context
+-- | Engine context
+data Ctx = Ctx
   {
   }
   deriving (Show)
 
-data State = State
+instance Pretty Ctx where
+  pPrint = undefined
+
+-- | Engine environment
+data Env = Env
   { gas :: Int,
     sigma :: Subst,
+    rules :: [Rule],
     delayedGoals :: [Rel],
     activeGoals :: [Rel]
   }
   deriving (Show)
 
-data Log = Log String String
-  deriving (Show)
+instance Pretty Env where
+  pPrint = undefined
 
-instance Pretty Log where
-  pPrint (Log lbl msg) = text lbl $+$ nest 1 (text msg)
-
-type M =
-  (ReaderT Context)
-    ( (WriterT [Log])
-        ( ListT
-            ( (StateT State)
-                Identity
+type T m =
+  (ReaderT Ctx)
+    ( (ExceptT Msg)
+        ( (StateT Env)
+            ( ListT
+                ( (WriterT [Msg])
+                    m
+                )
             )
         )
     )
@@ -63,8 +62,38 @@ type M =
 -- Running
 --------------------------------------------------------------------------------
 
-run :: M ()
-run = undefined
+run :: (Monad m) => Config -> Common.T m [Env]
+run cfg = do
+  let ctx = Ctx {}
+  let env =
+        Env
+          { gas = cfg.initialGas,
+            sigma = emptySubst,
+            delayedGoals = mempty,
+            activeGoals = mempty
+          }
+  (branches, logs) <-
+    loop
+      & flip runReaderT ctx
+      & runExceptT
+      & flip runStateT env
+      & ListT.toList
+      & runWriterT
+  tell logs
+  branches & traverse \case
+    (Left err, env') -> throwError (err & Msg.addContent ("env' =" <+> pPrint env'))
+    (Right _, env') -> return env'
 
-step :: M ()
-step = undefined
+loop :: (Monad m) => T m ()
+loop = do
+  env <- get
+  -- check gas
+  when (env.gas <= 0) do
+    throwError $ Msg {title = "Out of gas", contents = []}
+  -- update gas
+  put env {gas = env.gas - 1}
+  -- process next active goal
+  case env.activeGoals of
+    [] -> return ()
+    goal : activeGoals -> do
+      loop

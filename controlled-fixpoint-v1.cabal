@@ -25,6 +25,8 @@ source-repository head
 
 library
   exposed-modules:
+      ControlledFixpoint.Common
+      ControlledFixpoint.Common.Msg
       ControlledFixpoint.Engine
       ControlledFixpoint.Grammar
       Lib
@@ -35,6 +37,12 @@ library
       Paths_controlled_fixpoint_v1
   hs-source-dirs:
       src
+  default-extensions:
+      LambdaCase
+      BlockArguments
+      GADTs
+      OverloadedRecordDot
+      DuplicateRecordFields
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       array
@@ -56,6 +64,12 @@ executable controlled-fixpoint-v1-exe
       Paths_controlled_fixpoint_v1
   hs-source-dirs:
       app
+  default-extensions:
+      LambdaCase
+      BlockArguments
+      GADTs
+      OverloadedRecordDot
+      DuplicateRecordFields
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       array
@@ -79,6 +93,12 @@ test-suite controlled-fixpoint-v1-test
       Paths_controlled_fixpoint_v1
   hs-source-dirs:
       test
+  default-extensions:
+      LambdaCase
+      BlockArguments
+      GADTs
+      OverloadedRecordDot
+      DuplicateRecordFields
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       array
