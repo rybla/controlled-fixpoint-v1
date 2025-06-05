@@ -29,6 +29,7 @@ library
       ControlledFixpoint.Common.Msg
       ControlledFixpoint.Engine
       ControlledFixpoint.Grammar
+      ControlledFixpoint.Unification
       Lib
       Utility
   other-modules:

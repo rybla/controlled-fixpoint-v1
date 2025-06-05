@@ -17,12 +17,28 @@ import Text.PrettyPrint.HughesPJ ((<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
+--------------------------------------------------------------------------------
+-- Types
+--------------------------------------------------------------------------------
+
 -- | Engine configuration
 data Config = Config
   { initialGas :: Int,
     rules :: [Rule]
   }
   deriving (Show)
+
+type T m =
+  (ReaderT Ctx)
+    ( (ExceptT Msg)
+        ( (StateT Env)
+            ( ListT
+                ( (WriterT [Msg])
+                    m
+                )
+            )
+        )
+    )
 
 -- | Engine context
 data Ctx = Ctx
@@ -46,20 +62,8 @@ data Env = Env
 instance Pretty Env where
   pPrint = undefined
 
-type T m =
-  (ReaderT Ctx)
-    ( (ExceptT Msg)
-        ( (StateT Env)
-            ( ListT
-                ( (WriterT [Msg])
-                    m
-                )
-            )
-        )
-    )
-
 --------------------------------------------------------------------------------
--- Running
+-- Functions
 --------------------------------------------------------------------------------
 
 run :: (Monad m) => Config -> Common.T m [Env]
@@ -70,7 +74,8 @@ run cfg = do
           { gas = cfg.initialGas,
             sigma = emptySubst,
             delayedGoals = mempty,
-            activeGoals = mempty
+            activeGoals = mempty,
+            rules = cfg.rules
           }
   (branches, logs) <-
     loop
@@ -96,4 +101,4 @@ loop = do
   case env.activeGoals of
     [] -> return ()
     goal : activeGoals -> do
-      loop
+      undefined

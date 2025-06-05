@@ -1,11 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
+{-# HLINT ignore "Use camelCase" #-}
 
 module ControlledFixpoint.Grammar where
 
-import Control.Monad (foldM, zipWithM)
-import Control.Monad.Except (Except, MonadError (throwError))
+import Control.Category ((>>>))
+import Control.Monad (filterM, foldM, when, zipWithM, (<=<), (>=>))
+import Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExcept, runExceptT)
+import Control.Monad.RWS (MonadTrans (lift))
+import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Common.Msg (Msg (..))
+import qualified Data.List as List
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -30,11 +39,11 @@ data Hyp = RelHyp Rel
 --------------------------------------------------------------------------------
 
 -- | Relation
-data Rel = Rel RelName [Expr]
+data Rel = Rel RelName Expr
   deriving (Show, Eq, Ord)
 
 instance Pretty Rel where
-  pPrint (Rel r es) = pPrint r <+> parens (es <&> pPrint & hsep)
+  pPrint (Rel r e) = pPrint r <+> parens (e & pPrint)
 
 --------------------------------------------------------------------------------
 -- Expr
@@ -64,7 +73,7 @@ instance Pretty Con where
   pPrint (Con c es) = pPrint c <+> parens (es <&> pPrint & punctuate " " & hcat)
 
 -- | Substitution of meta-variables
-newtype Subst = Subst (Map Var Expr)
+newtype Subst = Subst {unSubst :: Map Var Expr}
   deriving (Show)
 
 instance Pretty Subst where
@@ -108,11 +117,20 @@ varsRel = undefined
 varsExpr :: Expr -> Set Var
 varsExpr = undefined
 
+occursInRel :: Var -> Rel -> Bool
+occursInRel x r = x `Set.member` varsRel r
+
+occursInExpr :: Var -> Expr -> Bool
+occursInExpr x e = x `Set.member` varsExpr e
+
 emptySubst :: Subst
 emptySubst = Subst Map.empty
 
+setVar :: Var -> Expr -> Subst -> Subst
+setVar x e (Subst m) = Subst (Map.insert x e m)
+
 substRel :: Subst -> Rel -> Rel
-substRel (Subst m) r = undefined
+substRel sigma (Rel r e) = Rel r (e & substExpr sigma)
 
 substExpr :: Subst -> Expr -> Expr
 substExpr (Subst m) (VarExpr x) = case m Map.!? x of
@@ -121,46 +139,5 @@ substExpr (Subst m) (VarExpr x) = case m Map.!? x of
 substExpr sigma (ConExpr (Con c es)) =
   ConExpr (Con c (es <&> substExpr sigma))
 
--- | Merges a collection of 'Subst's into a single 'Subst', if they are
--- compatible. If a pair of 'Subst's substitute the same variable, then the
--- substituting expressions are unified.
-mergeSubsts :: [Subst] -> Except Msg Subst
-mergeSubsts = undefined
-
-unifyExpr :: Expr -> Expr -> Except Msg Subst
-unifyExpr (VarExpr x1) e2
-  | Set.member x1 (varsExpr e2) =
-      throwError
-        ( Msg
-            { title = "You cannot unify a variable expression with an expression that refers to that variable.",
-              contents =
-                [ "variable   :" <+> pPrint x1,
-                  "expression :" <+> pPrint e2
-                ]
-            }
-        )
-  | otherwise = return (Subst (Map.singleton x1 e2))
-unifyExpr e1 (VarExpr x2)
-  | Set.member x2 (varsExpr e1) =
-      throwError
-        ( Msg
-            { title = "You cannot unify a variable expression with an expression that refers to that variable.",
-              contents =
-                [ "variable   :" <+> pPrint x2,
-                  "expression :" <+> pPrint e1
-                ]
-            }
-        )
-  | otherwise = return (Subst (Map.singleton x2 e1))
-unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2))
-  | c1 /= c2 =
-      throwError
-        ( Msg
-            { title = "You cannot unify constructor expressions with different constructors.",
-              contents =
-                [ "expression #1 :" <+> pPrint e1,
-                  "expression #2 :" <+> pPrint e2
-                ]
-            }
-        )
-  | otherwise = zipWithM unifyExpr es1 es2 >>= mergeSubsts
+substVar :: Subst -> Var -> Maybe Expr
+substVar (Subst m) x = m Map.!? x
