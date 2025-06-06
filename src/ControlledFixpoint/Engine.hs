@@ -1,22 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module ControlledFixpoint.Engine where
 
 import Control.Monad (void, when)
 import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
-import Control.Monad.Reader (ReaderT (runReaderT))
-import Control.Monad.State (MonadState (get), StateT (runStateT), modify)
+import Control.Monad.RWS (MonadState (..))
+import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
+import Control.Monad.State (MonadState (get), StateT (runStateT), evalState, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Common.Msg (Msg (..))
-import qualified ControlledFixpoint.Common.Msg as Msg
+import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
 import ListT (ListT)
 import qualified ListT
-import Text.PrettyPrint.HughesPJ ((<+>))
+import Text.PrettyPrint.HughesPJ (hang, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -27,7 +31,8 @@ import Utility
 -- | Engine configuration
 data Config = Config
   { initialGas :: Int,
-    rules :: [Rule]
+    rules :: [Rule],
+    goals :: [Rel]
   }
   deriving (Show)
 
@@ -43,27 +48,39 @@ type T m =
         )
     )
 
+tell' :: (Monad m) => Msg -> T m ()
+tell' msg = lift . lift . lift . lift $ tell [msg]
+
 -- | Engine context
 data Ctx = Ctx
-  {
+  { rules :: [Rule]
   }
   deriving (Show)
 
 instance Pretty Ctx where
-  pPrint = undefined
+  pPrint ctx =
+    hang "engine context:" 2 . bullets $
+      [ hang "rules = " 2 . bullets $
+          ctx.rules <&> pPrint
+      ]
 
 -- | Engine environment
 data Env = Env
   { gas :: Int,
     sigma :: Subst,
-    rules :: [Rule],
+    freshCounter :: Int,
     delayedGoals :: [Rel],
     activeGoals :: [Rel]
   }
   deriving (Show)
 
 instance Pretty Env where
-  pPrint = undefined
+  pPrint env =
+    hang "engine environment:" 2 . bullets $
+      [ "gas = " <> pPrint env.gas,
+        "activeGoals = " <> pPrint env.activeGoals,
+        "delayedGoals = " <> pPrint env.delayedGoals
+      ]
 
 --------------------------------------------------------------------------------
 -- Functions
@@ -71,14 +88,17 @@ instance Pretty Env where
 
 run :: (Monad m) => Config -> Common.T m [Env]
 run cfg = do
-  let ctx = Ctx {}
+  let ctx =
+        Ctx
+          { rules = cfg.rules
+          }
   let env =
         Env
           { gas = cfg.initialGas,
-            sigma = emptySubst,
             delayedGoals = mempty,
-            activeGoals = mempty,
-            rules = cfg.rules
+            activeGoals = cfg.goals,
+            freshCounter = 0,
+            sigma = emptySubst
           }
   (branches, logs) <-
     loop
@@ -88,47 +108,111 @@ run cfg = do
       & ListT.toList
       & runWriterT
   tell logs
-  branches & traverse \case
-    (Left err, env') -> throwError (err & Msg.addContent ("env' =" <+> pPrint env'))
-    (Right _, env') -> return env'
+  branches & foldMapM \case
+    (Left err, env') -> do
+      tell
+        [ Msg
+            { title = "branch terminated in error",
+              contents =
+                [ hang "err:" 2 (pPrint err),
+                  hang "env:" 2 (pPrint env')
+                ]
+            }
+        ]
+      return []
+    (Right _, env') -> return [env']
 
 loop :: (Monad m) => T m ()
 loop = do
-  env <- get
+  tell' $ Msg "--------------------------------" mempty
 
-  -- check gas
-  when (env.gas <= 0) do
-    throwError $ Msg {title = "Out of gas", contents = mempty}
+  ctx <- ask
+  list_goalAndActiveGoal <- gets $ extractions . activeGoals
 
   -- update gas
-  modify \env' -> env' {gas = env.gas - 1}
+  do
+    env <- get
+    tell' $ Msg ("gas = " <> pPrint env.gas) mempty
+    -- check gas
+    when (env.gas <= 0) do
+      throwError $ Msg "Out of gas" mempty
+    -- update gas
+    modify \env' -> env' {gas = env.gas - length list_goalAndActiveGoal}
 
-  -- process next active goal
-  case env.activeGoals of
-    [] -> return ()
-    goal : _activeGoals' -> do
+  if null list_goalAndActiveGoal
+    then return ()
+    else do
+      do
+        ags <- gets activeGoals
+        tell' $ Msg "activeGoals:" (ags <&> pPrint)
+
+      -- nondeterministically choose next goal to process
+      (activeGoals', goal) <- lift . lift . lift $ foldr ListT.cons mempty list_goalAndActiveGoal
+      modify \env' -> env' {activeGoals = activeGoals'}
+
+      tell' $ Msg ("processing goal" <+> pPrint goal) mempty
+
       -- branch on each rule
-      rule <-
-        lift . lift . lift $
-          foldr ListT.cons mempty env.rules
+      rule <- do
+        rule <- lift . lift . lift $ foldr ListT.cons mempty ctx.rules
+        env <- get
+        let env_freshening =
+              Freshening.Env
+                { sigma = emptySubst,
+                  freshCounter = env.freshCounter
+                }
+        return $ Freshening.freshenRule rule & flip evalState env_freshening
 
-      -- try to apply unify rule's conclusion with goal
-      (err_or_goal', uniEnv') <-
-        lift . lift . lift . lift . lift $
-          Unification.unifyRel goal rule.conc
-            & runExceptT
-            & flip runStateT Unification.emptyEnv
+      tell' $ Msg ("attempting to use rule" <+> pPrint rule.name) mempty
+
+      -- try to unify rule's conclusion with goal
+      (err_or_goal', sigma_unification) <- do
+        (err_or_goal', unificationEnv') <-
+          lift . lift . lift . lift . lift $
+            Unification.unifyRel goal rule.conc
+              & runExceptT
+              & flip runStateT Unification.emptyEnv
+        return (err_or_goal', unificationEnv'.sigma)
 
       -- kill branch if unification failed
       case err_or_goal' of
-        Left _ -> lift . lift . lift $ mempty
-        Right _ -> return ()
+        Left err -> do
+          tell' $
+            Msg
+              "failed to unified goal with rule's conclusion"
+              [ "err =" <+> pPrint err,
+                "sigma =" <+> pPrint sigma_unification
+              ]
+          lift . lift . lift $ mempty
+        Right goal' -> do
+          tell' $
+            Msg
+              "unified goal with rule's conclusion"
+              [ "sigma =" <+> pPrint sigma_unification,
+                "goal' =" <+> pPrint goal'
+              ]
+          return ()
+
+      -- apply 'sigma_unification' to environment's substitution
+      do
+        s <- gets sigma
+        s' <-
+          lift . lift . lift . lift . lift $
+            s & composeSubst sigma_unification
+        modify \env' -> env' {sigma = s'}
+
+      -- apply 'sigma_unification' to 'activeGoals' and 'delayedGoals'
+      modify \env' ->
+        env'
+          { activeGoals = env'.activeGoals <&> substRel sigma_unification,
+            delayedGoals = env'.delayedGoals <&> substRel sigma_unification
+          }
 
       -- process each of the rule's hypotheses
       void $
         rule.hyps <&>>= \case
           RelHyp rel -> do
-            let rel' = rel & substRel uniEnv'.sigma
+            let rel' = rel & substRel sigma_unification
             modify \env' -> env' {activeGoals = env'.activeGoals <> [rel']}
 
       loop

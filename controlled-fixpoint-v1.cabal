@@ -28,7 +28,9 @@ library
       ControlledFixpoint.Common
       ControlledFixpoint.Common.Msg
       ControlledFixpoint.Engine
+      ControlledFixpoint.Freshening
       ControlledFixpoint.Grammar
+      ControlledFixpoint.Main
       ControlledFixpoint.Unification
       Utility
   other-modules:

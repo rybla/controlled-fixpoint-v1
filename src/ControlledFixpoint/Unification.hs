@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -11,6 +12,7 @@ import Control.Monad.State (StateT, get, modify)
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Grammar
 import qualified Data.Set as Set
+import Text.PrettyPrint.HughesPJClass (Pretty (pPrint), (<+>))
 
 --------------------------------------------------------------------------------
 -- Types
@@ -35,6 +37,10 @@ emptyEnv =
 data Error
   = RelsError Rel Rel
   | ExprsError Expr Expr
+
+instance Pretty Error where
+  pPrint (RelsError r1 r2) = pPrint r1 <+> "!~" <+> pPrint r2
+  pPrint (ExprsError e1 e2) = pPrint e1 <+> "!~" <+> pPrint e2
 
 setVarM :: (Monad m) => Var -> Expr -> T m ()
 setVarM x e = do

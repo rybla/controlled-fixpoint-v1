@@ -1,4 +1,5 @@
 module Main (main) where
 
-main :: IO ()
-main = return ()
+import qualified ControlledFixpoint.Main
+
+main = ControlledFixpoint.Main.main
