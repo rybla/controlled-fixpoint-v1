@@ -26,31 +26,33 @@ sucExpr x = ConExpr (Con "suc" [x])
 zeroExpr :: Expr
 zeroExpr = ConExpr (Con "zero" [])
 
+cfg_0 :: Engine.Config
+cfg_0 =
+  Engine.Config
+    { initialGas = 100,
+      rules =
+        [ Rule
+            { name = "\"0 + x = x\"",
+              hyps = [],
+              conc = Atom "IsTrue" (equalExpr (addExpr zeroExpr (varExpr "x")) (varExpr "x"))
+            },
+          Rule
+            { name = "\"x + y = z ==> suc x + y = suc z\"",
+              hyps =
+                [AtomHyp $ Atom "IsTrue" (equalExpr (addExpr (varExpr "x") (varExpr "y")) (varExpr "z"))],
+              conc =
+                Atom "IsTrue" (equalExpr (addExpr (sucExpr (varExpr "x")) (varExpr "y")) (sucExpr (varExpr "z")))
+            }
+        ],
+      goals =
+        [ Atom "IsTrue" (equalExpr (addExpr (sucExpr zeroExpr) zeroExpr) (sucExpr zeroExpr))
+        ]
+    }
+
 main :: IO ()
 main = do
-  let cfg =
-        Engine.Config
-          { initialGas = 100,
-            rules =
-              [ Rule
-                  { name = "\"0 + x = x\"",
-                    hyps = [],
-                    conc = Atom "IsTrue" (equalExpr (addExpr zeroExpr (varExpr "x")) (varExpr "x"))
-                  },
-                Rule
-                  { name = "\"x + y = z ==> suc x + y = suc z\"",
-                    hyps =
-                      [AtomHyp $ Atom "IsTrue" (equalExpr (addExpr (varExpr "x") (varExpr "y")) (varExpr "z"))],
-                    conc =
-                      Atom "IsTrue" (equalExpr (addExpr (sucExpr (varExpr "x")) (varExpr "y")) (sucExpr (varExpr "z")))
-                  }
-              ],
-            goals =
-              [ Atom "IsTrue" (equalExpr (addExpr (sucExpr zeroExpr) zeroExpr) (sucExpr zeroExpr))
-              ]
-          }
   (err_or_envs, msgs) <-
-    Engine.run cfg
+    Engine.run cfg_0
       & runExceptT
       & runWriterT
   putStrLn "================================"
