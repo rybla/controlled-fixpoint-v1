@@ -1,4 +1,7 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module ControlledFixpoint.Unification where
 
@@ -14,14 +17,20 @@ import qualified Data.Set as Set
 --------------------------------------------------------------------------------
 
 type T m =
-  (StateT Env)
-    ( (ExceptT Error)
+  (ExceptT Error)
+    ( (StateT Env)
         (Common.T m)
     )
 
 data Env = Env
   { sigma :: Subst
   }
+
+emptyEnv :: Env
+emptyEnv =
+  Env
+    { sigma = emptySubst
+    }
 
 data Error
   = RelsError Rel Rel

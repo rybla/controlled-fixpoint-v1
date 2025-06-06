@@ -8,18 +8,11 @@
 
 module ControlledFixpoint.Grammar where
 
-import Control.Category ((>>>))
-import Control.Monad (filterM, foldM, when, zipWithM, (<=<), (>=>))
-import Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExcept, runExceptT)
-import Control.Monad.RWS (MonadTrans (lift))
-import qualified ControlledFixpoint.Common as Common
-import ControlledFixpoint.Common.Msg (Msg (..))
-import qualified Data.List as List
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Text.PrettyPrint.HughesPJ (braces, comma, hcat, hsep, parens, punctuate, text, (<+>))
+import Text.PrettyPrint.HughesPJ (braces, comma, hcat, hsep, nest, parens, punctuate, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -28,22 +21,39 @@ import Utility
 --------------------------------------------------------------------------------
 
 -- | Rule
-data Rule = Rule RuleName [Hyp] Rel
+data Rule = Rule
+  { name :: RuleName,
+    hyps :: [Hyp],
+    conc :: Rel
+  }
   deriving (Show, Eq, Ord)
+
+instance Pretty Rule where
+  pPrint rule =
+    "rule" <+> pPrint rule.name
+      $+$ nest 2 (vcat (rule.hyps <&> pPrint))
+      $+$ "----------------"
+      $+$ pPrint rule.conc
 
 data Hyp = RelHyp Rel
   deriving (Show, Eq, Ord)
+
+instance Pretty Hyp where
+  pPrint (RelHyp rel) = pPrint rel
 
 --------------------------------------------------------------------------------
 -- Relation
 --------------------------------------------------------------------------------
 
 -- | Relation
-data Rel = Rel RelName Expr
+data Rel = Rel
+  { name :: RelName,
+    arg :: Expr
+  }
   deriving (Show, Eq, Ord)
 
 instance Pretty Rel where
-  pPrint (Rel r e) = pPrint r <+> parens (e & pPrint)
+  pPrint rel = pPrint rel.name <+> parens (rel.arg & pPrint)
 
 --------------------------------------------------------------------------------
 -- Expr
@@ -93,6 +103,9 @@ instance Pretty Subst where
 newtype RuleName = RuleName String
   deriving (Show, Eq, Ord)
 
+instance Pretty RuleName where
+  pPrint (RuleName x) = text x
+
 -- | Relation name
 newtype RelName = RelName String
   deriving (Show, Eq, Ord)
@@ -129,8 +142,15 @@ emptySubst = Subst Map.empty
 setVar :: Var -> Expr -> Subst -> Subst
 setVar x e (Subst m) = Subst (Map.insert x e m)
 
+substHyp :: Subst -> Hyp -> Hyp
+substHyp sigma (RelHyp rel) = RelHyp (substRel sigma rel)
+
 substRel :: Subst -> Rel -> Rel
-substRel sigma (Rel r e) = Rel r (e & substExpr sigma)
+substRel sigma r =
+  Rel
+    { name = r.name,
+      arg = r.arg & substExpr sigma
+    }
 
 substExpr :: Subst -> Expr -> Expr
 substExpr (Subst m) (VarExpr x) = case m Map.!? x of

@@ -3,16 +3,19 @@
 
 module ControlledFixpoint.Engine where
 
-import Control.Monad (when)
+import Control.Monad (void, when)
 import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
 import Control.Monad.Reader (ReaderT (runReaderT))
-import Control.Monad.State (MonadState (get, put), StateT (runStateT), modify)
+import Control.Monad.State (MonadState (get), StateT (runStateT), modify)
+import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Common.Msg (Msg (..))
 import qualified ControlledFixpoint.Common.Msg as Msg
 import ControlledFixpoint.Grammar
-import ListT (ListT (..), toList)
+import qualified ControlledFixpoint.Unification as Unification
+import ListT (ListT)
+import qualified ListT
 import Text.PrettyPrint.HughesPJ ((<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
@@ -34,7 +37,7 @@ type T m =
         ( (StateT Env)
             ( ListT
                 ( (WriterT [Msg])
-                    m
+                    (Common.T m)
                 )
             )
         )
@@ -92,13 +95,40 @@ run cfg = do
 loop :: (Monad m) => T m ()
 loop = do
   env <- get
+
   -- check gas
   when (env.gas <= 0) do
-    throwError $ Msg {title = "Out of gas", contents = []}
+    throwError $ Msg {title = "Out of gas", contents = mempty}
+
   -- update gas
-  put env {gas = env.gas - 1}
+  modify \env' -> env' {gas = env.gas - 1}
+
   -- process next active goal
   case env.activeGoals of
     [] -> return ()
-    goal : activeGoals -> do
-      undefined
+    goal : _activeGoals' -> do
+      -- branch on each rule
+      rule <-
+        lift . lift . lift $
+          foldr ListT.cons mempty env.rules
+
+      -- try to apply unify rule's conclusion with goal
+      (err_or_goal', uniEnv') <-
+        lift . lift . lift . lift . lift $
+          Unification.unifyRel goal rule.conc
+            & runExceptT
+            & flip runStateT Unification.emptyEnv
+
+      -- kill branch if unification failed
+      case err_or_goal' of
+        Left _ -> lift . lift . lift $ mempty
+        Right _ -> return ()
+
+      -- process each of the rule's hypotheses
+      void $
+        rule.hyps <&>>= \case
+          RelHyp rel -> do
+            let rel' = rel & substRel uniEnv'.sigma
+            modify \env' -> env' {activeGoals = env'.activeGoals <> [rel']}
+
+      loop

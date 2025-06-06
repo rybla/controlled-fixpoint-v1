@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+
 module ControlledFixpoint.Common where
 
 import Control.Monad.Except (ExceptT)

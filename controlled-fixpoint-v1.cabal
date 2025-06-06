@@ -30,7 +30,6 @@ library
       ControlledFixpoint.Engine
       ControlledFixpoint.Grammar
       ControlledFixpoint.Unification
-      Lib
       Utility
   other-modules:
       Paths_controlled_fixpoint_v1

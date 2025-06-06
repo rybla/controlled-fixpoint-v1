@@ -4,6 +4,7 @@
 
 module Utility where
 
+import Control.Monad (foldM)
 import Data.Kind (Type)
 import Data.Traversable (for)
 
@@ -46,9 +47,15 @@ infixl 4 =<<$>
 infixr 4 <&>>=
 
 filterMap :: (a -> Maybe b) -> [a] -> [b]
-filterMap f = go []
-  where
-    go acc [] = reverse acc
-    go acc (x : xs) = case f x of
-      Nothing -> go acc xs
-      Just y -> go (y : acc) xs
+-- filterMap f = go []
+--   where
+--     go acc [] = reverse acc
+--     go acc (x : xs) = case f x of
+--       Nothing -> go acc xs
+--       Just y -> go (y : acc) xs
+filterMap f = foldMap \x -> case f x of
+  Nothing -> []
+  Just y -> [y]
+
+foldMapM :: (Foldable t, Monad m, Monoid b) => (a -> m b) -> t a -> m b
+foldMapM f = foldM (\m a -> (m <>) <$> f a) mempty
