@@ -35,7 +35,7 @@ main = do
               [ Rule
                   { name = "\"0 + x = x\"",
                     hyps = [],
-                    conc = Rel "IsTrue" (equalExpr zeroExpr (varExpr "x"))
+                    conc = Rel "IsTrue" (equalExpr (addExpr zeroExpr (varExpr "x")) (varExpr "x"))
                   },
                 Rule
                   { name = "\"x + y = z ==> suc x + y = suc z\"",
@@ -46,7 +46,7 @@ main = do
                   }
               ],
             goals =
-              [ Rel "IsTrue" (equalExpr zeroExpr zeroExpr)
+              [ Rel "IsTrue" (equalExpr (addExpr (sucExpr zeroExpr) zeroExpr) (sucExpr zeroExpr))
               ]
           }
   (err_or_envs, msgs) <-
