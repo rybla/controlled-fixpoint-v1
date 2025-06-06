@@ -29,7 +29,7 @@ import Utility
 data Rule = Rule
   { name :: RuleName,
     hyps :: [Hyp],
-    conc :: Rel
+    conc :: Atom
   }
   deriving (Show, Eq, Ord)
 
@@ -44,25 +44,25 @@ instance Pretty Rule where
           ]
       ]
 
-data Hyp = RelHyp Rel
+data Hyp = AtomHyp Atom
   deriving (Show, Eq, Ord)
 
 instance Pretty Hyp where
-  pPrint (RelHyp rel) = pPrint rel
+  pPrint (AtomHyp atom) = pPrint atom
 
 --------------------------------------------------------------------------------
--- Relation
+-- Atom
 --------------------------------------------------------------------------------
 
--- | Relation
-data Rel = Rel
-  { name :: RelName,
+-- | Atom
+data Atom = Atom
+  { name :: AtomName,
     arg :: Expr
   }
   deriving (Show, Eq, Ord)
 
-instance Pretty Rel where
-  pPrint rel = pPrint rel.name <+> (rel.arg & pPrint)
+instance Pretty Atom where
+  pPrint atom = pPrint atom.name <+> (atom.arg & pPrint)
 
 --------------------------------------------------------------------------------
 -- Expr
@@ -122,12 +122,12 @@ instance IsString RuleName where fromString = RuleName
 instance Pretty RuleName where pPrint (RuleName x) = text x
 
 -- | Relation name
-newtype RelName = RelName String
+newtype AtomName = AtomName String
   deriving (Show, Eq, Ord)
 
-instance IsString RelName where fromString = RelName
+instance IsString AtomName where fromString = AtomName
 
-instance Pretty RelName where pPrint (RelName x) = text x
+instance Pretty AtomName where pPrint (AtomName x) = text x
 
 -- | Constructor name
 newtype ConName = ConName String
@@ -141,15 +141,15 @@ instance Pretty ConName where pPrint (ConName x) = text x
 -- Functions
 --------------------------------------------------------------------------------
 
-varsRel :: Rel -> Set Var
-varsRel (Rel _ e) = e & varsExpr
+varsAtom :: Atom -> Set Var
+varsAtom (Atom _ e) = e & varsExpr
 
 varsExpr :: Expr -> Set Var
 varsExpr (VarExpr x) = Set.singleton x
 varsExpr (ConExpr (Con _ es)) = es <&> varsExpr & Set.unions
 
-occursInRel :: Var -> Rel -> Bool
-occursInRel x r = x `Set.member` varsRel r
+occursInAtom :: Var -> Atom -> Bool
+occursInAtom x a = x `Set.member` varsAtom a
 
 occursInExpr :: Var -> Expr -> Bool
 occursInExpr x e = x `Set.member` varsExpr e
@@ -161,11 +161,11 @@ setVar :: Var -> Expr -> Subst -> Subst
 setVar x e (Subst m) = Subst (Map.insert x e m)
 
 substHyp :: Subst -> Hyp -> Hyp
-substHyp sigma (RelHyp rel) = RelHyp (substRel sigma rel)
+substHyp sigma (AtomHyp atom) = AtomHyp (substAtom sigma atom)
 
-substRel :: Subst -> Rel -> Rel
-substRel sigma r =
-  Rel
+substAtom :: Subst -> Atom -> Atom
+substAtom sigma r =
+  Atom
     { name = r.name,
       arg = r.arg & substExpr sigma
     }
@@ -188,6 +188,6 @@ composeSubst sigma@(Subst m) _sigma'@(Subst m') = do
   unless (Set.null keysIntersection) do
     throwError $
       Msg
-        "In 'substSubst', there are variables that both substitutions substitute"
+        "In 'composeSubst', there are variables that both substitutions substitute"
         ["keysIntersection =" <+> (keysIntersection & Set.toList & pPrint)]
   return $ Subst $ m `Map.union` (m' <&> substExpr sigma)

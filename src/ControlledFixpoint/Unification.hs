@@ -35,11 +35,11 @@ emptyEnv =
     }
 
 data Error
-  = RelsError Rel Rel
+  = AtomsError Atom Atom
   | ExprsError Expr Expr
 
 instance Pretty Error where
-  pPrint (RelsError r1 r2) = pPrint r1 <+> "!~" <+> pPrint r2
+  pPrint (AtomsError a1 a2) = pPrint a1 <+> "!~" <+> pPrint a2
   pPrint (ExprsError e1 e2) = pPrint e1 <+> "!~" <+> pPrint e2
 
 setVarM :: (Monad m) => Var -> Expr -> T m ()
@@ -58,11 +58,11 @@ setVarM x e = do
 -- Functions
 --------------------------------------------------------------------------------
 
-unifyRel :: (Monad m) => Rel -> Rel -> T m Rel
-unifyRel (Rel r1 e1) (Rel r2 e2) = do
-  when (r1 /= r2) do throwError $ RelsError (Rel r1 e1) (Rel r2 e2)
+unifyAtom :: (Monad m) => Atom -> Atom -> T m Atom
+unifyAtom (Atom a1 e1) (Atom a2 e2) = do
+  when (a1 /= a2) do throwError $ AtomsError (Atom a1 e1) (Atom a2 e2)
   e <- unifyExpr e1 e2
-  pure (Rel r1 e)
+  pure (Atom a1 e)
 
 unifyExpr :: (Monad m) => Expr -> Expr -> T m Expr
 unifyExpr (VarExpr x1) e2 = do

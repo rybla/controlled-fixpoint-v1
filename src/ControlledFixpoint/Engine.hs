@@ -32,7 +32,7 @@ import Utility
 data Config = Config
   { initialGas :: Int,
     rules :: [Rule],
-    goals :: [Rel]
+    goals :: [Atom]
   }
   deriving (Show)
 
@@ -69,8 +69,8 @@ data Env = Env
   { gas :: Int,
     sigma :: Subst,
     freshCounter :: Int,
-    delayedGoals :: [Rel],
-    activeGoals :: [Rel]
+    delayedGoals :: [Atom],
+    activeGoals :: [Atom]
   }
   deriving (Show)
 
@@ -146,15 +146,15 @@ loop = do
         ags <- gets activeGoals
         tell' $ Msg "activeGoals:" (ags <&> pPrint)
 
-      -- nondeterministically choose next goal to process
-      (activeGoals', goal) <- lift . lift . lift $ foldr ListT.cons mempty list_goalAndActiveGoal
+      -- choose next goal to pursue
+      (activeGoals', goal) <- choose list_goalAndActiveGoal
       modify \env' -> env' {activeGoals = activeGoals'}
 
       tell' $ Msg ("processing goal" <+> pPrint goal) mempty
 
-      -- branch on each rule
+      -- choose rule to use
       rule <- do
-        rule <- lift . lift . lift $ foldr ListT.cons mempty ctx.rules
+        rule <- choose ctx.rules
         env <- get
         let env_freshening =
               Freshening.Env
@@ -169,7 +169,7 @@ loop = do
       (err_or_goal', sigma_unification) <- do
         (err_or_goal', unificationEnv') <-
           lift . lift . lift . lift . lift $
-            Unification.unifyRel goal rule.conc
+            Unification.unifyAtom goal rule.conc
               & runExceptT
               & flip runStateT Unification.emptyEnv
         return (err_or_goal', unificationEnv'.sigma)
@@ -204,15 +204,18 @@ loop = do
       -- apply 'sigma_unification' to 'activeGoals' and 'delayedGoals'
       modify \env' ->
         env'
-          { activeGoals = env'.activeGoals <&> substRel sigma_unification,
-            delayedGoals = env'.delayedGoals <&> substRel sigma_unification
+          { activeGoals = env'.activeGoals <&> substAtom sigma_unification,
+            delayedGoals = env'.delayedGoals <&> substAtom sigma_unification
           }
 
       -- process each of the rule's hypotheses
       void $
         rule.hyps <&>>= \case
-          RelHyp rel -> do
-            let rel' = rel & substRel sigma_unification
-            modify \env' -> env' {activeGoals = env'.activeGoals <> [rel']}
+          AtomHyp atom -> do
+            let atom' = atom & substAtom sigma_unification
+            modify \env' -> env' {activeGoals = env'.activeGoals <> [atom']}
 
       loop
+
+choose :: (Monad m) => [a] -> T m a
+choose = lift . lift . lift . foldr ListT.cons mempty

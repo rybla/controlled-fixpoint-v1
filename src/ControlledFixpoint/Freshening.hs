@@ -23,7 +23,7 @@ type M = State Env
 freshenRule :: Rule -> M Rule
 freshenRule rule = do
   hyps' <- rule.hyps <&>>= freshenHyp
-  conc' <- rule.conc & freshenRel
+  conc' <- rule.conc & freshenAtom
   return
     rule
       { hyps = hyps',
@@ -31,10 +31,10 @@ freshenRule rule = do
       }
 
 freshenHyp :: Hyp -> M Hyp
-freshenHyp (RelHyp r) = RelHyp <$> (r & freshenRel)
+freshenHyp (AtomHyp r) = AtomHyp <$> (r & freshenAtom)
 
-freshenRel :: Rel -> M Rel
-freshenRel (Rel r e) = Rel r <$> (e & freshenExpr)
+freshenAtom :: Atom -> M Atom
+freshenAtom (Atom a e) = Atom a <$> (e & freshenExpr)
 
 freshenExpr :: Expr -> M Expr
 freshenExpr (VarExpr x) = freshenVar x

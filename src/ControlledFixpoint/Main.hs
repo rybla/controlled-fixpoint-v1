@@ -35,18 +35,18 @@ main = do
               [ Rule
                   { name = "\"0 + x = x\"",
                     hyps = [],
-                    conc = Rel "IsTrue" (equalExpr (addExpr zeroExpr (varExpr "x")) (varExpr "x"))
+                    conc = Atom "IsTrue" (equalExpr (addExpr zeroExpr (varExpr "x")) (varExpr "x"))
                   },
                 Rule
                   { name = "\"x + y = z ==> suc x + y = suc z\"",
                     hyps =
-                      [RelHyp $ Rel "IsTrue" (equalExpr (addExpr (varExpr "x") (varExpr "y")) (varExpr "z"))],
+                      [AtomHyp $ Atom "IsTrue" (equalExpr (addExpr (varExpr "x") (varExpr "y")) (varExpr "z"))],
                     conc =
-                      Rel "IsTrue" (equalExpr (addExpr (sucExpr (varExpr "x")) (varExpr "y")) (sucExpr (varExpr "z")))
+                      Atom "IsTrue" (equalExpr (addExpr (sucExpr (varExpr "x")) (varExpr "y")) (sucExpr (varExpr "z")))
                   }
               ],
             goals =
-              [ Rel "IsTrue" (equalExpr (addExpr (sucExpr zeroExpr) zeroExpr) (sucExpr zeroExpr))
+              [ Atom "IsTrue" (equalExpr (addExpr (sucExpr zeroExpr) zeroExpr) (sucExpr zeroExpr))
               ]
           }
   (err_or_envs, msgs) <-
