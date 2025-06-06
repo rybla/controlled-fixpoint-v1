@@ -8,7 +8,7 @@
 
 module ControlledFixpoint.Grammar where
 
-import Control.Monad (unless, when)
+import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Common.Msg (Msg (..))
