@@ -54,7 +54,7 @@ instance Pretty Hyp where
 -- Atom
 --------------------------------------------------------------------------------
 
--- | Atom
+-- | An 'Atom' is an atomic formula.
 data Atom = Atom
   { name :: AtomName,
     arg :: Expr
@@ -183,11 +183,14 @@ substVar (Subst m) x = m Map.!? x
 -- | Throws an error if 'sigma'' substitutes a variable that is also substituted
 -- by 'sigma'.
 composeSubst :: (Monad m) => Subst -> Subst -> Common.T m Subst
-composeSubst sigma@(Subst m) _sigma'@(Subst m') = do
+composeSubst sigma@(Subst m) sigma'@(Subst m') = do
   let keysIntersection = (m & Map.keysSet) `Set.intersection` (m' & Map.keysSet)
   unless (Set.null keysIntersection) do
     throwError $
       Msg
         "In 'composeSubst', there are variables that both substitutions substitute"
-        ["keysIntersection =" <+> (keysIntersection & Set.toList & pPrint)]
+        [ "keysIntersection =" <+> (keysIntersection & Set.toList & pPrint),
+          "sigma  =" <+> pPrint sigma,
+          "sigma' =" <+> pPrint sigma'
+        ]
   return $ Subst $ m `Map.union` (m' <&> substExpr sigma)

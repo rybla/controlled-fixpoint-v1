@@ -193,20 +193,15 @@ loop = do
               ]
           return ()
 
-      -- apply 'sigma_unification' to environment's substitution
+      -- apply 'sigma_unification' to environment's 'sigma', 'activeGoals', and 'delayedGoals'
       do
-        s <- gets sigma
-        s' <-
-          lift . lift . lift . lift . lift $
-            s & composeSubst sigma_unification
-        modify \env' -> env' {sigma = s'}
-
-      -- apply 'sigma_unification' to 'activeGoals' and 'delayedGoals'
-      modify \env' ->
-        env'
-          { activeGoals = env'.activeGoals <&> substAtom sigma_unification,
-            delayedGoals = env'.delayedGoals <&> substAtom sigma_unification
-          }
+        sigma' <- lift . lift . lift . lift . lift . composeSubst sigma_unification =<< gets sigma
+        modify \env' ->
+          env'
+            { sigma = sigma',
+              activeGoals = env'.activeGoals <&> substAtom sigma_unification,
+              delayedGoals = env'.delayedGoals <&> substAtom sigma_unification
+            }
 
       -- process each of the rule's hypotheses
       void $
@@ -217,5 +212,6 @@ loop = do
 
       loop
 
+-- | Nondeterministically choose from a list.
 choose :: (Monad m) => [a] -> T m a
 choose = lift . lift . lift . foldr ListT.cons mempty
