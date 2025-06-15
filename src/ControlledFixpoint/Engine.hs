@@ -14,7 +14,8 @@ import Control.Monad.State (StateT (runStateT), evalState, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import qualified ControlledFixpoint.Common as Common
-import ControlledFixpoint.Common.Msg (Msg (..))
+import ControlledFixpoint.Common.Msg (Msg)
+import qualified ControlledFixpoint.Common.Msg as Msg
 import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
@@ -48,8 +49,8 @@ type T m =
         )
     )
 
-tell' :: (Monad m) => Msg -> T m ()
-tell' msg = lift . lift . lift . lift $ tell [msg]
+tellT :: (Monad m) => Msg -> T m ()
+tellT msg = lift . lift . lift . lift $ tell [msg]
 
 -- | Engine context
 data Ctx = Ctx
@@ -88,6 +89,7 @@ instance Pretty Env where
 
 run :: (Monad m) => Config -> Common.T m [Env]
 run cfg = do
+  tell [Msg.mk "Engine.run"]
   let ctx =
         Ctx
           { rules = cfg.rules
@@ -111,31 +113,33 @@ run cfg = do
   branches & foldMapM \case
     (Left err, env') -> do
       tell
-        [ Msg
-            { title = "branch terminated in error",
-              contents =
+        [ (Msg.mk "branch terminated in error")
+            { Msg.contents =
                 [ hang "err:" 2 (pPrint err),
                   hang "env:" 2 (pPrint env')
                 ]
             }
         ]
       return []
-    (Right _, env') -> return [env']
+    (Right _, env') -> do
+      tell [Msg.mk "branch terminated successfully"]
+      return [env']
 
 loop :: (Monad m) => T m ()
 loop = do
-  tell' $ Msg "--------------------------------" mempty
+  tellT $ Msg.mk "--------------------------------"
 
   ctx <- ask
+
   list_goalAndActiveGoal <- gets $ extractions . activeGoals
 
   -- update gas
   do
     env <- get
-    tell' $ Msg ("gas = " <> pPrint env.gas) mempty
+    tellT $ Msg.mk ("gas = " <> pPrint env.gas)
     -- check gas
     when (env.gas <= 0) do
-      throwError $ Msg "Out of gas" mempty
+      throwError $ Msg.mk "Out of gas"
     -- update gas
     modify \env' -> env' {gas = env.gas - length list_goalAndActiveGoal}
 
@@ -144,13 +148,13 @@ loop = do
     else do
       do
         ags <- gets activeGoals
-        tell' $ Msg "activeGoals:" (ags <&> pPrint)
+        tellT $ (Msg.mk "activeGoals:") {Msg.contents = ags <&> pPrint}
 
       -- choose next goal to pursue
       (activeGoals', goal) <- choose list_goalAndActiveGoal
       modify \env' -> env' {activeGoals = activeGoals'}
 
-      tell' $ Msg ("processing goal" <+> pPrint goal) mempty
+      tellT $ Msg.mk ("processing goal" <+> pPrint goal)
 
       -- choose rule to use
       rule <- do
@@ -163,7 +167,7 @@ loop = do
                 }
         return $ Freshening.freshenRule rule & flip evalState env_freshening
 
-      tell' $ Msg ("attempting to use rule" <+> pPrint rule.name) mempty
+      tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
 
       -- try to unify rule's conclusion with goal
       (err_or_goal', sigma_unification) <- do
@@ -177,25 +181,27 @@ loop = do
       -- kill branch if unification failed
       case err_or_goal' of
         Left err -> do
-          tell' $
-            Msg
-              "failed to unified goal with rule's conclusion"
-              [ "err =" <+> pPrint err,
-                "sigma =" <+> pPrint sigma_unification
-              ]
+          tellT $
+            (Msg.mk "failed to unified goal with rule's conclusion")
+              { Msg.contents =
+                  [ "err =" <+> pPrint err,
+                    "sigma =" <+> pPrint sigma_unification
+                  ]
+              }
           lift . lift . lift $ mempty
         Right goal' -> do
-          tell' $
-            Msg
-              "unified goal with rule's conclusion"
-              [ "sigma =" <+> pPrint sigma_unification,
-                "goal' =" <+> pPrint goal'
-              ]
+          tellT $
+            (Msg.mk "unified goal with rule's conclusion")
+              { Msg.contents =
+                  [ "sigma =" <+> pPrint sigma_unification,
+                    "goal' =" <+> pPrint goal'
+                  ]
+              }
           return ()
 
       -- apply 'sigma_unification' to environment's 'sigma', 'activeGoals', and 'delayedGoals'
       do
-        sigma' <- lift . lift . lift . lift . lift . composeSubst sigma_unification =<< gets sigma
+        sigma' <- composeSubst sigma_unification =<< gets sigma
         modify \env' ->
           env'
             { sigma = sigma',

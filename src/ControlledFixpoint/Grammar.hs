@@ -1,17 +1,18 @@
+{-# HLINT ignore "Use newtype instead of data" #-}
+{-# HLINT ignore "Use camelCase" #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use newtype instead of data" #-}
-{-# HLINT ignore "Use camelCase" #-}
 
 module ControlledFixpoint.Grammar where
 
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
 import qualified ControlledFixpoint.Common as Common
-import ControlledFixpoint.Common.Msg (Msg (..))
+import ControlledFixpoint.Common.Msg (Msg)
+import qualified ControlledFixpoint.Common.Msg as Msg
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -182,15 +183,16 @@ substVar (Subst m) x = m Map.!? x
 
 -- | Throws an error if 'sigma'' substitutes a variable that is also substituted
 -- by 'sigma'.
-composeSubst :: (Monad m) => Subst -> Subst -> Common.T m Subst
+composeSubst :: (MonadError Msg m) => Subst -> Subst -> m Subst
 composeSubst sigma@(Subst m) sigma'@(Subst m') = do
   let keysIntersection = (m & Map.keysSet) `Set.intersection` (m' & Map.keysSet)
   unless (Set.null keysIntersection) do
     throwError $
-      Msg
-        "In 'composeSubst', there are variables that both substitutions substitute"
-        [ "keysIntersection =" <+> (keysIntersection & Set.toList & pPrint),
-          "sigma  =" <+> pPrint sigma,
-          "sigma' =" <+> pPrint sigma'
-        ]
+      (Msg.mk "In 'composeSubst', there are variables that both substitutions substitute")
+        { Msg.contents =
+            [ "keysIntersection =" <+> (keysIntersection & Set.toList & pPrint),
+              "sigma  =" <+> pPrint sigma,
+              "sigma' =" <+> pPrint sigma'
+            ]
+        }
   return $ Subst $ m `Map.union` (m' <&> substExpr sigma)
