@@ -8,7 +8,8 @@ module Utility where
 import Control.Monad (foldM)
 import Data.Kind (Type)
 import Data.Traversable (for)
-import Text.PrettyPrint (Doc, nest, vcat, (<+>))
+import Text.PrettyPrint (Doc, nest, render, vcat, (<+>))
+import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 
 infixl 1 &
 

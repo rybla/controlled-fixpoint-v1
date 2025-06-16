@@ -39,7 +39,6 @@ dependencies:
   - list-t
   - pretty
 
-
 ghc-options:
   - -Wall
   - -Wcompat
@@ -75,3 +74,5 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - controlled-fixpoint-v1
+      - tasty
+      - tasty-hunit
