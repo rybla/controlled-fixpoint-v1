@@ -77,10 +77,7 @@ cfg_0 =
                 }-}
         ],
       goals =
-        [ let a = 1
-              b = 2
-              c = 3
-           in Atom "IsTrue" ((a +. b) ==. c)
+        [ Atom "IsTrue" ((1 +. 2) ==. 2)
         ]
     }
 

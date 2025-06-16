@@ -24,6 +24,9 @@ mkTest_Engine name cfg result_expected = testCase name do
       & runWriterT
   let result_actual = case err_or_envs of
         Left _err -> EngineError
-        Right envs | null envs -> EngineFailure
-        Right _envs -> EngineSuccess
+        Right envs
+          | not (null envs),
+            envs & all (\env -> null env.failedGoals) ->
+              EngineSuccess
+        Right _ -> EngineFailure
   result_actual @?= result_expected
