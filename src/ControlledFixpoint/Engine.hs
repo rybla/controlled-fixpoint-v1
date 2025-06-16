@@ -1,8 +1,6 @@
-{-# HLINT ignore "Use newtype instead of data" #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module ControlledFixpoint.Engine where
 
@@ -51,7 +49,7 @@ tellT :: (Monad m) => Msg -> T m ()
 tellT msg = lift . lift . lift . lift $ tell [msg]
 
 -- | Engine context
-data Ctx = Ctx
+newtype Ctx = Ctx
   { rules :: [Rule]
   }
   deriving (Show)

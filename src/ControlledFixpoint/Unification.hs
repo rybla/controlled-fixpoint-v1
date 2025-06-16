@@ -1,8 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use newtype instead of data" #-}
 
 module ControlledFixpoint.Unification where
 
@@ -24,7 +21,7 @@ type T m =
         (Common.T m)
     )
 
-data Env = Env
+newtype Env = Env
   { sigma :: Subst
   }
 

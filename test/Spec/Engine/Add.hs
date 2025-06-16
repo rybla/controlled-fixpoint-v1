@@ -1,9 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use camelCase" #-}
 
 module Spec.Engine.Add (tests) where
 
@@ -30,14 +27,14 @@ mkTest a b c =
   mkTest_Engine (prettyShow goal) $
     Engine.Config
       { initialGas = 100,
-        rules = rules_add,
+        rules = rulesAdd,
         goals = [goal]
       }
   where
     goal = isTrue (a +. b ==. c)
 
-rules_add :: [Rule]
-rules_add =
+rulesAdd :: [Rule]
+rulesAdd =
   [ Rule
       { name = RuleName $ show @String "0 + x = x",
         hyps = [],

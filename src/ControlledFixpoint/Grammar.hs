@@ -1,10 +1,7 @@
-{-# HLINT ignore "Use newtype instead of data" #-}
-{-# HLINT ignore "Use camelCase" #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module ControlledFixpoint.Grammar where
 
@@ -44,7 +41,7 @@ instance Pretty Rule where
           ]
       ]
 
-data Hyp = AtomHyp Atom
+newtype Hyp = AtomHyp Atom
   deriving (Show, Eq, Ord)
 
 instance Pretty Hyp where

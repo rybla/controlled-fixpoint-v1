@@ -1,11 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use newtype instead of data" #-}
-{-# HLINT ignore "Use camelCase" #-}
-{-# HLINT ignore "Unused LANGUAGE pragma" #-}
 
 module ControlledFixpoint.Freshening where
 
