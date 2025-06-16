@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module ControlledFixpoint.Main (main) where
 
@@ -7,7 +8,7 @@ import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-import Text.PrettyPrint (hang, render)
+import Text.PrettyPrint (hang, render, text)
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -32,12 +33,12 @@ cfg_0 =
     { initialGas = 100,
       rules =
         [ Rule
-            { name = "\"0 + x = x\"",
+            { name = RuleName $ show @String "0 + x = x",
               hyps = [],
               conc = Atom "IsTrue" (equalExpr (addExpr zeroExpr (varExpr "x")) (varExpr "x"))
             },
           Rule
-            { name = "\"x + y = z ==> suc x + y = suc z\"",
+            { name = RuleName $ show @String "x + y = z ==> suc x + y = suc z",
               hyps =
                 [AtomHyp $ Atom "IsTrue" (equalExpr (addExpr (varExpr "x") (varExpr "y")) (varExpr "z"))],
               conc =

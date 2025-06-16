@@ -68,7 +68,6 @@ instance Pretty Ctx where
 -- | Engine environment
 data Env = Env
   { gas :: Int,
-    sigma :: Subst,
     freshCounter :: Int,
     delayedGoals :: [Atom],
     activeGoals :: [Atom]
@@ -99,8 +98,7 @@ run cfg = do
           { gas = cfg.initialGas,
             delayedGoals = mempty,
             activeGoals = cfg.goals,
-            freshCounter = 0,
-            sigma = emptySubst
+            freshCounter = 0
           }
   (branches, logs) <-
     loop
@@ -170,13 +168,20 @@ loop = do
       tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
 
       -- try to unify rule's conclusion with goal
-      (err_or_goal', sigma_unification) <- do
-        (err_or_goal', unificationEnv') <-
+      (err_or_goal', sigma_uni) <- do
+        tellT $
+          (Msg.mk "attemtping to unify gaol with rule's conclusion")
+            { Msg.contents =
+                [ "goal      =" <+> pPrint goal,
+                  "rule.conc =" <+> pPrint rule.conc
+                ]
+            }
+        (err_or_goal', env_uni') <-
           lift . lift . lift . lift . lift $
             Unification.unifyAtom goal rule.conc
               & runExceptT
               & flip runStateT Unification.emptyEnv
-        return (err_or_goal', unificationEnv'.sigma)
+        return (err_or_goal', env_uni'.sigma)
 
       -- kill branch if unification failed
       case err_or_goal' of
@@ -184,8 +189,8 @@ loop = do
           tellT $
             (Msg.mk "failed to unified goal with rule's conclusion")
               { Msg.contents =
-                  [ "err =" <+> pPrint err,
-                    "sigma =" <+> pPrint sigma_unification
+                  [ "err       =" <+> pPrint err,
+                    "sigma_uni =" <+> pPrint sigma_uni
                   ]
               }
           lift . lift . lift $ mempty
@@ -193,27 +198,32 @@ loop = do
           tellT $
             (Msg.mk "unified goal with rule's conclusion")
               { Msg.contents =
-                  [ "sigma =" <+> pPrint sigma_unification,
-                    "goal' =" <+> pPrint goal'
+                  [ "sigma_uni =" <+> pPrint sigma_uni,
+                    "goal'     =" <+> pPrint goal'
                   ]
               }
           return ()
 
-      -- apply 'sigma_unification' to environment's 'sigma', 'activeGoals', and 'delayedGoals'
+      -- apply 'sigma_uni' to environment's 'sigma', 'activeGoals', and 'delayedGoals'
       do
-        sigma' <- composeSubst sigma_unification =<< gets sigma
+        tellT $
+          (Msg.mk "composing unification substitution with current environment substitution")
+            { Msg.contents =
+                [ "sigma_uni  =" <+> pPrint sigma_uni
+                ]
+            }
+        tellT $ Msg.mk "successfully composed unification substitution with current environment substitution"
         modify \env' ->
           env'
-            { sigma = sigma',
-              activeGoals = env'.activeGoals <&> substAtom sigma_unification,
-              delayedGoals = env'.delayedGoals <&> substAtom sigma_unification
+            { activeGoals = env'.activeGoals <&> substAtom sigma_uni,
+              delayedGoals = env'.delayedGoals <&> substAtom sigma_uni
             }
 
       -- process each of the rule's hypotheses
       void $
         rule.hyps <&>>= \case
           AtomHyp atom -> do
-            let atom' = atom & substAtom sigma_unification
+            let atom' = atom & substAtom sigma_uni
             modify \env' -> env' {activeGoals = env'.activeGoals <> [atom']}
 
       loop
