@@ -62,7 +62,19 @@ cfg_0 =
                 [AtomHyp $ Atom "IsTrue" ("x" +. "y" ==. "z")],
               conc =
                 Atom "IsTrue" (sucExpr "x" +. "y" ==. sucExpr "z")
-            }
+            } {-,
+              Rule
+                { name = RuleName $ show @String "x + 0 = x",
+                  hyps = [],
+                  conc = Atom "IsTrue" ("x" + 0 ==. "x")
+                },
+              Rule
+                { name = RuleName $ show @String "x + y = z ==> x + suc y = suc z",
+                  hyps =
+                    [AtomHyp $ Atom "IsTrue" ("x" +. "y" ==. "z")],
+                  conc =
+                    Atom "IsTrue" ("x" +. sucExpr "y" ==. sucExpr "z")
+                }-}
         ],
       goals =
         [ let a = 1

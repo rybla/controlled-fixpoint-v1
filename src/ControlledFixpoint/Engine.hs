@@ -95,7 +95,7 @@ data Step = Step
 
 instance Pretty Step where
   pPrint step =
-    pPrint step.goal <+> "<==" <+> pPrint step.subgoals <+> "via" <+> pPrint step.rule.name <+> "with" <+> pPrint step.sigma
+    (pPrint step.rule.name <> ":") <+> pPrint step.goal <+> "<==" <+> pPrint step.subgoals <+> "with" <+> pPrint step.sigma
 
 --------------------------------------------------------------------------------
 -- Functions
