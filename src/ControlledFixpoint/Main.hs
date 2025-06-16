@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module ControlledFixpoint.Main (main) where
 
@@ -8,15 +9,20 @@ import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-import Text.PrettyPrint (hang, render, text)
+import Data.String (IsString (fromString))
+import Text.PrettyPrint (hang, render)
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
-equalExpr :: Expr -> Expr -> Expr
-equalExpr x y = ConExpr (Con "equal" [x, y])
+(==.) :: Expr -> Expr -> Expr
+x ==. y = ConExpr (Con "equal" [x, y])
 
-addExpr :: Expr -> Expr -> Expr
-addExpr x y = ConExpr (Con "add" [x, y])
+infix 4 ==.
+
+(+.) :: Expr -> Expr -> Expr
+x +. y = ConExpr (Con "add" [x, y])
+
+infixl 6 +.
 
 varExpr :: String -> Expr
 varExpr x = VarExpr (Var x Nothing)
@@ -27,6 +33,19 @@ sucExpr x = ConExpr (Con "suc" [x])
 zeroExpr :: Expr
 zeroExpr = ConExpr (Con "zero" [])
 
+instance IsString Expr where fromString = varExpr
+
+instance Num Expr where
+  (+) = (+.)
+  (*) = undefined
+  fromInteger n | n < 0 = undefined
+  fromInteger 0 = zeroExpr
+  fromInteger n = sucExpr (fromInteger (n - 1))
+
+  abs = undefined
+  signum = undefined
+  negate = undefined
+
 cfg_0 :: Engine.Config
 cfg_0 =
   Engine.Config
@@ -35,18 +54,21 @@ cfg_0 =
         [ Rule
             { name = RuleName $ show @String "0 + x = x",
               hyps = [],
-              conc = Atom "IsTrue" (equalExpr (addExpr zeroExpr (varExpr "x")) (varExpr "x"))
+              conc = Atom "IsTrue" (0 + "x" ==. "x")
             },
           Rule
             { name = RuleName $ show @String "x + y = z ==> suc x + y = suc z",
               hyps =
-                [AtomHyp $ Atom "IsTrue" (equalExpr (addExpr (varExpr "x") (varExpr "y")) (varExpr "z"))],
+                [AtomHyp $ Atom "IsTrue" ("x" +. "y" ==. "z")],
               conc =
-                Atom "IsTrue" (equalExpr (addExpr (sucExpr (varExpr "x")) (varExpr "y")) (sucExpr (varExpr "z")))
+                Atom "IsTrue" (sucExpr "x" +. "y" ==. sucExpr "z")
             }
         ],
       goals =
-        [ Atom "IsTrue" (equalExpr (addExpr (sucExpr zeroExpr) zeroExpr) (sucExpr zeroExpr))
+        [ let a = 1
+              b = 2
+              c = 3
+           in Atom "IsTrue" ((a +. b) ==. c)
         ]
     }
 

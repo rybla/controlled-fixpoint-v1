@@ -3,7 +3,7 @@
 
 module ControlledFixpoint.Common.Msg where
 
-import Text.PrettyPrint.HughesPJ (Doc, hang)
+import Text.PrettyPrint (Doc, nest, ($+$))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -16,8 +16,8 @@ data Msg = Msg
 
 instance Pretty Msg where
   pPrint m =
-    hang m.title 2 $
-      bullets m.contents
+    m.title
+      $+$ nest 2 (bullets m.contents)
 
 mk :: Doc -> Msg
 mk title =

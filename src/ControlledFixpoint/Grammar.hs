@@ -10,7 +10,6 @@ module ControlledFixpoint.Grammar where
 
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
-import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import Data.Map (Map)
@@ -18,7 +17,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.String (IsString (fromString))
-import Text.PrettyPrint.HughesPJ (braces, comma, hcat, hsep, nest, parens, punctuate, text, vcat, (<+>))
+import Text.PrettyPrint (braces, comma, hcat, hsep, nest, parens, punctuate, text, vcat, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -77,7 +76,7 @@ data Expr
 
 instance Pretty Expr where
   pPrint (VarExpr x) = pPrint x
-  pPrint (ConExpr (Con c es)) = pPrint c <+> hsep (es <&> pPrint)
+  pPrint (ConExpr c) = pPrint c
 
 -- | Meta-variable that can be substituted with an expression
 data Var = Var String (Maybe Int)
@@ -95,7 +94,7 @@ data Con = Con ConName [Expr]
 
 instance Pretty Con where
   pPrint (Con c []) = pPrint c
-  pPrint (Con c es) = pPrint c <+> parens (es <&> pPrint & punctuate " " & hcat)
+  pPrint (Con c es) = parens $ pPrint c <+> (es <&> pPrint & punctuate " " & hcat)
 
 -- | Substitution of meta-variables
 newtype Subst = Subst {unSubst :: Map Var Expr}

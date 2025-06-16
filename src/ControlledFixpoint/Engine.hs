@@ -1,12 +1,12 @@
+{-# HLINT ignore "Use newtype instead of data" #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-{-# HLINT ignore "Use newtype instead of data" #-}
-
 module ControlledFixpoint.Engine where
 
-import Control.Monad (void, when)
+import Control.Monad (when)
 import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
 import Control.Monad.RWS (MonadState (..))
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
@@ -21,7 +21,7 @@ import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
 import ListT (ListT)
 import qualified ListT
-import Text.PrettyPrint.HughesPJ (hang, (<+>))
+import Text.PrettyPrint (hang, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -70,17 +70,32 @@ data Env = Env
   { gas :: Int,
     freshCounter :: Int,
     delayedGoals :: [Atom],
-    activeGoals :: [Atom]
+    activeGoals :: [Atom],
+    steps :: [Step]
   }
   deriving (Show)
 
 instance Pretty Env where
   pPrint env =
     hang "engine environment:" 2 . bullets $
-      [ "gas = " <> pPrint env.gas,
-        "activeGoals = " <> pPrint env.activeGoals,
-        "delayedGoals = " <> pPrint env.delayedGoals
+      [ "gas =" <+> pPrint env.gas,
+        "activeGoals =" <+> pPrint env.activeGoals,
+        "delayedGoals =" <+> pPrint env.delayedGoals,
+        hang "steps:" 2 . bullets $
+          env.steps <&> pPrint
       ]
+
+data Step = Step
+  { goal :: Atom,
+    rule :: Rule,
+    sigma :: Subst,
+    subgoals :: [Atom]
+  }
+  deriving (Show)
+
+instance Pretty Step where
+  pPrint step =
+    pPrint step.goal <+> "<==" <+> pPrint step.subgoals <+> "via" <+> pPrint step.rule.name <+> "with" <+> pPrint step.sigma
 
 --------------------------------------------------------------------------------
 -- Functions
@@ -98,7 +113,8 @@ run cfg = do
           { gas = cfg.initialGas,
             delayedGoals = mempty,
             activeGoals = cfg.goals,
-            freshCounter = 0
+            freshCounter = 0,
+            steps = []
           }
   (branches, logs) <-
     loop
@@ -170,7 +186,7 @@ loop = do
       -- try to unify rule's conclusion with goal
       (err_or_goal', sigma_uni) <- do
         tellT $
-          (Msg.mk "attemtping to unify gaol with rule's conclusion")
+          (Msg.mk "attempting to unify goal with rule's conclusion")
             { Msg.contents =
                 [ "goal      =" <+> pPrint goal,
                   "rule.conc =" <+> pPrint rule.conc
@@ -187,13 +203,13 @@ loop = do
       case err_or_goal' of
         Left err -> do
           tellT $
-            (Msg.mk "failed to unified goal with rule's conclusion")
+            (Msg.mk "failed to unify goal with rule's conclusion")
               { Msg.contents =
                   [ "err       =" <+> pPrint err,
                     "sigma_uni =" <+> pPrint sigma_uni
                   ]
               }
-          lift . lift . lift $ mempty
+          reject
         Right goal' -> do
           tellT $
             (Msg.mk "unified goal with rule's conclusion")
@@ -207,12 +223,11 @@ loop = do
       -- apply 'sigma_uni' to environment's 'sigma', 'activeGoals', and 'delayedGoals'
       do
         tellT $
-          (Msg.mk "composing unification substitution with current environment substitution")
+          (Msg.mk "applying unifying substitution to environment")
             { Msg.contents =
-                [ "sigma_uni  =" <+> pPrint sigma_uni
+                [ "sigma_uni =" <+> pPrint sigma_uni
                 ]
             }
-        tellT $ Msg.mk "successfully composed unification substitution with current environment substitution"
         modify \env' ->
           env'
             { activeGoals = env'.activeGoals <&> substAtom sigma_uni,
@@ -220,14 +235,24 @@ loop = do
             }
 
       -- process each of the rule's hypotheses
-      void $
-        rule.hyps <&>>= \case
-          AtomHyp atom -> do
-            let atom' = atom & substAtom sigma_uni
-            modify \env' -> env' {activeGoals = env'.activeGoals <> [atom']}
+      subgoals <-
+        rule.hyps
+          <&>>= ( \case
+                    AtomHyp atom -> do
+                      let atom' = atom & substAtom sigma_uni
+                      modify \env' -> env' {activeGoals = env'.activeGoals <> [atom']}
+                      return [atom']
+                )
+          <&> concat
+
+      modify \env' -> env' {steps = Step {goal, rule, sigma = sigma_uni, subgoals} : env'.steps}
 
       loop
 
 -- | Nondeterministically choose from a list.
 choose :: (Monad m) => [a] -> T m a
 choose = lift . lift . lift . foldr ListT.cons mempty
+
+-- | Nondeterministically rejected branch.
+reject :: (Monad m) => T m a
+reject = lift . lift . lift $ mempty
