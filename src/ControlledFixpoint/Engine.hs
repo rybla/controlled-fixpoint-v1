@@ -14,13 +14,11 @@ import Control.Monad.State (StateT (runStateT), evalState, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import qualified ControlledFixpoint.Common as Common
-import ControlledFixpoint.Common.Msg (Msg)
-import qualified ControlledFixpoint.Common.Msg as Msg
+import ControlledFixpoint.Common.Msg as Msg (Msg (..), mk)
 import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
-import ListT (ListT)
-import qualified ListT
+import ListT (ListT, cons, toList)
 import Text.PrettyPrint (hang, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
