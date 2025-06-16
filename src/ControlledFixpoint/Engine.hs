@@ -168,121 +168,126 @@ loop = do
     Just goal -> do
       tellT $ Msg.mk ("processing goal" <+> pPrint goal)
 
-      -- try all rules
-      results <-
-        ctx.rules
-          <&>>= ( \rule_ -> do
-                    -- freshen rule
-                    rule <- do
-                      env <- get
-                      let env_freshening =
-                            Freshening.Env
-                              { sigma = emptySubst,
-                                freshCounter = env.freshCounter
-                              }
-                      return $
-                        Freshening.freshenRule rule_
-                          & flip evalState env_freshening
-
-                    tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
-
-                    tellT $
-                      (Msg.mk "attempting to unify goal with rule's conclusion")
-                        { Msg.contents =
-                            [ "goal      =" <+> pPrint goal,
-                              "rule.conc =" <+> pPrint rule.conc
-                            ]
-                        }
-                    (err_or_goal', env_uni') <-
-                      lift . lift . lift . lift . lift $
-                        Unification.unifyAtom goal rule.conc
-                          & runExceptT
-                          & flip runStateT Unification.emptyEnv
-
-                    case err_or_goal' of
-                      Left err -> do
-                        tellT $
-                          (Msg.mk "failed to unify goal with rule's conclusion")
-                            { Msg.contents =
-                                [ "err       =" <+> pPrint err,
-                                  "sigma_uni =" <+> pPrint env_uni'.sigma
-                                ]
-                            }
-                        return []
-                      Right goal' -> do
-                        tellT $
-                          (Msg.mk "unified goal with rule's conclusion")
-                            { Msg.contents =
-                                [ "sigma_uni =" <+> pPrint env_uni'.sigma,
-                                  "goal'     =" <+> pPrint goal'
-                                ]
-                            }
-
-                        -- process the rule's hypotheses
-                        let processHyps subgoals [] = return [(rule, env_uni'.sigma, subgoals)]
-                            processHyps subgoals (AtomHyp subgoal : hs) = processHyps (subgoal : subgoals) hs
-                        processHyps [] rule.hyps
-                )
-          <&> concat
-
-      if null results
+      if ctx.delayable goal
         then do
-          -- if no results for unifying the goal with rule conclusions, then
-          -- this goal is unsolvable
-          modify \env' -> env' {failedGoals = goal : env'.failedGoals}
+          tellT $ (Msg.mk "delaying goal") {Msg.contents = ["goal =" <+> pPrint goal]}
+          modify \env' -> env' {delayedGoals = goal : env'.delayedGoals}
         else do
-          -- if there are some results for unifying the goal with rule
-          -- conclusions, then for each success branch for using that rule apply
-          -- 'sigma_uni' to environment's 'sigma', 'activeGoals', and
-          -- 'delayedGoals'
+          -- try all rules
+          results <-
+            ctx.rules
+              <&>>= ( \rule_ -> do
+                        -- freshen rule
+                        rule <- do
+                          env <- get
+                          let env_freshening =
+                                Freshening.Env
+                                  { sigma = emptySubst,
+                                    freshCounter = env.freshCounter
+                                  }
+                          return $
+                            Freshening.freshenRule rule_
+                              & flip evalState env_freshening
 
-          (rule, sigma_uni, subgoals) <- choose results
+                        tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
 
-          unless (null subgoals) do
-            tellT $ (Msg.mk "new subgoals") {Msg.contents = subgoals <&> pPrint}
-          modify \env' -> env' {activeGoals = env'.activeGoals <> subgoals}
+                        tellT $
+                          (Msg.mk "attempting to unify goal with rule's conclusion")
+                            { Msg.contents =
+                                [ "goal      =" <+> pPrint goal,
+                                  "rule.conc =" <+> pPrint rule.conc
+                                ]
+                            }
+                        (err_or_goal', env_uni') <-
+                          lift . lift . lift . lift . lift $
+                            Unification.unifyAtom goal rule.conc
+                              & runExceptT
+                              & flip runStateT Unification.emptyEnv
 
-          tellT $
-            (Msg.mk "applying unifying substitution to environment")
-              { Msg.contents =
-                  [ "sigma_uni =" <+> pPrint sigma_uni
-                  ]
-              }
+                        case err_or_goal' of
+                          Left err -> do
+                            tellT $
+                              (Msg.mk "failed to unify goal with rule's conclusion")
+                                { Msg.contents =
+                                    [ "err       =" <+> pPrint err,
+                                      "sigma_uni =" <+> pPrint env_uni'.sigma
+                                    ]
+                                }
+                            return []
+                          Right goal' -> do
+                            tellT $
+                              (Msg.mk "unified goal with rule's conclusion")
+                                { Msg.contents =
+                                    [ "sigma_uni =" <+> pPrint env_uni'.sigma,
+                                      "goal'     =" <+> pPrint goal'
+                                    ]
+                                }
 
-          delayedGoals_old <- gets delayedGoals
+                            -- process the rule's hypotheses
+                            let processHyps subgoals [] = return [(rule, env_uni'.sigma, subgoals)]
+                                processHyps subgoals (AtomHyp subgoal : hs) = processHyps (subgoal : subgoals) hs
+                            processHyps [] rule.hyps
+                    )
+              <&> concat
 
-          modify \env' ->
-            env'
-              { delayedGoals = env'.delayedGoals <&> substAtom sigma_uni,
-                activeGoals = env'.activeGoals <&> substAtom sigma_uni
-              }
+          if null results
+            then do
+              -- if no results for unifying the goal with rule conclusions, then
+              -- this goal is unsolvable
+              modify \env' -> env' {failedGoals = goal : env'.failedGoals}
+            else do
+              -- if there are some results for unifying the goal with rule
+              -- conclusions, then for each success branch for using that rule apply
+              -- 'sigma_uni' to environment's 'sigma', 'activeGoals', and
+              -- 'delayedGoals'
 
-          -- for each delayed goal that was refined by sigma_uni, make it active again
+              (rule, sigma_uni, subgoals) <- choose results
 
-          delayedGoals_curr <- gets delayedGoals
-          (activeGoals_reactivated, delayedGoals_new) <-
-            zip delayedGoals_old delayedGoals_curr
-              & foldM
-                ( \(activeGoals_reactivated, delayedGoals_new) (delayedGoal_old, delayedGoal_curr) ->
-                    if delayedGoal_old == delayedGoal_curr
-                      then
-                        -- if the delayed goal was NOT refined by the
-                        -- substitution, then leave it delayed
-                        return (activeGoals_reactivated, delayedGoal_old : delayedGoals_new)
-                      else
-                        -- if the delayed goal was refined by the substitution,
-                        -- then reactivate it
-                        return (delayedGoal_curr : activeGoals_reactivated, delayedGoals_new)
-                )
-                ([], [])
-          modify \env' ->
-            env'
-              { activeGoals = activeGoals_reactivated <> env'.activeGoals,
-                delayedGoals = delayedGoals_new
-              }
+              unless (null subgoals) do
+                tellT $ (Msg.mk "new subgoals") {Msg.contents = subgoals <&> pPrint}
+              modify \env' -> env' {activeGoals = env'.activeGoals <> subgoals}
 
-          -- record step
-          modify \env' -> env' {steps = Step {goal, rule, sigma = sigma_uni, subgoals} : env'.steps}
+              tellT $
+                (Msg.mk "applying unifying substitution to environment")
+                  { Msg.contents =
+                      [ "sigma_uni =" <+> pPrint sigma_uni
+                      ]
+                  }
+
+              delayedGoals_old <- gets delayedGoals
+
+              modify \env' ->
+                env'
+                  { delayedGoals = env'.delayedGoals <&> substAtom sigma_uni,
+                    activeGoals = env'.activeGoals <&> substAtom sigma_uni
+                  }
+
+              -- for each delayed goal that was refined by sigma_uni, make it active again
+
+              delayedGoals_curr <- gets delayedGoals
+              (activeGoals_reactivated, delayedGoals_new) <-
+                zip delayedGoals_old delayedGoals_curr
+                  & foldM
+                    ( \(activeGoals_reactivated, delayedGoals_new) (delayedGoal_old, delayedGoal_curr) ->
+                        if delayedGoal_old == delayedGoal_curr
+                          then
+                            -- if the delayed goal was NOT refined by the
+                            -- substitution, then leave it delayed
+                            return (activeGoals_reactivated, delayedGoal_old : delayedGoals_new)
+                          else
+                            -- if the delayed goal was refined by the substitution,
+                            -- then reactivate it
+                            return (delayedGoal_curr : activeGoals_reactivated, delayedGoals_new)
+                    )
+                    ([], [])
+              modify \env' ->
+                env'
+                  { activeGoals = activeGoals_reactivated <> env'.activeGoals,
+                    delayedGoals = delayedGoals_new
+                  }
+
+              -- record step
+              modify \env' -> env' {steps = Step {goal, rule, sigma = sigma_uni, subgoals} : env'.steps}
 
       loop
 
