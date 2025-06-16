@@ -30,9 +30,9 @@ import Utility
 data Config = Config
   { initialGas :: Int,
     rules :: [Rule],
-    goals :: [Atom]
+    goals :: [Atom],
+    delayable :: Atom -> Bool
   }
-  deriving (Show)
 
 type T m =
   (ReaderT Ctx)
@@ -50,10 +50,10 @@ tellT :: (Monad m) => Msg -> T m ()
 tellT msg = lift . lift . lift . lift $ tell [msg]
 
 -- | Engine context
-newtype Ctx = Ctx
-  { rules :: [Rule]
+data Ctx = Ctx
+  { delayable :: Atom -> Bool,
+    rules :: [Rule]
   }
-  deriving (Show)
 
 instance Pretty Ctx where
   pPrint ctx =
@@ -105,7 +105,8 @@ run cfg = do
   tell [Msg.mk "Engine.run"]
   let ctx =
         Ctx
-          { rules = cfg.rules
+          { rules = cfg.rules,
+            delayable = cfg.delayable
           }
   let env =
         Env

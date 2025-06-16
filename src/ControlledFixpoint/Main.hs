@@ -78,7 +78,8 @@ cfg_0 =
         ],
       goals =
         [ Atom "IsTrue" ((1 +. 2) ==. 2)
-        ]
+        ],
+      delayable = const False
     }
 
 main :: IO ()

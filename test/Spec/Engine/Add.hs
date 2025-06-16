@@ -28,7 +28,8 @@ mkTest a b c =
     Engine.Config
       { initialGas = 100,
         rules = rulesAdd,
-        goals = [goal]
+        goals = [goal],
+        delayable = const False
       }
   where
     goal = isTrue (a +. b ==. c)
