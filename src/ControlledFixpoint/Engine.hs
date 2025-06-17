@@ -152,8 +152,6 @@ loop = do
 
   ctx <- ask
 
-  -- list_goalAndActiveGoal <- gets $ extractions . activeGoals
-
   -- update gas
   do
     env <- get
