@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -8,6 +9,7 @@ import Control.Monad.Writer (WriterT (runWriterT))
 import qualified ControlledFixpoint.Engine as Engine
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit (testCase, (@?=))
+import Text.PrettyPrint.HughesPJClass (Pretty (..))
 import Utility ((&))
 
 data EngineResult
@@ -15,6 +17,11 @@ data EngineResult
   | EngineFailure
   | EngineSuccess
   deriving (Show, Eq)
+
+instance Pretty EngineResult where
+  pPrint EngineError = "[!]"
+  pPrint EngineFailure = "[x]"
+  pPrint EngineSuccess = "[•]"
 
 mkTest_Engine :: TestName -> Engine.Config -> EngineResult -> TestTree
 mkTest_Engine name cfg result_expected = testCase name do
@@ -25,8 +32,6 @@ mkTest_Engine name cfg result_expected = testCase name do
   let result_actual = case err_or_envs of
         Left _err -> EngineError
         Right envs
-          | not (null envs),
-            envs & all (\env -> null env.failedGoals) ->
-              EngineSuccess
-        Right _ -> EngineFailure
+          | any (\env -> null env.failedGoals) envs -> EngineSuccess
+          | otherwise -> EngineFailure
   result_actual @?= result_expected

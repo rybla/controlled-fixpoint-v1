@@ -9,7 +9,6 @@ import ControlledFixpoint.Grammar
 import Data.String (IsString (fromString))
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
-import Text.PrettyPrint.HughesPJClass (prettyShow)
 
 tests :: TestTree
 tests =
@@ -22,17 +21,29 @@ tests =
       mkTest 1 2 2 EngineFailure
     ]
 
-mkTest :: Expr -> Expr -> Expr -> EngineResult -> TestTree
-mkTest a b c =
-  mkTest_Engine (prettyShow goal) $
-    Engine.Config
-      { initialGas = 100,
-        rules = rulesAdd,
-        goals = [goal],
-        delayable = const False
-      }
+mkTest :: Int -> Int -> Int -> EngineResult -> TestTree
+mkTest a b c result =
+  mkTest_Engine
+    ( show a
+        <> " + "
+        <> show b
+        <> ( case result of
+               EngineSuccess -> " == "
+               EngineFailure -> " /= "
+               EngineError -> " !! "
+           )
+        <> show c
+    )
+    ( Engine.Config
+        { initialGas = 100,
+          rules = rulesAdd,
+          goals = [goal],
+          delayable = const False
+        }
+    )
+    result
   where
-    goal = isTrue (a +. b ==. c)
+    goal = isTrue (fromIntegral a +. fromIntegral b ==. fromIntegral c)
 
 rulesAdd :: [Rule]
 rulesAdd =
