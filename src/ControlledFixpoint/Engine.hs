@@ -27,6 +27,11 @@ import Utility
 --------------------------------------------------------------------------------
 
 -- | Engine configuration
+--
+-- The `delayable` predicate specifies when to delay a goal `Atom`. For example,
+-- you might want to delay a goal that would trivially unify with many rule
+-- heads, such as something like `IsTrue a` (where `a` might be constrained in
+-- other goals).
 data Config = Config
   { initialGas :: Int,
     rules :: [Rule],

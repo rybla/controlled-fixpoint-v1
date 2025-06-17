@@ -41,6 +41,12 @@ instance Pretty Rule where
           ]
       ]
 
+-- | Hypothesis.
+--
+-- For now, there is only one kind of hypothesis: `AtomHyp`. However, I made
+-- this a data type anyway since it may be desirable at some point to have other
+-- kinds of hypotheses, such as functional predicates (predicates that are
+-- checked by executing a `Bool`-valued function.)
 newtype Hyp = AtomHyp Atom
   deriving (Show, Eq, Ord)
 
