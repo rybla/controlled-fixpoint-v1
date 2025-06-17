@@ -2,6 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module ControlledFixpoint.Engine where
 
@@ -56,15 +59,14 @@ tellT msg = lift . lift . lift . lift $ tell [msg]
 
 -- | Engine context
 data Ctx = Ctx
-  { delayable :: Atom -> Bool,
-    rules :: [Rule]
+  { config :: Config
   }
 
 instance Pretty Ctx where
   pPrint ctx =
     hang "engine context:" 2 . bullets $
       [ hang "rules = " 2 . bullets $
-          ctx.rules <&> pPrint
+          ctx.config.rules <&> pPrint
       ]
 
 -- | Engine environment
@@ -110,8 +112,7 @@ run cfg = do
   tell [Msg.mk "Engine.run"]
   let ctx =
         Ctx
-          { rules = cfg.rules,
-            delayable = cfg.delayable
+          { config = cfg
           }
   let env =
         Env
@@ -173,14 +174,14 @@ loop = do
     Just goal -> do
       tellT $ Msg.mk ("processing goal" <+> pPrint goal)
 
-      if ctx.delayable goal
+      if ctx.config.delayable goal
         then do
           tellT $ (Msg.mk "delaying goal") {Msg.contents = ["goal =" <+> pPrint goal]}
           modify \env' -> env' {delayedGoals = goal : env'.delayedGoals}
         else do
           -- try all rules
           results <-
-            ctx.rules
+            ctx.config.rules
               <&>>= ( \rule_ -> do
                         -- freshen rule
                         rule <- do
