@@ -30,7 +30,6 @@ library
       ControlledFixpoint.Engine
       ControlledFixpoint.Freshening
       ControlledFixpoint.Grammar
-      ControlledFixpoint.Main
       ControlledFixpoint.Unification
       Utility
   other-modules:
