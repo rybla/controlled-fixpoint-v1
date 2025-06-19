@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.Subtyping (tests) where
@@ -39,7 +38,7 @@ mkTest a b r =
     ( Engine.Config
         { initialGas = 100,
           rules = rulesSubtyping,
-          goals = [isValid (a `subtype` b)],
+          goals = [a `subtype` b],
           delayable = const False
         }
     )
@@ -50,40 +49,52 @@ rulesSubtyping =
   [ Rule
       { name = "bool <: bool",
         hyps = [],
-        conc = isValid (bool `subtype` bool)
+        conc = bool `subtype` bool
       },
     Rule
       { name = "int <: int",
         hyps = [],
-        conc = isValid (int `subtype` int)
+        conc = int `subtype` int
       },
     Rule
       { name = "nat <: nat",
         hyps = [],
-        conc = isValid (nat `subtype` nat)
+        conc = nat `subtype` nat
       },
     Rule
       { name = "nat <: int",
         hyps = [],
-        conc = isValid (nat `subtype` int)
+        conc = nat `subtype` int
       },
     Rule
       { name = "arr",
         hyps =
-          [ AtomHyp $ isValid (a' `subtype` a),
-            AtomHyp $ isValid (b `subtype` b')
+          [ AtomHyp $ a' `subtype` a,
+            AtomHyp $ b `subtype` b'
           ],
-        conc = isValid ((a `arr` b) `subtype` (a' `arr` b'))
+        conc = (a `arr` b) `subtype` (a' `arr` b')
+      },
+    Rule
+      { name = "map",
+        hyps =
+          [ AtomHyp $ (a `arr` b) `subtype` (a' `arr` b'),
+            AtomHyp $ functor f
+          ],
+        conc = (a `arr` b) `subtype` ((f `app` a) `arr` (f `app` b))
       }
   ]
   where
-    (a, a', b, b') = ("a", "a'", "b", "b'")
+    (f, a, a', b, b') = ("f", "a", "a'", "b", "b'")
 
-isValid :: Expr -> Atom
-isValid = Atom "isValid"
+-- atoms
 
-subtype :: Expr -> Expr -> Expr
-subtype a b = ConExpr (Con "subtype" [a, b])
+subtype :: Expr -> Expr -> Atom
+subtype a b = Atom "subtype" $ ConExpr (Con "subtype" [a, b])
+
+functor :: Expr -> Atom
+functor f = Atom "functor" $ ConExpr (Con "functor" [f])
+
+-- expressions
 
 var :: String -> Expr
 var x = VarExpr (Var x Nothing)
@@ -101,3 +112,6 @@ bool = ConExpr (Con "bool" [])
 
 arr :: Expr -> Expr -> Expr
 arr a b = ConExpr (Con "arr" [a, b])
+
+app :: Expr -> Expr -> Expr
+app f a = ConExpr (Con "app" [f, a])
