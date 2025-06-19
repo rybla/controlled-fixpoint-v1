@@ -4,13 +4,19 @@
 module Main (main) where
 
 import qualified Spec.Engine.Add as Test.Engine.Add
+import qualified Spec.Engine.Subtyping as Tests.Engine.Subtyping
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
 main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "tests" [Test.Engine.Add.tests]
+tests =
+  testGroup
+    "tests"
+    [ Test.Engine.Add.tests,
+      Tests.Engine.Subtyping.tests
+    ]
 
 -- xs :: [Int]
 -- xs = [1 .. 10]

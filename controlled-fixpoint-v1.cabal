@@ -91,6 +91,7 @@ test-suite controlled-fixpoint-v1-test
   other-modules:
       Spec.Engine.Add
       Spec.Engine.Common
+      Spec.Engine.Subtyping
       Paths_controlled_fixpoint_v1
   autogen-modules:
       Paths_controlled_fixpoint_v1

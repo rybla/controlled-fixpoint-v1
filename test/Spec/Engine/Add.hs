@@ -50,19 +50,19 @@ rulesAdd =
   [ Rule
       { name = RuleName $ show @String "0 + x = x",
         hyps = [],
-        conc = Atom "IsTrue" (0 + "x" ==. "x")
+        conc = isTrue (0 + "x" ==. "x")
       },
     Rule
       { name = RuleName $ show @String "x + y = z ==> suc x + y = suc z",
         hyps =
-          [AtomHyp $ Atom "IsTrue" ("x" +. "y" ==. "z")],
+          [AtomHyp $ isTrue ("x" +. "y" ==. "z")],
         conc =
-          Atom "IsTrue" (sucExpr "x" +. "y" ==. sucExpr "z")
+          isTrue (sucExpr "x" +. "y" ==. sucExpr "z")
       }
   ]
 
 isTrue :: Expr -> Atom
-isTrue = Atom "IsTrue"
+isTrue = Atom "isTrue"
 
 (==.) :: Expr -> Expr -> Expr
 x ==. y = ConExpr (Con "equal" [x, y])
