@@ -14,78 +14,92 @@ import Text.PrettyPrint (hang, render)
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
-(==.) :: Expr -> Expr -> Expr
-x ==. y = ConExpr (Con "equal" [x, y])
+rulesSubtyping :: [Rule]
+rulesSubtyping =
+  [ Rule
+      { name = "bool <: bool",
+        hyps = [],
+        conc = bool `subtype` bool
+      },
+    Rule
+      { name = "int <: int",
+        hyps = [],
+        conc = int `subtype` int
+      },
+    Rule
+      { name = "nat <: nat",
+        hyps = [],
+        conc = nat `subtype` nat
+      },
+    Rule
+      { name = "nat <: int",
+        hyps = [],
+        conc = nat `subtype` int
+      },
+    Rule
+      { name = "arr",
+        hyps =
+          [ AtomHyp $ a' `subtype` a,
+            AtomHyp $ b `subtype` b'
+          ],
+        conc = (a `arr` b) `subtype` (a' `arr` b')
+      },
+    {- Rule
+      { name = "map",
+        hyps =
+          [ AtomHyp $ (a `arr` b) `subtype` (a' `arr` b'),
+            AtomHyp $ functor f
+          ],
+        conc = (a `arr` b) `subtype` ((f `app` a) `arr` (f `app` b))
+      } -}
+  ]
+  where
+    (f, a, a', b, b') = ("f", "a", "a'", "b", "b'")
 
-infix 4 ==.
+-- atoms
 
-(+.) :: Expr -> Expr -> Expr
-x +. y = ConExpr (Con "add" [x, y])
+subtype :: Expr -> Expr -> Atom
+subtype a b = Atom "subtype" $ ConExpr (Con "subtype" [a, b])
 
-infixl 6 +.
+functor :: Expr -> Atom
+functor f = Atom "functor" $ ConExpr (Con "functor" [f])
 
-varExpr :: String -> Expr
-varExpr x = VarExpr (Var x Nothing)
+-- expressions
 
-sucExpr :: Expr -> Expr
-sucExpr x = ConExpr (Con "suc" [x])
+var :: String -> Expr
+var x = VarExpr (Var x Nothing)
 
-zeroExpr :: Expr
-zeroExpr = ConExpr (Con "zero" [])
+instance IsString Expr where fromString = var
 
-instance IsString Expr where fromString = varExpr
+int :: Expr
+int = ConExpr (Con "int" [])
 
-instance Num Expr where
-  (+) = (+.)
-  (*) = undefined
-  fromInteger n | n < 0 = undefined
-  fromInteger 0 = zeroExpr
-  fromInteger n = sucExpr (fromInteger (n - 1))
+nat :: Expr
+nat = ConExpr (Con "nat" [])
 
-  abs = undefined
-  signum = undefined
-  negate = undefined
+bool :: Expr
+bool = ConExpr (Con "bool" [])
 
-cfg_0 :: Engine.Config
-cfg_0 =
-  Engine.Config
-    { initialGas = 100,
-      rules =
-        [ Rule
-            { name = RuleName $ show @String "0 + x = x",
-              hyps = [],
-              conc = Atom "IsTrue" (0 + "x" ==. "x")
-            },
-          Rule
-            { name = RuleName $ show @String "x + y = z ==> suc x + y = suc z",
-              hyps =
-                [AtomHyp $ Atom "IsTrue" ("x" +. "y" ==. "z")],
-              conc =
-                Atom "IsTrue" (sucExpr "x" +. "y" ==. sucExpr "z")
-            } {-,
-              Rule
-                { name = RuleName $ show @String "x + 0 = x",
-                  hyps = [],
-                  conc = Atom "IsTrue" ("x" + 0 ==. "x")
-                },
-              Rule
-                { name = RuleName $ show @String "x + y = z ==> x + suc y = suc z",
-                  hyps =
-                    [AtomHyp $ Atom "IsTrue" ("x" +. "y" ==. "z")],
-                  conc =
-                    Atom "IsTrue" ("x" +. sucExpr "y" ==. sucExpr "z")
-                }-}
-        ],
-      goals =
-        [ Atom "IsTrue" ((1 +. 2) ==. 2)
-        ],
-      delayable = const False
-    }
+arr :: Expr -> Expr -> Expr
+arr a b = ConExpr (Con "arr" [a, b])
+
+app :: Expr -> Expr -> Expr
+app f a = ConExpr (Con "app" [f, a])
 
 main :: IO ()
 main = do
+  let cfg =
+        Engine.Config
+          { initialGas = 100,
+            rules = rulesSubtyping,
+            -- goals = [subtype (arr "x" "y") (arr "x'" "y'")],
+            goals = [subtype "x" (arr "y" "z")],
+            delayable = \case
+              Atom _ (ConExpr (Con "subtype" [VarExpr _, VarExpr _])) -> True
+              _ -> False
+          }
   (err_or_envs, msgs) <-
-    Engine.run cfg_0
+    Engine.run cfg
       & runExceptT
       & runWriterT
   putStrLn "================================"
