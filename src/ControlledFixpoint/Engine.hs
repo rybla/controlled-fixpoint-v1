@@ -25,6 +25,8 @@ import Text.PrettyPrint (hang, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
+-- type X _ = ()
+
 --------------------------------------------------------------------------------
 -- Types
 --------------------------------------------------------------------------------

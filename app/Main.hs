@@ -37,21 +37,21 @@ rulesSubtyping =
         conc = nat `subtype` int
       },
     Rule
-      { name = "arr",
+      { name = "a' <: a , b <: b'  |-  a -> b <: a' -> b'",
         hyps =
           [ AtomHyp $ a' `subtype` a,
             AtomHyp $ b `subtype` b'
           ],
         conc = (a `arr` b) `subtype` (a' `arr` b')
-      },
-    {- Rule
-      { name = "map",
-        hyps =
-          [ AtomHyp $ (a `arr` b) `subtype` (a' `arr` b'),
-            AtomHyp $ functor f
-          ],
-        conc = (a `arr` b) `subtype` ((f `app` a) `arr` (f `app` b))
-      } -}
+      }
+      {- Rule
+        { name = "map",
+          hyps =
+            [ AtomHyp $ (a `arr` b) `subtype` (a' `arr` b'),
+              AtomHyp $ functor f
+            ],
+          conc = (a `arr` b) `subtype` ((f `app` a) `arr` (f `app` b))
+        } -}
   ]
   where
     (f, a, a', b, b') = ("f", "a", "a'", "b", "b'")
@@ -93,7 +93,7 @@ main = do
           { initialGas = 100,
             rules = rulesSubtyping,
             -- goals = [subtype (arr "x" "y") (arr "x'" "y'")],
-            goals = [subtype "x" (arr "y" "z")],
+            goals = ["x" `subtype` ("y" `arr` "z")],
             delayable = \case
               Atom _ (ConExpr (Con "subtype" [VarExpr _, VarExpr _])) -> True
               _ -> False

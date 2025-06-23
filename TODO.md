@@ -8,3 +8,5 @@
   - [ ] write test that demonstrates how goals are delayed
 - [ ] data structures for "unification factoring"
   - storing an indexing data structure for efficiently unifying with a set of terms
+- [ ] demonstrate delay then active
+- [ ] demo finding multiple solutions
