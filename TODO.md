@@ -9,7 +9,7 @@
 - [ ] data structures for "unification factoring"
   - storing an indexing data structure for efficiently unifying with a set of
     terms
-- [ ] demo delay and resume
+- [x] demo delay and resume
   - viz module `Spec.Engine.DelayAndResume`
 - [ ] demo finding multiple solutions
   - parsing should work for this
