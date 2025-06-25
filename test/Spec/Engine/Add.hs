@@ -6,7 +6,6 @@ module Spec.Engine.Add (tests) where
 
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-import Data.String (IsString (fromString))
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
 
@@ -47,7 +46,7 @@ rulesAdd =
         hyps =
           [AtomHyp $ isTrue ("x" +. "y" ==. "z")],
         conc =
-          isTrue (sucExpr "x" +. "y" ==. sucExpr "z")
+          isTrue (suc "x" +. "y" ==. suc "z")
       }
   ]
 
@@ -64,23 +63,18 @@ x +. y = ConExpr (Con "add" [x, y])
 
 infixl 6 +.
 
-varExpr :: String -> Expr
-varExpr x = VarExpr (Var x Nothing)
+suc :: Expr -> Expr
+suc x = ConExpr (Con "suc" [x])
 
-sucExpr :: Expr -> Expr
-sucExpr x = ConExpr (Con "suc" [x])
-
-zeroExpr :: Expr
-zeroExpr = ConExpr (Con "zero" [])
-
-instance IsString Expr where fromString = varExpr
+zero :: Expr
+zero = ConExpr (Con "zero" [])
 
 instance Num Expr where
   (+) = (+.)
   (*) = undefined
   fromInteger n | n < 0 = undefined
-  fromInteger 0 = zeroExpr
-  fromInteger n = sucExpr (fromInteger (n - 1))
+  fromInteger 0 = zero
+  fromInteger n = suc (fromInteger (n - 1))
 
   abs = undefined
   signum = undefined

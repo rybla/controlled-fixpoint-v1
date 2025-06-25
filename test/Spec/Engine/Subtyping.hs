@@ -41,7 +41,7 @@ mkTest a b =
           rules = rulesSubtyping,
           goals = [a `subtype` b],
           delayable = \case
-            Atom _ (ConExpr (Con "subtype" [VarExpr _, VarExpr _])) -> True
+            Atom "atom" (ConExpr (Con "subtype" [VarExpr _, VarExpr _])) -> True
             _ -> False
         }
     )
@@ -83,14 +83,9 @@ rulesSubtyping =
 -- atoms
 
 subtype :: Expr -> Expr -> Atom
-subtype a b = Atom "subtype" $ ConExpr (Con "subtype" [a, b])
+subtype a b = Atom "atom" $ ConExpr (Con "subtype" [a, b])
 
 -- expressions
-
-var :: String -> Expr
-var x = VarExpr (Var x Nothing)
-
-instance IsString Expr where fromString = var
 
 int :: Expr
 int = ConExpr (Con "int" [])

@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.38.0.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -91,6 +91,7 @@ test-suite controlled-fixpoint-v1-test
   other-modules:
       Spec.Engine.Add
       Spec.Engine.Common
+      Spec.Engine.DelayAndResume
       Spec.Engine.Subtyping
       Paths_controlled_fixpoint_v1
   autogen-modules:

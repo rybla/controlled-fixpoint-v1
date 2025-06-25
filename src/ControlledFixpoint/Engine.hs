@@ -78,7 +78,7 @@ data Env = Env
     activeGoals :: [Atom],
     delayedGoals :: [Atom],
     failedGoals :: [Atom],
-    steps :: [Step]
+    stepsRev :: [Step]
   }
   deriving (Show, Eq)
 
@@ -90,7 +90,7 @@ instance Pretty Env where
         "delayedGoals =" <+> pPrint env.delayedGoals,
         "failedGoals =" <+> pPrint env.failedGoals,
         hang "steps:" 2 . bullets $
-          env.steps <&> pPrint
+          env.stepsRev & reverse <&> pPrint
       ]
 
 data Step = Step
@@ -123,7 +123,7 @@ run cfg = do
             delayedGoals = mempty,
             failedGoals = mempty,
             freshCounter = 0,
-            steps = []
+            stepsRev = []
           }
   (branches, logs) <-
     loop
@@ -293,7 +293,7 @@ loop = do
                   }
 
               -- record step
-              modify \env' -> env' {steps = Step {goal, rule, sigma = sigma_uni, subgoals} : env'.steps}
+              modify \env' -> env' {stepsRev = Step {goal, rule, sigma = sigma_uni, subgoals} : env'.stepsRev}
 
       loop
 

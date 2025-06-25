@@ -84,6 +84,8 @@ instance Pretty Expr where
   pPrint (VarExpr x) = pPrint x
   pPrint (ConExpr c) = pPrint c
 
+instance IsString Expr where fromString x = VarExpr (fromString x)
+
 -- | Meta-variable that can be substituted with an expression
 data Var = Var String (Maybe Int)
   deriving (Show, Eq, Ord)
