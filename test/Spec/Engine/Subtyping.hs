@@ -5,7 +5,6 @@ module Spec.Engine.Subtyping (tests) where
 
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-import Data.String (IsString (fromString))
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
 import Text.PrettyPrint.HughesPJClass (prettyShow)

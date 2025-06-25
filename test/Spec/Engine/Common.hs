@@ -4,16 +4,17 @@
 
 module Spec.Engine.Common where
 
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
 import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Engine as Engine
+import qualified Spec.Config as Config
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
-import Text.PrettyPrint (hang, render)
+import Text.PrettyPrint (brackets, hang, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
-import Utility (bullets, (&))
+import Utility (bullets, (&), (<&>>=))
 
 -- |
 -- A `EngineResult` has some optional associated metadata about how the run
@@ -27,6 +28,8 @@ data EngineResult
     EngineSuccess (Maybe [Engine.Env])
   | -- | Engine run resulted in at least one branch that solved all goals and had some delayed goals.
     EngineSuccessWithDelays (Maybe [Engine.Env])
+  | -- | Engine run resulted in at least `n` branches that solved all goals.
+    EngineSuccessWithSolutionsCount Int (Maybe [Engine.Env])
   deriving (Show, Eq)
 
 -- |
@@ -36,6 +39,7 @@ EngineError _ ~== EngineError _ = True
 EngineFailure _ ~== EngineFailure _ = True
 EngineSuccess _ ~== EngineSuccess _ = True
 EngineSuccessWithDelays _ ~== EngineSuccessWithDelays _ = True
+EngineSuccessWithSolutionsCount _ _ ~== EngineSuccessWithSolutionsCount _ _ = True
 _ ~== _ = False
 
 instance Pretty EngineResult where
@@ -43,10 +47,11 @@ instance Pretty EngineResult where
   pPrint (EngineFailure mb_envs) = hang "failure" 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
   pPrint (EngineSuccess mb_envs) = hang "success" 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
   pPrint (EngineSuccessWithDelays mb_envs) = hang "success with delays" 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
+  pPrint (EngineSuccessWithSolutionsCount n mb_envs) = hang ("success with" <+> pPrint n <+> "solutions") 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
 
 mkTest_Engine :: TestName -> Engine.Config -> EngineResult -> TestTree
-mkTest_Engine name cfg result_expected = testCase (name <> " " <> render (pPrint result_expected)) do
-  (err_or_envs, _msgs) <-
+mkTest_Engine name cfg result_expected = testCase (render (text name <+> brackets (pPrint result_expected))) do
+  (err_or_envs, msgs) <-
     Engine.run cfg
       & runExceptT
       & runWriterT
@@ -60,12 +65,9 @@ mkTest_Engine name cfg result_expected = testCase (name <> " " <> render (pPrint
                     then EngineSuccess (Just envs_successful)
                     else EngineSuccessWithDelays (Just envs_successfulWithDelays)
           | otherwise -> EngineFailure (Just envs)
-  {-
-  assertEqual preface expected actual =
-    unless (actual == expected) (assertFailure msg)
-   where msg = (if null preface then "" else preface ++ "\n") ++
-               "expected: " ++ show expected ++ "\n but got: " ++ show actual
-    -}
-  -- result_actual @?= result_expected
   unless (result_actual ~== result_expected) do
+    when (Config.verbosity >= Config.LoggingVerbosity) do
+      putStrLn ""
+      _ <- msgs <&>>= putStrLn . prettyShow
+      return ()
     assertFailure $ "expected: " ++ prettyShow result_expected ++ "\n but got: " ++ prettyShow result_actual

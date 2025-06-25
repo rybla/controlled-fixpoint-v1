@@ -2,22 +2,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- |
--- While this module does in fact demonstrate engine runs where a goal gets delayed
--- and then resumed, it doesn't yet show any examples of runs that would be
--- _impossible_ unless this delay-resume action happened.
---
--- I'm starting to wonder if it's always necessary that delaying and resuming can
--- never make new things solvable if you try rules non-deterministically. Since,
--- delaying can never make it so that in the future a _new_ rule would apply to
--- that goal -- all that can happen to a goal while it's delayed is for it to be
--- refined. So, the other non-deterministic option would be to just apply that
--- alternative rule right away.
---
--- So my current hypothesis is that non-deterministically applying rules allows you
--- to avoid the traps that delaying was originally invented to avoid, but delaying
--- is still useful as an optimization to preemptively prune those branches we know
--- are going to turn out badly.
 module Spec.Engine.DelayAndResume (tests) where
 
 import ControlledFixpoint.Engine (Config (initialGas))
@@ -31,29 +15,75 @@ tests =
   testGroup
     "DelayAndResume"
     [ mkTest_Engine
-        "Ex1"
-        ( Engine.Config
-            { initialGas = 100,
-              rules =
-                [ Rule
-                    { name = "x ~ x",
-                      hyps = [],
-                      conc = Rel "x" "x"
-                    },
-                  Rule
-                    { name = "A ~ B",
-                      hyps = [],
-                      conc = Rel A B
-                    }
-                ],
-              delayable = \case
-                Rel (VarExpr _) (VarExpr _) -> True
-                _ -> False,
-              goals = [Rel "y" "x", Rel A "y", Rel "x" B]
-            }
-        )
+        "simple"
+        Engine.Config
+          { initialGas = 100,
+            rules =
+              [ Rule
+                  { name = "A ~ B",
+                    hyps = [],
+                    conc = Rel A B
+                  },
+                Rule
+                  { name = "B ~ A",
+                    hyps = [],
+                    conc = Rel B A
+                  }
+              ],
+            delayable = \case
+              Rel (VarExpr _) (VarExpr _) -> True
+              _ -> False,
+            goals = [Rel "y" "x", Rel A "y", Rel "x" B]
+          }
+        (EngineSuccess Nothing),
+      unrolling_tests
+    ]
+
+unrolling_tests :: TestTree
+unrolling_tests =
+  testGroup
+    "unrolling"
+    [ mkTest_Engine
+        "void nonterminating branch"
+        config
+          { Engine.goals = [P "x" "y", Q "y" B],
+            Engine.delayable = \case
+              P (VarExpr _) (VarExpr _) -> True
+              _ -> False
+          }
+        (EngineSuccess Nothing),
+      mkTest_Engine
+        "exhaust terminating branch"
+        config
+          { Engine.goals = [P "x" "y", Q "y" B]
+          }
         (EngineSuccess Nothing)
     ]
+  where
+    config :: Config
+    config =
+      Engine.Config
+        { initialGas = 100,
+          rules =
+            [ Rule
+                { name = "P (S x) A  |-  P x A",
+                  hyps = [AtomHyp $ P (S "x") A],
+                  conc = P "x" A
+                },
+              Rule
+                { name = "P B B",
+                  hyps = [],
+                  conc = P B B
+                },
+              Rule
+                { name = "Q B B",
+                  hyps = [],
+                  conc = Q B B
+                }
+            ],
+          delayable = const False,
+          goals = []
+        }
 
 pattern Rel :: Expr -> Expr -> Atom
 pattern Rel x y = Atom "atom" (ConExpr (Con "rel" [x, y]))
@@ -63,3 +93,12 @@ pattern A = ConExpr (Con "A" [])
 
 pattern B :: Expr
 pattern B = ConExpr (Con "B" [])
+
+pattern S :: Expr -> Expr
+pattern S x = ConExpr (Con "S" [x])
+
+pattern P :: Expr -> Expr -> Atom
+pattern P x y = Atom "atom" (ConExpr (Con "P" [x, y]))
+
+pattern Q :: Expr -> Expr -> Atom
+pattern Q x y = Atom "atom" (ConExpr (Con "Q" [x, y]))

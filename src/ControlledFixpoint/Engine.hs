@@ -12,7 +12,7 @@ import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
 import Control.Monad.RWS (MonadState (..))
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
-import Control.Monad.State (StateT (runStateT), evalState, gets, modify)
+import Control.Monad.State (StateT (runStateT), gets, modify, runState)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import qualified ControlledFixpoint.Common as Common
@@ -191,9 +191,11 @@ loop = do
                                   { sigma = emptySubst,
                                     freshCounter = env.freshCounter
                                   }
-                          return $
-                            Freshening.freshenRule rule_
-                              & flip evalState env_freshening
+                          let (rule', env_freshening') =
+                                Freshening.freshenRule rule_
+                                  & flip runState env_freshening
+                          modify \env' -> env' {freshCounter = env_freshening'.freshCounter}
+                          return rule'
 
                         tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
 

@@ -89,9 +89,11 @@ test-suite controlled-fixpoint-v1-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Spec.Config
       Spec.Engine.Add
       Spec.Engine.Common
       Spec.Engine.DelayAndResume
+      Spec.Engine.SolutionsCount
       Spec.Engine.Subtyping
       Paths_controlled_fixpoint_v1
   autogen-modules:
