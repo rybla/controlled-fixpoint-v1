@@ -25,6 +25,10 @@ tests =
       mkTest
         "x"
         ("y" `arr` "z")
+        (EngineSuccessWithDelays Nothing),
+      mkTest
+        ("x" `arr` "y")
+        ("z" `arr` "w")
         (EngineSuccessWithDelays Nothing)
     ]
 
