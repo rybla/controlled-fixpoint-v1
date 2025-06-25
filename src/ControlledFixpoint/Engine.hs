@@ -80,7 +80,7 @@ data Env = Env
     failedGoals :: [Atom],
     steps :: [Step]
   }
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance Pretty Env where
   pPrint env =
@@ -99,7 +99,7 @@ data Step = Step
     sigma :: Subst,
     subgoals :: [Atom]
   }
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance Pretty Step where
   pPrint step =

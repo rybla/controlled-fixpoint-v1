@@ -104,7 +104,7 @@ instance Pretty Con where
 
 -- | Substitution of meta-variables
 newtype Subst = Subst {unSubst :: Map Var Expr}
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance Pretty Subst where
   pPrint (Subst m) =

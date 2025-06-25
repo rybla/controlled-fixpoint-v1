@@ -17,32 +17,30 @@ tests =
     [ mkTest
         (int `arr` bool)
         (nat `arr` bool)
-        EngineSuccess,
+        (EngineSuccess Nothing),
       mkTest
         (nat `arr` bool)
         (int `arr` bool)
-        EngineFailure
+        (EngineFailure Nothing),
+      mkTest
+        "x"
+        ("y" `arr` "z")
+        (EngineSuccessWithDelays Nothing)
     ]
 
 mkTest :: Expr -> Expr -> EngineResult -> TestTree
-mkTest a b r =
+mkTest a b =
   mkTest_Engine
-    ( prettyShow a
-        <> ( case r of
-               EngineSuccess -> "   <:  "
-               EngineFailure -> "  !<:  "
-               EngineError -> "   !!  "
-           )
-        <> prettyShow b
-    )
+    ("`" <> displayExpr a <> "  <:  " <> displayExpr b <> "`")
     ( Engine.Config
         { initialGas = 100,
           rules = rulesSubtyping,
           goals = [a `subtype` b],
-          delayable = const False
+          delayable = \case
+            Atom _ (ConExpr (Con "subtype" [VarExpr _, VarExpr _])) -> True
+            _ -> False
         }
     )
-    r
 
 rulesSubtyping :: [Rule]
 rulesSubtyping =
@@ -67,32 +65,21 @@ rulesSubtyping =
         conc = nat `subtype` int
       },
     Rule
-      { name = "arr",
+      { name = "a' <: a , b <: b'  |-  a -> b <: a' -> b'",
         hyps =
           [ AtomHyp $ a' `subtype` a,
             AtomHyp $ b `subtype` b'
           ],
         conc = (a `arr` b) `subtype` (a' `arr` b')
-      },
-    Rule
-      { name = "map",
-        hyps =
-          [ AtomHyp $ (a `arr` b) `subtype` (a' `arr` b'),
-            AtomHyp $ functor f
-          ],
-        conc = (a `arr` b) `subtype` ((f `app` a) `arr` (f `app` b))
       }
   ]
   where
-    (f, a, a', b, b') = ("f", "a", "a'", "b", "b'")
+    (a, a', b, b') = ("a", "a'", "b", "b'")
 
 -- atoms
 
 subtype :: Expr -> Expr -> Atom
 subtype a b = Atom "subtype" $ ConExpr (Con "subtype" [a, b])
-
-functor :: Expr -> Atom
-functor f = Atom "functor" $ ConExpr (Con "functor" [f])
 
 -- expressions
 
@@ -113,5 +100,10 @@ bool = ConExpr (Con "bool" [])
 arr :: Expr -> Expr -> Expr
 arr a b = ConExpr (Con "arr" [a, b])
 
-app :: Expr -> Expr -> Expr
-app f a = ConExpr (Con "app" [f, a])
+displayExpr :: Expr -> String
+displayExpr (ConExpr (Con "int" [])) = "int"
+displayExpr (ConExpr (Con "nat" [])) = "nat"
+displayExpr (ConExpr (Con "bool" [])) = "bool"
+displayExpr (ConExpr (Con "arr" [a, b])) = displayExpr a <> " -> " <> displayExpr b
+displayExpr (VarExpr (Var x _)) = x
+displayExpr e = prettyShow e

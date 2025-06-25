@@ -14,26 +14,17 @@ tests :: TestTree
 tests =
   testGroup
     "Add"
-    [ mkTest 0 0 0 EngineSuccess,
-      mkTest 0 1 1 EngineSuccess,
-      mkTest 1 0 1 EngineSuccess,
-      mkTest 1 2 3 EngineSuccess,
-      mkTest 1 2 2 EngineFailure
+    [ mkTest 0 0 0 (EngineSuccess Nothing),
+      mkTest 0 1 1 (EngineSuccess Nothing),
+      mkTest 1 0 1 (EngineSuccess Nothing),
+      mkTest 1 2 3 (EngineSuccess Nothing),
+      mkTest 1 2 2 (EngineFailure Nothing)
     ]
 
 mkTest :: Int -> Int -> Int -> EngineResult -> TestTree
-mkTest a b c result =
+mkTest a b c =
   mkTest_Engine
-    ( show a
-        <> " + "
-        <> show b
-        <> ( case result of
-               EngineSuccess -> " == "
-               EngineFailure -> " /= "
-               EngineError -> " !! "
-           )
-        <> show c
-    )
+    ("`" <> show a <> " + " <> show b <> " = " <> show c <> "`")
     ( Engine.Config
         { initialGas = 100,
           rules = rulesAdd,
@@ -41,7 +32,6 @@ mkTest a b c result =
           delayable = const False
         }
     )
-    result
   where
     goal = isTrue (fromIntegral a +. fromIntegral b ==. fromIntegral c)
 
