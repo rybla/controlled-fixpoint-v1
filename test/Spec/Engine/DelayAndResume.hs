@@ -44,7 +44,7 @@ unrolling_tests =
   testGroup
     "unrolling"
     [ mkTest_Engine
-        "void nonterminating branch"
+        "avoid nonterminating branch"
         config
           { Engine.goals = [P "x" "y", Q "y" B],
             Engine.delayable = \case

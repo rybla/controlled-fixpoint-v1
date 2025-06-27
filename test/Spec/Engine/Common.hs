@@ -20,7 +20,7 @@ import Utility (bullets, (&), (<&>>=))
 -- A `EngineResult` has some optional associated metadata about how the run
 -- went.
 data EngineResult
-  = -- | Engine run resulted in at least one branch that threw anm error.
+  = -- | Engine run resulted in at least one branch that threw an error.
     EngineError (Maybe Msg)
   | -- | Engine run resulted in no branches that solved all goals.
     EngineFailure (Maybe [Engine.Env])
@@ -31,6 +31,21 @@ data EngineResult
   | -- | Engine run resulted in at least `n` branches that solved all goals.
     EngineSuccessWithSolutionsCount Int (Maybe [Engine.Env])
   deriving (Show, Eq)
+
+mkEngineError :: EngineResult
+mkEngineError = EngineError Nothing
+
+mkEngineFailure :: EngineResult
+mkEngineFailure = EngineFailure Nothing
+
+mkEngineSuccess :: EngineResult
+mkEngineSuccess = EngineSuccess Nothing
+
+mkEngineSuccessWithDelays :: EngineResult
+mkEngineSuccessWithDelays = EngineSuccessWithDelays Nothing
+
+mkEngineSuccessWithSolutionsCount :: Int -> EngineResult
+mkEngineSuccessWithSolutionsCount n = EngineSuccessWithSolutionsCount n Nothing
 
 -- |
 -- Ignore metadata when comparing `EngineResult`s.
