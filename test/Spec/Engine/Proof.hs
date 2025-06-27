@@ -17,9 +17,7 @@ import ControlledFixpoint.Grammar
   )
 import Data.Function ((&))
 import Spec.Engine.Common
-  ( EngineResult,
-    mkEngineFailure,
-    mkEngineSuccess,
+  ( EngineResult (..),
     mkTest_Engine,
   )
 import Test.Tasty (TestTree, testGroup)
@@ -35,14 +33,14 @@ tests_ex1 :: TestTree
 tests_ex1 =
   testGroup
     "ex1"
-    [ mkTest 0 0 mkEngineSuccess,
-      mkTest 1 1 mkEngineSuccess,
-      mkTest 0 1 mkEngineFailure,
-      mkTest (1 + 1) (S (1 + 0)) mkEngineSuccess,
-      mkTest (1 + 1) "result" mkEngineSuccess,
-      mkTest (1 + 1) 2 mkEngineFailure,
-      mkTest (2 + 3) "result" mkEngineFailure,
-      mkTest 0 0 mkEngineSuccess
+    [ mkTest 0 0 EngineSuccess,
+      mkTest 1 1 EngineSuccess,
+      mkTest 0 1 EngineFailure,
+      mkTest (1 + 1) (S (1 + 0)) EngineSuccess,
+      mkTest (1 + 1) "result" EngineSuccess,
+      mkTest (1 + 1) 2 EngineFailure,
+      mkTest (2 + 3) "result" EngineFailure,
+      mkTest 0 0 EngineSuccess
     ]
   where
     mkTest :: Expr -> Expr -> EngineResult -> TestTree

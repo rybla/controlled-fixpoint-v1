@@ -13,11 +13,11 @@ tests :: TestTree
 tests =
   testGroup
     "Add"
-    [ mkTest 0 0 0 (EngineSuccess Nothing),
-      mkTest 0 1 1 (EngineSuccess Nothing),
-      mkTest 1 0 1 (EngineSuccess Nothing),
-      mkTest 1 2 3 (EngineSuccess Nothing),
-      mkTest 1 2 2 (EngineFailure Nothing)
+    [ mkTest 0 0 0 EngineSuccess,
+      mkTest 0 1 1 EngineSuccess,
+      mkTest 1 0 1 EngineSuccess,
+      mkTest 1 2 3 EngineSuccess,
+      mkTest 1 2 2 EngineFailure
     ]
 
 mkTest :: Int -> Int -> Int -> EngineResult -> TestTree

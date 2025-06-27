@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.SolutionsCount (tests) where
@@ -20,30 +19,19 @@ tests =
             { initialGas = 100,
               rules =
                 [ Rule
-                    { name = "x ~ x",
+                    { name = "P 1",
                       hyps = [],
-                      conc = Rel "x" "x"
+                      conc = Atom "P" (ConExpr (Con "1" []))
                     },
                   Rule
-                    { name = "A ~ B",
+                    { name = "P 2",
                       hyps = [],
-                      conc = Rel A B
+                      conc = Atom "P" (ConExpr (Con "2" []))
                     }
                 ],
-              delayable = \case
-                Rel (VarExpr _) (VarExpr _) -> True
-                _ -> False,
-              goals = [Rel "y" "x", Rel A "y", Rel "x" B]
+              delayable = const False,
+              goals = [Atom "P" "x"]
             }
         )
-        (EngineSuccess Nothing)
+        (EngineSuccessWithSolutionsCount 2)
     ]
-
-pattern Rel :: Expr -> Expr -> Atom
-pattern Rel x y = Atom "atom" (ConExpr (Con "rel" [x, y]))
-
-pattern A :: Expr
-pattern A = ConExpr (Con "A" [])
-
-pattern B :: Expr
-pattern B = ConExpr (Con "B" [])

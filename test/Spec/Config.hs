@@ -9,6 +9,6 @@ data Verbosity
   deriving (Show, Eq, Ord, Enum)
 
 verbosity :: Verbosity
-verbosity = LoggingVerbosity
+-- verbosity = LoggingVerbosity
 
--- verbosity = NormalVerbosity
+verbosity = NormalVerbosity

@@ -16,19 +16,19 @@ tests =
     [ mkTest
         (int `arr` bool)
         (nat `arr` bool)
-        (EngineSuccess Nothing),
+        EngineSuccess,
       mkTest
         (nat `arr` bool)
         (int `arr` bool)
-        (EngineFailure Nothing),
+        EngineFailure,
       mkTest
         "x"
         ("y" `arr` "z")
-        (EngineSuccessWithDelays Nothing),
+        EngineSuccessWithDelays,
       mkTest
         ("x" `arr` "y")
         ("z" `arr` "w")
-        (EngineSuccessWithDelays Nothing)
+        EngineSuccessWithDelays
     ]
 
 mkTest :: Expr -> Expr -> EngineResult -> TestTree

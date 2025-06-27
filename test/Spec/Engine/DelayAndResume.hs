@@ -35,7 +35,7 @@ tests =
               _ -> False,
             goals = [Rel "y" "x", Rel A "y", Rel "x" B]
           }
-        (EngineSuccess Nothing),
+        EngineSuccess,
       unrolling_tests
     ]
 
@@ -51,13 +51,13 @@ unrolling_tests =
               P (VarExpr _) (VarExpr _) -> True
               _ -> False
           }
-        (EngineSuccess Nothing),
+        EngineSuccess,
       mkTest_Engine
         "exhaust terminating branch"
         config
           { Engine.goals = [P "x" "y", Q "y" B]
           }
-        (EngineSuccess Nothing)
+        EngineSuccess
     ]
   where
     config :: Config

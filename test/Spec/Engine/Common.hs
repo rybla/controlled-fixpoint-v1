@@ -1,68 +1,60 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.Common where
 
-import Control.Monad (unless, when)
+import Control.Monad (when)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
-import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Engine as Engine
+import ControlledFixpoint.Grammar (Subst (unSubst))
+import Data.Foldable (traverse_)
+import Data.Functor ((<&>))
+import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Spec.Config as Config
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
-import Text.PrettyPrint (brackets, hang, render, text, (<+>))
+import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
-import Utility (bullets, (&), (<&>>=))
+import Utility (bullets, (&))
 
 -- |
 -- A `EngineResult` has some optional associated metadata about how the run
 -- went.
 data EngineResult
   = -- | Engine run resulted in at least one branch that threw an error.
-    EngineError (Maybe Msg)
+    EngineError
   | -- | Engine run resulted in no branches that solved all goals.
-    EngineFailure (Maybe [Engine.Env])
-  | -- | Engine run resulted in at least one branch that solved all goals and all successful branches had no delayed goals.
-    EngineSuccess (Maybe [Engine.Env])
-  | -- | Engine run resulted in at least one branch that solved all goals and had some delayed goals.
-    EngineSuccessWithDelays (Maybe [Engine.Env])
+    EngineFailure
+  | -- |
+    -- Engine run resulted in at least one branch that solved all goals and
+    -- all successful branches had no delayed goals.
+    EngineSuccess
+  | -- |
+    -- Engine run resulted in at least one branch that solved all goals and had
+    -- some delayed goals.
+    EngineSuccessWithDelays
+  | -- | Engine run resulted in each solution branch having no delayed goals.
+    EngineSuccessWithoutDelays
   | -- | Engine run resulted in at least `n` branches that solved all goals.
-    EngineSuccessWithSolutionsCount Int (Maybe [Engine.Env])
+    EngineSuccessWithSolutionsCount Int
+  | -- |
+    -- Engine run resulted in each solution branch using a substitution that is
+    -- a sub-substitution of the `sigma`.
+    EngineSuccessWithSubst Subst
   deriving (Show, Eq)
 
-mkEngineError :: EngineResult
-mkEngineError = EngineError Nothing
-
-mkEngineFailure :: EngineResult
-mkEngineFailure = EngineFailure Nothing
-
-mkEngineSuccess :: EngineResult
-mkEngineSuccess = EngineSuccess Nothing
-
-mkEngineSuccessWithDelays :: EngineResult
-mkEngineSuccessWithDelays = EngineSuccessWithDelays Nothing
-
-mkEngineSuccessWithSolutionsCount :: Int -> EngineResult
-mkEngineSuccessWithSolutionsCount n = EngineSuccessWithSolutionsCount n Nothing
-
--- |
--- Ignore metadata when comparing `EngineResult`s.
-(~==) :: EngineResult -> EngineResult -> Bool
-EngineError _ ~== EngineError _ = True
-EngineFailure _ ~== EngineFailure _ = True
-EngineSuccess _ ~== EngineSuccess _ = True
-EngineSuccessWithDelays _ ~== EngineSuccessWithDelays _ = True
-EngineSuccessWithSolutionsCount _ _ ~== EngineSuccessWithSolutionsCount _ _ = True
-_ ~== _ = False
-
 instance Pretty EngineResult where
-  pPrint (EngineError mb_msg) = hang "error" 2 (mb_msg & maybe mempty pPrint)
-  pPrint (EngineFailure mb_envs) = hang "failure" 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
-  pPrint (EngineSuccess mb_envs) = hang "success" 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
-  pPrint (EngineSuccessWithDelays mb_envs) = hang "success with delays" 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
-  pPrint (EngineSuccessWithSolutionsCount n mb_envs) = hang ("success with" <+> pPrint n <+> "solutions") 2 (mb_envs & maybe mempty (bullets . (pPrint <$>)))
+  pPrint EngineError = "error"
+  pPrint EngineFailure = "failure"
+  pPrint EngineSuccess = "success"
+  pPrint EngineSuccessWithDelays = "success with delays"
+  pPrint EngineSuccessWithoutDelays = "success without delays"
+  pPrint (EngineSuccessWithSolutionsCount n) = "success with" <+> pPrint n <+> "solutions"
+  pPrint (EngineSuccessWithSubst s) = "success with substitutions" <+> pPrint s
 
 mkTest_Engine :: TestName -> Engine.Config -> EngineResult -> TestTree
 mkTest_Engine name cfg result_expected = testCase (render (text name <+> brackets (pPrint result_expected))) do
@@ -70,19 +62,72 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
     Engine.run cfg
       & runExceptT
       & runWriterT
-  let result_actual = case err_or_envs of
-        Left err -> EngineError (Just err)
-        Right envs
-          | envs_successful <- envs & filter \env -> null env.failedGoals,
-            not (null envs_successful) ->
+
+  mb_err :: Maybe Doc <- case err_or_envs of
+    Left err -> do
+      case result_expected of
+        EngineError -> return Nothing
+        _ -> return $ Just $ pPrint EngineError $+$ pPrint err
+    Right envs
+      | envs_successful <- envs & filter \env -> null env.failedGoals,
+        not (null envs_successful) ->
+          case result_expected of
+            EngineSuccess -> return Nothing
+            EngineSuccessWithDelays ->
               let envs_successfulWithDelays = envs_successful & filter \env -> not (null env.delayedGoals)
                in if null envs_successfulWithDelays
-                    then EngineSuccess (Just envs_successful)
-                    else EngineSuccessWithDelays (Just envs_successfulWithDelays)
-          | otherwise -> EngineFailure (Just envs)
-  unless (result_actual ~== result_expected) do
-    when (Config.verbosity >= Config.LoggingVerbosity) do
-      putStrLn ""
-      _ <- msgs <&>>= putStrLn . prettyShow
-      return ()
-    assertFailure $ "expected: " ++ prettyShow result_expected ++ "\n but got: " ++ prettyShow result_actual
+                    then return $ Just $ pPrint EngineSuccessWithoutDelays
+                    else return Nothing
+            EngineSuccessWithSolutionsCount n ->
+              if (envs_successful & length) == n
+                then return Nothing
+                else return $ Just $ pPrint (EngineSuccessWithSolutionsCount (envs_successful & length)) $+$ bullets (fmap pPrint envs)
+            EngineSuccessWithSubst s ->
+              let m = s & unSubst
+                  m_keys = m & Map.keysSet
+               in case envs_successful
+                    <&> ( \env ->
+                            ( env,
+                              let m' = env.sigma & unSubst
+                                  m'_keys = m' & Map.keysSet
+                                  keys = Set.union m_keys m'_keys
+                               in keys & Set.toList & foldMap \x -> case (m Map.!? x, m' Map.!? x) of
+                                    (Just e, Just e') -> [(x, e, Just e') | e /= e']
+                                    (Just e, Nothing) -> [(x, e, Nothing)]
+                                    (Nothing, _) -> []
+                            )
+                        )
+                      & filter (not . null) of
+                    envs_mismatching ->
+                      if null envs_mismatching
+                        then return Nothing
+                        else
+                          return $
+                            Just $
+                              hang "success with mismatches:" 2 . bullets $
+                                envs_mismatching <&> \(env, mismatches) ->
+                                  hang "env and mismatches:" 2 . bullets $
+                                    [ hang "env:" 2 $ pPrint env,
+                                      hang "mismatches:" 2 . bullets $
+                                        mismatches <&> \case
+                                          (x, e, Nothing) -> pPrint x <+> "was expected to be substituted for" <+> pPrint e <+> "but it actually wasn't substituted"
+                                          (x, e, Just e') -> pPrint x <+> "was expected to be substituted for" <+> pPrint e <+> "but it was actually substituted for" <+> pPrint e'
+                                    ]
+            _ -> return Nothing
+      | otherwise -> do
+          case result_expected of
+            EngineFailure -> return Nothing
+            _ -> return $ Just $ pPrint EngineFailure $+$ bullets (fmap pPrint envs)
+
+  case mb_err of
+    Nothing -> return ()
+    Just err -> do
+      when (Config.verbosity >= Config.LoggingVerbosity) do
+        putStrLn ""
+        msgs & traverse_ (putStrLn . prettyShow)
+        putStrLn ""
+      assertFailure . render $
+        vcat
+          [ "expected:" <+> pPrint result_expected,
+            "actual:" <+> err
+          ]

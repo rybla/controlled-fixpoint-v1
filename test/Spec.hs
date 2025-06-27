@@ -6,6 +6,7 @@ module Main (main) where
 import qualified Spec.Engine.Add
 import qualified Spec.Engine.DelayAndResume
 import qualified Spec.Engine.Proof
+import qualified Spec.Engine.SolutionsCount
 import qualified Spec.Engine.Subtyping
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
@@ -19,5 +20,6 @@ tests =
     [ Spec.Engine.Add.tests,
       Spec.Engine.Subtyping.tests,
       Spec.Engine.DelayAndResume.tests,
-      Spec.Engine.Proof.tests
+      Spec.Engine.Proof.tests,
+      Spec.Engine.SolutionsCount.tests
     ]
