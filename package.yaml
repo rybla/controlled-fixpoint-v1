@@ -38,6 +38,7 @@ dependencies:
   - parallel
   - list-t
   - pretty
+  - newtype-generics
 
 ghc-options:
   - -Wall

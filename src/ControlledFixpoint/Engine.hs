@@ -25,8 +25,6 @@ import Text.PrettyPrint (hang, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
--- type X _ = ()
-
 --------------------------------------------------------------------------------
 -- Types
 --------------------------------------------------------------------------------
@@ -78,7 +76,8 @@ data Env = Env
     activeGoals :: [Atom],
     delayedGoals :: [Atom],
     failedGoals :: [Atom],
-    stepsRev :: [Step]
+    stepsRev :: [Step],
+    sigma :: Subst
   }
   deriving (Show, Eq)
 
@@ -90,7 +89,8 @@ instance Pretty Env where
         "delayedGoals =" <+> pPrint env.delayedGoals,
         "failedGoals =" <+> pPrint env.failedGoals,
         hang "steps:" 2 . bullets $
-          env.stepsRev & reverse <&> pPrint
+          env.stepsRev & reverse <&> pPrint,
+        "sigma =" <+> pPrint env.sigma
       ]
 
 data Step = Step
@@ -123,7 +123,8 @@ run cfg = do
             delayedGoals = mempty,
             failedGoals = mempty,
             freshCounter = 0,
-            stepsRev = []
+            stepsRev = [],
+            sigma = emptySubst
           }
   (branches, logs) <-
     loop
@@ -148,7 +149,7 @@ run cfg = do
       tell [Msg.mk "branch terminated successfully"]
       return [env']
 
-loop :: (Monad m) => T m ()
+loop :: forall m. (Monad m) => T m ()
 loop = do
   tellT $ Msg.mk "--------------------------------"
 
@@ -179,64 +180,71 @@ loop = do
           tellT $ (Msg.mk "delaying goal") {Msg.contents = ["goal =" <+> pPrint goal]}
           modify \env' -> env' {delayedGoals = goal : env'.delayedGoals}
         else do
-          -- try all rules
-          results <-
-            ctx.config.rules
-              <&>>= ( \rule_ -> do
-                        -- freshen rule
-                        rule <- do
-                          env <- get
-                          let env_freshening =
-                                Freshening.Env
-                                  { sigma = emptySubst,
-                                    freshCounter = env.freshCounter
-                                  }
-                          let (rule', env_freshening') =
-                                Freshening.freshenRule rule_
-                                  & flip runState env_freshening
-                          modify \env' -> env' {freshCounter = env_freshening'.freshCounter}
-                          return rule'
+          let tryRule :: Rule -> T m [(Rule, Subst, [Atom])]
+              tryRule rule_ = do
+                -- freshen rule
+                rule <- do
+                  env <- get
+                  let env_freshening =
+                        Freshening.Env
+                          { sigma = emptySubst,
+                            freshCounter = env.freshCounter
+                          }
+                  let (rule', env_freshening') =
+                        Freshening.freshenRule rule_
+                          & flip runState env_freshening
+                  modify \env' -> env' {freshCounter = env_freshening'.freshCounter}
+                  return rule'
 
-                        tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
+                tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
 
-                        tellT $
-                          (Msg.mk "attempting to unify goal with rule's conclusion")
-                            { Msg.contents =
-                                [ "goal      =" <+> pPrint goal,
-                                  "rule.conc =" <+> pPrint rule.conc
-                                ]
-                            }
-                        (err_or_goal', env_uni') <-
-                          lift . lift . lift . lift . lift $
-                            Unification.unifyAtom goal rule.conc
-                              & runExceptT
-                              & flip runStateT Unification.emptyEnv
-
-                        case err_or_goal' of
-                          Left err -> do
-                            tellT $
-                              (Msg.mk "failed to unify goal with rule's conclusion")
-                                { Msg.contents =
-                                    [ "err       =" <+> pPrint err,
-                                      "sigma_uni =" <+> pPrint env_uni'.sigma
-                                    ]
-                                }
-                            return []
-                          Right goal' -> do
-                            tellT $
-                              (Msg.mk "unified goal with rule's conclusion")
-                                { Msg.contents =
-                                    [ "sigma_uni =" <+> pPrint env_uni'.sigma,
-                                      "goal'     =" <+> pPrint goal'
-                                    ]
-                                }
-
-                            -- process the rule's hypotheses
-                            let processHyps subgoals [] = return [(rule, env_uni'.sigma, subgoals)]
-                                processHyps subgoals (AtomHyp subgoal : hs) = processHyps (subgoal : subgoals) hs
-                            processHyps [] rule.hyps
+                tellT $
+                  (Msg.mk "attempting to unify goal with rule's conclusion")
+                    { Msg.contents =
+                        [ "goal      =" <+> pPrint goal,
+                          "rule.conc =" <+> pPrint rule.conc
+                        ]
+                    }
+                (err_or_goal', env_uni') <-
+                  lift . lift . lift . lift . lift $
+                    ( do
+                        atom <- Unification.unifyAtom goal rule.conc
+                        -- NOTE: it seems odd that this is required, since I
+                        -- _thought_ that in the implementation of unification
+                        -- it incrementally applies the substitution as it is
+                        -- computed (viz `Unification.setVarM`)
+                        Unification.normEnv
+                        return atom
                     )
-              <&> concat
+                      & runExceptT
+                      & flip runStateT Unification.emptyEnv
+
+                case err_or_goal' of
+                  Left err -> do
+                    tellT $
+                      (Msg.mk "failed to unify goal with rule's conclusion")
+                        { Msg.contents =
+                            [ "err       =" <+> pPrint err,
+                              "sigma_uni =" <+> pPrint env_uni'.sigma
+                            ]
+                        }
+                    return []
+                  Right goal' -> do
+                    tellT $
+                      (Msg.mk "successfully unified goal with rule's conclusion")
+                        { Msg.contents =
+                            [ "sigma_uni =" <+> pPrint env_uni'.sigma,
+                              "goal'     =" <+> pPrint goal'
+                            ]
+                        }
+
+                    -- process the rule's hypotheses
+                    let processHyps subgoals [] = return [(rule, env_uni'.sigma, subgoals)]
+                        processHyps subgoals (AtomHyp subgoal : hs) = processHyps (subgoal : subgoals) hs
+                    processHyps [] rule.hyps
+
+          -- try all rules
+          results <- ctx.config.rules <&>>= tryRule <&> concat
 
           if null results
             then do
@@ -267,7 +275,8 @@ loop = do
               modify \env' ->
                 env'
                   { delayedGoals = env'.delayedGoals <&> substAtom sigma_uni,
-                    activeGoals = env'.activeGoals <&> substAtom sigma_uni
+                    activeGoals = env'.activeGoals <&> substAtom sigma_uni,
+                    sigma = env'.sigma & composeSubst_unsafe sigma_uni
                   }
 
               -- for each delayed goal that was refined by sigma_uni, make it active again

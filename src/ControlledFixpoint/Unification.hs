@@ -1,15 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 
 module ControlledFixpoint.Unification where
 
 import Control.Monad (when, zipWithM)
 import Control.Monad.Except (ExceptT, MonadError (throwError))
-import Control.Monad.State (StateT, get, modify)
+import Control.Monad.State (StateT, get, gets, modify)
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Grammar
+import Data.Function ((&))
+import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Text.PrettyPrint.HughesPJClass (Pretty (pPrint), (<+>))
+import Text.PrettyPrint (hang, (<+>))
+import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
+import Utility (bullets, fixpointEqM)
 
 --------------------------------------------------------------------------------
 -- Types
@@ -25,6 +30,12 @@ newtype Env = Env
   { sigma :: Subst
   }
 
+instance Pretty Env where
+  pPrint Env {..} =
+    hang "Unification.Env" 2 . bullets $
+      [ "sigma =" <+> pPrint sigma
+      ]
+
 emptyEnv :: Env
 emptyEnv =
   Env
@@ -34,10 +45,12 @@ emptyEnv =
 data Error
   = AtomsError Atom Atom
   | ExprsError Expr Expr
+  | OccursError Var Expr
 
 instance Pretty Error where
   pPrint (AtomsError a1 a2) = pPrint a1 <+> "!~" <+> pPrint a2
   pPrint (ExprsError e1 e2) = pPrint e1 <+> "!~" <+> pPrint e2
+  pPrint (OccursError x e) = pPrint x <+> "was unified with" <+> pPrint e <+> "recursively"
 
 setVarM :: (Monad m) => Var -> Expr -> T m ()
 setVarM x e = do
@@ -58,7 +71,7 @@ setVarM x e = do
 unifyAtom :: (Monad m) => Atom -> Atom -> T m Atom
 unifyAtom (Atom a1 e1) (Atom a2 e2) = do
   when (a1 /= a2) do throwError $ AtomsError (Atom a1 e1) (Atom a2 e2)
-  e <- unifyExpr e1 e2
+  e <- unifyExpr e1 e2 >>= normExpr
   pure (Atom a1 e)
 
 unifyExpr :: (Monad m) => Expr -> Expr -> T m Expr
@@ -73,3 +86,25 @@ unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
   let c = c1
   es <- zipWithM unifyExpr es1 es2
   pure (ConExpr (Con c es))
+
+normExpr :: (Monad m) => Expr -> T m Expr
+normExpr = liftA2 substExpr (gets sigma) . return
+
+normEnv :: (Monad m) => T m ()
+normEnv = do
+  env <- get
+  sigma' <-
+    env.sigma
+      & fixpointEqM
+        ( \s ->
+            s
+              & unSubst
+              & Map.traverseWithKey
+                ( \x e ->
+                    if x `Set.member` varsExpr e
+                      then throwError $ OccursError x e
+                      else return $ substExpr s e
+                )
+              & fmap Subst
+        )
+  modify \env' -> env' {sigma = sigma'}

@@ -51,6 +51,7 @@ library
     , containers
     , list-t
     , mtl
+    , newtype-generics
     , parallel
     , pretty
     , text
@@ -79,6 +80,7 @@ executable controlled-fixpoint-v1-exe
     , controlled-fixpoint-v1
     , list-t
     , mtl
+    , newtype-generics
     , parallel
     , pretty
     , text
@@ -115,6 +117,7 @@ test-suite controlled-fixpoint-v1-test
     , controlled-fixpoint-v1
     , list-t
     , mtl
+    , newtype-generics
     , parallel
     , pretty
     , tasty

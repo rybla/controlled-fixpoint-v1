@@ -82,3 +82,17 @@ extractions = go [] []
 
 indices :: [a] -> [Int]
 indices xs = [0 .. length xs - 1]
+
+fixpointEq :: (Eq a) => (a -> a) -> a -> a
+fixpointEq f a =
+  let a' = f a
+   in if a /= a'
+        then fixpointEq f a'
+        else a
+
+fixpointEqM :: (Eq a, Monad m) => (a -> m a) -> a -> m a
+fixpointEqM f a = do
+  a' <- f a
+  if a /= a'
+    then fixpointEqM f a'
+    else return a

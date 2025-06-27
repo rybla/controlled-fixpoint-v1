@@ -1,15 +1,17 @@
+{-# HLINT ignore "Use newtype instead of data" #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-{-# HLINT ignore "Use newtype instead of data" #-}
-
 module ControlledFixpoint.Grammar where
 
+import Control.Category ((>>>))
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
+import Control.Newtype.Generics (Newtype, over)
 import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import Data.Map (Map)
@@ -17,6 +19,7 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.String (IsString (fromString))
+import GHC.Generics (Generic)
 import Text.PrettyPrint (braces, comma, hcat, hsep, nest, parens, punctuate, text, vcat, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
@@ -106,7 +109,9 @@ instance Pretty Con where
 
 -- | Substitution of meta-variables
 newtype Subst = Subst {unSubst :: Map Var Expr}
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance Newtype Subst
 
 instance Pretty Subst where
   pPrint (Subst m) =
@@ -166,7 +171,10 @@ emptySubst :: Subst
 emptySubst = Subst Map.empty
 
 setVar :: Var -> Expr -> Subst -> Subst
-setVar x e (Subst m) = Subst (Map.insert x e m)
+setVar x e =
+  over Subst $
+    fmap (substExpr (Subst (Map.singleton x e)))
+      . Map.insert x e
 
 substHyp :: Subst -> Hyp -> Hyp
 substHyp sigma (AtomHyp atom) = AtomHyp (substAtom sigma atom)
@@ -203,3 +211,7 @@ composeSubst sigma@(Subst m) sigma'@(Subst m') = do
             ]
         }
   return $ Subst $ m `Map.union` (m' <&> substExpr sigma)
+
+-- | Similar to `composeSubst`, but doesn't check for overlaps.
+composeSubst_unsafe :: Subst -> Subst -> Subst
+composeSubst_unsafe sigma'@(Subst m') sigma@(Subst m) = Subst $ (m' <&> substExpr sigma) `Map.union` (m <&> substExpr sigma')

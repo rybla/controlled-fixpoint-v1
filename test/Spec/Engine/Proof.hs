@@ -1,4 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -8,8 +7,21 @@ module Spec.Engine.Proof (tests) where
 import ControlledFixpoint.Engine (Config (initialGas))
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
+  ( Atom (Atom),
+    Con (Con),
+    ConName (ConName),
+    Expr (ConExpr),
+    Hyp (AtomHyp),
+    Rule (..),
+    RuleName (RuleName),
+  )
 import Data.Function ((&))
 import Spec.Engine.Common
+  ( EngineResult,
+    mkEngineFailure,
+    mkEngineSuccess,
+    mkTest_Engine,
+  )
 import Test.Tasty (TestTree, testGroup)
 import Text.PrettyPrint.HughesPJClass (prettyShow)
 
@@ -28,6 +40,8 @@ tests_ex1 =
       mkTest 0 1 mkEngineFailure,
       mkTest (1 + 1) (S (1 + 0)) mkEngineSuccess,
       mkTest (1 + 1) "result" mkEngineSuccess,
+      mkTest (1 + 1) 2 mkEngineFailure,
+      mkTest (2 + 3) "result" mkEngineFailure,
       mkTest 0 0 mkEngineSuccess
     ]
   where
@@ -39,102 +53,114 @@ tests_ex1 =
           { goals = [Valid (a :== b) "pf"],
             rules =
               [ -- compute Add
-                let name = "[a + Z == Z]"
+                let name_ = "[a + Z == Z]"
                  in Rule
-                      { name = RuleName name,
+                      { name = RuleName name_,
                         hyps = [],
                         conc =
                           Valid ("a" + Z :== Z) $
                             ConExpr $
                               Con
-                                (ConName name)
+                                (ConName name_)
                                 ["a"]
                       },
-                let name = "[a + S b == S (a + b)]"
+                let name_ = "[a + S b == S (a + b)]"
                  in Rule
-                      { name = RuleName name,
+                      { name = RuleName name_,
                         hyps = [],
                         conc =
                           Valid ("a" + S "b" :== S ("a" + "b")) $
                             ConExpr $
                               Con
-                                (ConName name)
+                                (ConName name_)
                                 ["a", "b"]
                       },
                 -- -- compute Mul
-                -- let name = "[a * Z == Z]"
+                -- let name_ = "[a * Z == Z]"
                 --  in Rule
-                --       { name = RuleName name,
+                --       { name = RuleName name_,
                 --         hyps = [],
                 --         conc =
                 --           Valid ("a" * Z :== Z) $
                 --             ConExpr $
                 --               Con
-                --                 (ConName name)
+                --                 (ConName name_)
                 --                 ["a"]
                 --       },
-                -- let name = "[a * (S b) == a + (a * b)]"
+                -- let name_ = "[a * (S b) == a + (a * b)]"
                 --  in Rule
-                --       { name = RuleName name,
+                --       { name = RuleName name_,
                 --         hyps = [],
                 --         conc =
                 --           Valid ("a" * S "b" :== "a" + ("a" * "b")) $
                 --             ConExpr $
                 --               Con
-                --                 (ConName name)
+                --                 (ConName name_)
                 --                 ["a", "b"]
                 --       },
                 -- -- Distributivity
-                -- let name = "[a * (b + c) == (a * b) + (a * c)]"
+                -- let name_ = "[a * (b + c) == (a * b) + (a * c)]"
                 --  in Rule
-                --       { name = RuleName name,
+                --       { name = RuleName name_,
                 --         hyps = [],
                 --         conc =
                 --           Valid ("a" * ("b" + "c") :== ("a" * "b") + ("a" * "c")) $
                 --             ConExpr $
                 --               Con
-                --                 (ConName name)
+                --                 (ConName name_)
                 --                 ["a", "b", "c"]
                 --       },
                 -- congruences
-                let name = "[Z == Z]"
+                let name_ = "[Z == Z]"
                  in Rule
-                      { name = RuleName name,
+                      { name = RuleName name_,
                         hyps = [],
-                        conc = Valid (Z :== Z) . ConExpr $ Con (ConName name) []
+                        conc = Valid (Z :== Z) . ConExpr $ Con (ConName name_) []
                       },
-                let name = "[a == a' |- S a == S a']"
+                let name_ = "[a == a' |- S a == S a']"
                  in Rule
-                      { name = RuleName name,
-                        hyps = [AtomHyp $ Valid ("a" :== "a'") "a == a'"],
+                      { name = RuleName name_,
+                        hyps = [AtomHyp $ Valid ("a" :== "a'") "[a == a']"],
                         conc =
                           Valid (S "a" :== S "a'") $
                             ConExpr $
                               Con
-                                (ConName name)
-                                ["a", "a'", "a == a'"]
+                                (ConName name_)
+                                ["a", "a'", "[a == a']"]
                       },
-                let name = "[a == a', b == b' |- a + b == a + b']"
+                let name_ = "[a == a', b == b' |- a + b == a + b']"
                  in Rule
-                      { name = RuleName name,
+                      { name = RuleName name_,
                         hyps =
-                          [ AtomHyp $ Valid ("a" :== "a'") "a == a'",
-                            AtomHyp $ Valid ("b" :== "b'") "b == b'"
+                          [ AtomHyp $ Valid ("a" :== "a'") "[a == a']",
+                            AtomHyp $ Valid ("b" :== "b'") "[b == b']"
                           ],
                         conc =
                           Valid ("a" + "b" :== "a" + "b'") . ConExpr $
-                            Con (ConName name) ["a", "a'", "b", "b'", "a == a'", "b == b'"]
+                            Con (ConName name_) ["a", "a'", "b", "b'", "[a == a']", "[b == b']"]
                       }
-                      -- let name = "[a == a', b == b' |- a * b == a * b']"
+                      -- let name_ = "[a == a', b == b' |- a * b == a * b']"
                       --  in Rule
-                      --       { name = RuleName name,
+                      --       { name = RuleName name_,
                       --         hyps =
-                      --           [ AtomHyp $ Valid ("a" :== "a'") "a == a'",
-                      --             AtomHyp $ Valid ("b" :== "b'") "b == b'"
+                      --           [ AtomHyp $ Valid ("a" :== "a'") "[a == a']",
+                      --             AtomHyp $ Valid ("b" :== "b'") "[b == b']"
                       --           ],
                       --         conc =
                       --           Valid ("a" * "b" :== "a" * "b'") . ConExpr $
-                      --             Con (ConName name) ["a", "a'", "b", "b'", "a == a'", "b == b'"]
+                      --             Con (ConName name_) ["a", "a'", "b", "b'", "[a == a']", "[b == b']"]
+                      --       },
+                      -- -- Transivity
+                      -- let name_ = "[a == b, b == c |- a == c]"
+                      --  in Rule
+                      --       { name = RuleName name_,
+                      --         hyps =
+                      --           [ AtomHyp $ Valid ("a" :== "b") "[a == b]",
+                      --             AtomHyp $ Valid ("b" :== "c") "[b == c]"
+                      --           ],
+                      --         conc =
+                      --           Valid ("a" :== "c") . ConExpr $
+                      --             Con (ConName name_) ["a", "b", "c", "[a == b]", "[b == c]"]
                       --       }
               ],
             delayable = const False,
