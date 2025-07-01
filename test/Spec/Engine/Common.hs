@@ -73,11 +73,19 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
       | envs_successful <- envs & filter \env -> null env.failedGoals,
         not (null envs_successful) ->
           case result_expected of
+            EngineError -> return $ Just $ pPrint EngineSuccess
+            EngineFailure -> return $ Just $ pPrint EngineSuccess
+            --
             EngineSuccess -> return Nothing
             EngineSuccessWithDelays ->
               let envs_successfulWithDelays = envs_successful & filter \env -> not (null env.delayedGoals)
                in if null envs_successfulWithDelays
                     then return $ Just $ pPrint EngineSuccessWithoutDelays
+                    else return Nothing
+            EngineSuccessWithoutDelays ->
+              let envs_successfulWithDelays = envs_successful & filter \env -> not (null env.delayedGoals)
+               in if not $ null envs_successfulWithDelays
+                    then return $ Just $ pPrint EngineSuccessWithDelays
                     else return Nothing
             EngineSuccessWithSolutionsCount n ->
               if (envs_successful & length) == n
@@ -98,7 +106,7 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
                                     (Nothing, _) -> []
                             )
                         )
-                      & filter (not . null) of
+                      & filter (\(_env, mismatches) -> not $ null mismatches) of
                     envs_mismatching ->
                       if null envs_mismatching
                         then return Nothing
@@ -114,7 +122,6 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
                                           (x, e, Nothing) -> quotes (pPrint x) <+> "was expected to be substituted for" <+> quotes (pPrint e) <+> "but it actually wasn't substituted"
                                           (x, e, Just e') -> quotes (pPrint x) <+> "was expected to be substituted for" <+> quotes (pPrint e) <+> "but it was actually substituted for" <+> pPrint e'
                                     ]
-            _ -> return Nothing
       | otherwise -> do
           case result_expected of
             EngineFailure -> return Nothing

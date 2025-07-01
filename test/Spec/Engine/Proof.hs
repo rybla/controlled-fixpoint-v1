@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.Proof (tests) where
@@ -7,142 +8,79 @@ module Spec.Engine.Proof (tests) where
 import ControlledFixpoint.Engine (Config (initialGas))
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-  ( Atom (Atom),
-    Con (Con),
-    ConName (ConName),
-    Expr (ConExpr, VarExpr),
-    Hyp (AtomHyp),
-    Rule (..),
-    RuleName (RuleName),
-  )
 import Data.Function ((&))
+import qualified Data.Map as Map
 import Spec.Engine.Common
   ( EngineResult (..),
     mkTest_Engine,
   )
-import Test.Tasty (TestName, TestTree, testGroup)
+import Test.Tasty (TestTree, testGroup)
 import Text.PrettyPrint.HughesPJClass (prettyShow)
 
 tests :: TestTree
 tests =
   testGroup
     "Proof"
-    [tests_ex1]
+    [tests_NormV1]
 
-tests_ex1 :: TestTree
-tests_ex1 =
+tests_NormV1 :: TestTree
+tests_NormV1 =
   testGroup
-    "ex1"
-    [ mkTest_Equal 0 0 EngineSuccess,
-      mkTest_Equal 1 1 EngineSuccess,
-      mkTest_Equal 0 1 EngineFailure,
-      -- mkTest_Equal (1 + 1) (S (1 + 0)) EngineSuccess,
-      -- mkTest_Equal (1 + 1) "result" (EngineSuccessWithSubst (Subst (Map.fromList [("result", S (S Z))])))
-      -- mkTest_Equal (1 + 1) 2 EngineFailure,
-      -- mkTest_Equal (2 + 3) "result" EngineFailure,
-      mkTest_Norm' "norm#1" (0 + 1) EngineError,
-      mkTest_Equal 0 0 EngineSuccess
+    "NormV1"
+    [ mkTest 0 $ EngineSuccessWithSubst $ Subst $ Map.fromList [("?output", 0)],
+      mkTest 1 $ EngineSuccessWithSubst $ Subst $ Map.fromList [("?output", 1)],
+      mkTest (0 + 0) EngineError
+      -- mkTest (1 + 1) $ EngineSuccessWithSubst $ Subst $ Map.fromList [("?output", 2)]
+      -- mkTest (1 + 1) EngineError
     ]
   where
-    mkTest_Equal :: Expr -> Expr -> EngineResult -> TestTree
-    mkTest_Equal a b =
+    mkTest :: Expr -> EngineResult -> TestTree
+    mkTest input =
       mkTest_Engine
-        (prettyShow $ a :== b)
+        (prettyShow input)
         Engine.Config
-          { goals =
-              [ Valid (a :== b) "?{a == b}",
-                Valid (Norm b) "{Norm b}"
-              ],
-            rules = rules_ex1,
-            delayable = const False,
-            initialGas = 100
-          }
-
-    mkTest_Norm :: Expr -> EngineResult -> TestTree
-    mkTest_Norm input = mkTest_Norm' (prettyShow $ Norm input) input
-
-    mkTest_Norm' :: TestName -> Expr -> EngineResult -> TestTree
-    mkTest_Norm' testName input =
-      mkTest_Engine
-        testName
-        Engine.Config
-          { goals = [Valid (Norm input) "?{Norm input}"],
-            rules = rules_ex1,
+          { goals = [Valid (input :⇓ "?output") "?{input ⇓ output}"],
+            rules = rules,
             delayable = \case
-              Valid (VarExpr _ :== VarExpr _) _ -> True
-              Valid (Norm (VarExpr _)) _ -> True
+              Valid (VarExpr _ :⇓ VarExpr _) _ -> True
               _ -> False,
-            initialGas = 20
+            initialGas = 4
           }
 
-    rules_ex1 =
-      [ -- compute Add
-        let name_ = "{a + Z == Z}"
-            a = "?a"
+    rules =
+      [ -- normal forms
+        let name_ = "{Z ⇓ ...}"
          in Rule
               { name = RuleName name_,
                 hyps = [],
-                conc = Valid (a + Z :== Z) $ ConExpr $ Con (ConName name_) [a]
+                conc = Valid (Z :⇓ Z) . ConExpr $ Con (ConName name_) []
               },
-        let name_ = "{a + S b == S (a + b)}"
-            (a, b) = ("?a", "?b")
+        let name_ = "{S a ⇓ ...}"
+            (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
          in Rule
               { name = RuleName name_,
-                hyps = [],
-                conc = Valid (a + S b :== S (a + b)) $ ConExpr $ Con (ConName name_) [a, b]
+                hyps = [AtomHyp $ Valid (a :⇓ a') pf_a_norm_a'],
+                conc = Valid (S a :⇓ S a') . ConExpr $ Con (ConName name_) [a, a', pf_a_norm_a']
               },
-        -- congruences
-        let name_ = "{Z == Z}"
-         in Rule
-              { name = RuleName name_,
-                hyps = [],
-                conc = Valid (Z :== Z) . ConExpr $ Con (ConName name_) []
-              },
-        let name_ = "{a == a' |- S a == S a'}"
-            (a, a', pf_a_eq_a') = ("?a", "?a'", "?{a == a'}")
-         in Rule
-              { name = RuleName name_,
-                hyps = [AtomHyp $ Valid (a :== a') pf_a_eq_a'],
-                conc =
-                  Valid (S a :== S a') $
-                    ConExpr $
-                      Con
-                        (ConName name_)
-                        [a, a', pf_a_eq_a']
-              },
-        let name_ = "{a == a', Norm a |- Norm a'}"
-            (a, a', pf_Norm_a, pf_a_eq_a') = ("?a", "?a'", "?{Norm a}", "?{a == a'}")
+        let name_ = "{a + Z ⇓ ...}"
+            (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
          in Rule
               { name = RuleName name_,
                 hyps =
-                  [ AtomHyp $ Valid (Norm a) pf_Norm_a,
-                    AtomHyp $ Valid (a :== a') pf_a_eq_a'
+                  [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a'
                   ],
-                conc = Valid (Norm a') $ ConExpr $ Con (ConName name_) [a, a', pf_a_eq_a']
+                conc = Valid (a + 0 :⇓ a') . ConExpr $ Con (ConName name_) [a, a', pf_a_norm_a']
               },
-        let name_ = "{a == a', b == b' |- a + b == a + b'}"
-            (a, a', pf_a_eq_a', b, b', b_eq_b') = ("?a", "?a'", "?{a == a'}", "?b", "?b'", "?{b == b'}")
+        let name_ = "{a + S b ⇓ ...}"
+            (a, a', pf_a_norm_a', b, b', pf_b_norm_Sb', c, pf_a'_plus_b'_norm_c) = ("?a", "?a'", "?{a ⇓ a'}", "?b", "?b'", "?{b ⇓ S b'}", "?c", "?{a' + b' ⇓ c}")
          in Rule
               { name = RuleName name_,
                 hyps =
-                  [ AtomHyp $ Valid (a :== a') pf_a_eq_a',
-                    AtomHyp $ Valid (b :== b') b_eq_b'
+                  [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a',
+                    AtomHyp $ Valid (b :⇓ S b') pf_b_norm_Sb',
+                    AtomHyp $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
                   ],
-                conc = Valid (a + b :== a + b') . ConExpr $ Con (ConName name_) [a, a', b, b', pf_a_eq_a', b_eq_b']
-              },
-        -- normal forms
-        let name_ = "{Norm Z}"
-         in Rule
-              { name = RuleName name_,
-                hyps = [],
-                conc = Valid (Norm Z) . ConExpr $ Con (ConName name_) []
-              },
-        let name_ = "{Norm (S a)}"
-            (a, pf_Norm_a) = ("?a", "?{Norm a}")
-         in Rule
-              { name = RuleName name_,
-                hyps = [AtomHyp $ Valid (Norm a) pf_Norm_a],
-                conc = Valid (Norm (S a)) . ConExpr $ Con (ConName name_) [a, pf_Norm_a]
+                conc = Valid (a + b :⇓ S c) . ConExpr $ Con (ConName name_) [a, a', pf_a_norm_a', b, b', c, pf_b_norm_Sb']
               }
       ]
 
@@ -157,10 +95,6 @@ pattern S n = ConExpr (Con "S" [n])
 instance Num Expr where
   fromInteger n = replicate (fromInteger n) S & foldr ($) Z
   (+) = (:+)
-  (*) = (:*)
-  abs = undefined
-  signum = undefined
-  negate = undefined
 
 -- definitions
 
@@ -170,20 +104,12 @@ pattern Tuple es = ConExpr (Con "Tuple" es)
 pattern Valid :: Expr -> Expr -> Atom
 pattern Valid eq pf = Atom "Valid" (Tuple [eq, pf])
 
-pattern (:==) :: Expr -> Expr -> Expr
-pattern a :== b = ConExpr (Con "Equal" [a, b])
+pattern (:⇓) :: Expr -> Expr -> Expr
+pattern (:⇓) a b = ConExpr (Con "Norm" [a, b])
 
-infix 4 :==
-
-pattern Norm :: Expr -> Expr
-pattern Norm a = ConExpr (Con "Norm" [a])
+infix 4 :⇓
 
 pattern (:+) :: Expr -> Expr -> Expr
 pattern a :+ b = ConExpr (Con "Add" [a, b])
 
 infixl 6 :+
-
-pattern (:*) :: Expr -> Expr -> Expr
-pattern a :* b = ConExpr (Con "Mul" [a, b])
-
-infixl 6 :*

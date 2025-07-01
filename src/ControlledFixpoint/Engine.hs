@@ -139,46 +139,61 @@ run cfg = do
       tell
         [ (Msg.mk "branch terminated in error")
             { Msg.contents =
-                [ hang "err:" 2 (pPrint err),
-                  hang "env:" 2 (pPrint env')
+                [ hang "err  :" 2 (pPrint err),
+                  hang "env' :" 2 (pPrint env')
                 ]
             }
         ]
       return []
     (Right _, env') -> do
-      tell [Msg.mk "branch terminated successfully"]
+      tell [Msg.mk "branch terminated without error"]
       return [env']
 
 loop :: forall m. (Monad m) => T m ()
 loop = do
-  tellT $ Msg.mk "--------------------------------"
-
   ctx <- ask
 
   -- update gas
   do
     env <- get
-    tellT $ Msg.mk ("gas =" <+> pPrint env.gas)
     -- check gas
     when (env.gas <= 0) do
       throwError $ Msg.mk "Out of gas"
     -- update gas
-    modify \env' -> env' {gas = env.gas - 1}
-
-  do
-    ags <- gets activeGoals
-    tellT $ (Msg.mk "activeGoals:") {Msg.contents = ags <&> pPrint}
+    modify \env' -> env' {gas = env'.gas - 1}
 
   extractNextActiveGoal >>= \case
     -- if there are no more active goals, then done and terminate this branch successfully
-    Nothing -> return ()
+    Nothing -> do
+      -- tellT (Msg.mk "no more active goals")
+      env <- get
+      ags <- gets activeGoals
+      tellT $
+        (Msg.mk "--------------------------------")
+          { Msg.contents =
+              [ "gas         =" <+> pPrint env.gas,
+                hang "activeGoals = " 2 $ bullets (ags <&> pPrint),
+                "status      =" <+> "no more active goals"
+              ]
+          }
+      return ()
     Just goal -> do
-      tellT $ Msg.mk ("processing goal" <+> pPrint goal)
+      do
+        env <- get
+        ags <- gets activeGoals
+        tellT $
+          (Msg.mk "--------------------------------")
+            { Msg.contents =
+                [ "gas         =" <+> pPrint env.gas,
+                  hang "activeGoals = " 2 $ bullets (ags <&> pPrint),
+                  "status      =" <+> "processing goal:" <+> pPrint goal
+                ]
+            }
 
       if ctx.config.delayable goal
         then do
           tellT $ (Msg.mk "delaying goal") {Msg.contents = ["goal =" <+> pPrint goal]}
-          modify \env' -> env' {delayedGoals = goal : env'.delayedGoals}
+          modify \env -> env {delayedGoals = goal : env.delayedGoals}
         else do
           let tryRule :: Rule -> T m [(Rule, Subst, [Atom])]
               tryRule rule_ = do
@@ -244,10 +259,16 @@ loop = do
                           level = Msg.Level 1
                         }
 
-                    -- process the rule's hypotheses
-                    let processHyps subgoals [] = return [(rule, env_uni'.sigma, subgoals)]
-                        processHyps subgoals (AtomHyp subgoal : hs) = processHyps (subgoal : subgoals) hs
-                    processHyps [] rule.hyps
+                    tellT $ (Msg.mk "rule") {Msg.contents = [pPrint rule]}
+
+                    subgoals <-
+                      fmap concat $
+                        rule.hyps <&>>= \case
+                          AtomHyp subgoal -> do
+                            let subgoal' = subgoal & substAtom env_uni'.sigma
+                            return [subgoal']
+
+                    return [(rule, env_uni'.sigma, subgoals)]
 
           -- try all rules
           results <- ctx.config.rules <&>>= tryRule <&> concat
@@ -257,7 +278,7 @@ loop = do
               -- if no results for unifying the goal with rule conclusions, then
               -- this goal is unsolvable
               tellT $ (Msg.mk "goal is unsolvable") {Msg.contents = ["goal =" <+> pPrint goal]}
-              modify \env' -> env' {failedGoals = goal : env'.failedGoals}
+              modify \env -> env {failedGoals = goal : env.failedGoals}
             else do
               -- if there are some results for unifying the goal with rule
               -- conclusions, then for each success branch for using that rule apply
@@ -272,15 +293,15 @@ loop = do
                     { Msg.contents = subgoals <&> pPrint,
                       Msg.level = Msg.Level 1
                     }
-              modify \env' -> env' {activeGoals = env'.activeGoals <> subgoals}
+              modify \env -> env {activeGoals = env.activeGoals <> subgoals}
 
               delayedGoals_old <- gets delayedGoals
 
-              modify \env' ->
-                env'
-                  { delayedGoals = env'.delayedGoals <&> substAtom sigma_uni,
-                    activeGoals = env'.activeGoals <&> substAtom sigma_uni,
-                    sigma = env'.sigma & composeSubst_unsafe sigma_uni
+              modify \env ->
+                env
+                  { delayedGoals = env.delayedGoals <&> substAtom sigma_uni,
+                    activeGoals = env.activeGoals <&> substAtom sigma_uni,
+                    sigma = env.sigma & composeSubst_unsafe sigma_uni
                   }
 
               -- for each delayed goal that was refined by sigma_uni, make it active again
@@ -301,14 +322,14 @@ loop = do
                             return (delayedGoal_curr : activeGoals_reactivated, delayedGoals_new)
                     )
                     ([], [])
-              modify \env' ->
-                env'
-                  { activeGoals = activeGoals_reactivated <> env'.activeGoals,
+              modify \env ->
+                env
+                  { activeGoals = activeGoals_reactivated <> env.activeGoals,
                     delayedGoals = delayedGoals_new
                   }
 
               -- record step
-              modify \env' -> env' {stepsRev = Step {goal, rule, sigma = sigma_uni, subgoals} : env'.stepsRev}
+              modify \env -> env {stepsRev = Step {goal, rule, sigma = sigma_uni, subgoals} : env.stepsRev}
 
       loop
 
