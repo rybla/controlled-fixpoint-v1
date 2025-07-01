@@ -93,6 +93,7 @@ test-suite controlled-fixpoint-v1-test
   other-modules:
       Spec.Config
       Spec.Engine.Add
+      Spec.Engine.ApplicativeFunctorSubtyping
       Spec.Engine.Common
       Spec.Engine.DelayAndResume
       Spec.Engine.Proof

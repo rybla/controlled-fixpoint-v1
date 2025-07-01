@@ -154,7 +154,7 @@ pattern Tuple :: [Expr] -> Expr
 pattern Tuple es = ConExpr (Con "Tuple" es)
 
 pattern Valid :: Expr -> Expr -> Atom
-pattern Valid eq pf = Atom "Valid" (Tuple [eq, pf])
+pattern Valid st pf = Atom "Valid" (Tuple [st, pf])
 
 pattern (:⇓) :: Expr -> Expr -> Expr
 pattern (:⇓) a b = ConExpr (Con "Norm" [a, b])
