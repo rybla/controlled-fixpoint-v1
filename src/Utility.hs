@@ -9,7 +9,7 @@ import Control.Category ((>>>))
 import Control.Monad (foldM)
 import Data.Kind (Type)
 import Data.Traversable (for)
-import Text.PrettyPrint (Doc, nest, vcat, (<+>))
+import Text.PrettyPrint (Doc, nest, text, vcat, (<+>))
 
 infixl 1 &
 
@@ -112,3 +112,6 @@ subscriptNumber =
     '8' -> '₈'
     '9' -> '₉'
     c -> c
+
+ticks :: Doc -> Doc
+ticks x = text "`" <> x <> text "`"

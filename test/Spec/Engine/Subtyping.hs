@@ -68,7 +68,7 @@ rulesSubtyping =
         conc = nat `subtype` int
       },
     Rule
-      { name = "a' <: a , b <: b'  |-  a -> b <: a' -> b'",
+      { name = "a' <: a , b <: b'  ⊢  a → b <: a' → b'",
         hyps =
           [ AtomHyp $ a' `subtype` a,
             AtomHyp $ b `subtype` b'
@@ -102,6 +102,6 @@ displayExpr :: Expr -> String
 displayExpr (ConExpr (Con "int" [])) = "int"
 displayExpr (ConExpr (Con "nat" [])) = "nat"
 displayExpr (ConExpr (Con "bool" [])) = "bool"
-displayExpr (ConExpr (Con "arr" [a, b])) = displayExpr a <> " -> " <> displayExpr b
+displayExpr (ConExpr (Con "arr" [a, b])) = displayExpr a <> " → " <> displayExpr b
 displayExpr (VarExpr (Var x _)) = x
 displayExpr e = prettyShow e

@@ -8,6 +8,7 @@ module Spec.Engine.Common where
 import Control.Monad (when)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
+import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar (Subst (unSubst))
@@ -18,16 +19,18 @@ import qualified Data.Set as Set
 import qualified Spec.Config as Config
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
-import Text.PrettyPrint (Doc, brackets, hang, quotes, render, text, vcat, ($+$), (<+>))
+import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
-import Utility (bullets, (&))
+import Utility (bullets, ticks, (&))
 
 -- |
 -- A `EngineResult` has some optional associated metadata about how the run
 -- went.
 data EngineResult
-  = -- | Engine run resulted in at least one branch that threw an error.
-    EngineError
+  = -- | Engine run threw a global error (in `ControlledFixpoint.Common.T`).
+    EngineErrorCatastrophic (Maybe Msg)
+  | -- | Engine run threw a local error.
+    EngineError Engine.Error
   | -- | Engine run resulted in no branches that solved all goals.
     EngineFailure
   | -- |
@@ -49,13 +52,14 @@ data EngineResult
   deriving (Show, Eq)
 
 instance Pretty EngineResult where
-  pPrint EngineError = "error"
+  pPrint (EngineErrorCatastrophic err) = "catastrophic error:" <+> pPrint err
+  pPrint (EngineError err) = "error:" <+> pPrint err
   pPrint EngineFailure = "failure"
   pPrint EngineSuccess = "success"
   pPrint EngineSuccessWithDelays = "success with delays"
   pPrint EngineSuccessWithoutDelays = "success without delays"
   pPrint (EngineSuccessWithSolutionsCount n) = "success with" <+> pPrint n <+> "solutions"
-  pPrint (EngineSuccessWithSubst s) = "success with substitutions" <+> pPrint s
+  pPrint (EngineSuccessWithSubst _) = "success with subst"
 
 mkTest_Engine :: TestName -> Engine.Config -> EngineResult -> TestTree
 mkTest_Engine name cfg result_expected = testCase (render (text name <+> brackets (pPrint result_expected))) do
@@ -65,15 +69,23 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
       & runWriterT
 
   mb_err :: Maybe Doc <- case err_or_envs of
-    Left err -> do
-      case result_expected of
-        EngineError -> return Nothing
-        _ -> return $ Just $ pPrint EngineError $+$ pPrint err
-    Right envs
+    Left err -> case result_expected of
+      EngineErrorCatastrophic Nothing -> return Nothing
+      EngineErrorCatastrophic (Just err')
+        | err == err' -> return Nothing
+        | otherwise -> return $ Just $ pPrint $ EngineErrorCatastrophic (Just err)
+      _ -> return $ Just $ pPrint $ EngineErrorCatastrophic (Just err)
+    Right (Left (err, _env)) -> case result_expected of
+      EngineError err'
+        | err == err' -> return Nothing
+        | otherwise -> return $ Just $ pPrint $ EngineError err
+      _ -> return $ Just $ pPrint $ EngineError err
+    Right (Right envs)
       | envs_successful <- envs & filter \env -> null env.failedGoals,
         not (null envs_successful) ->
           case result_expected of
-            EngineError -> return $ Just $ pPrint EngineSuccess
+            EngineErrorCatastrophic _ -> return $ Just $ pPrint EngineSuccess
+            EngineError _ -> return $ Just $ pPrint EngineSuccess
             EngineFailure -> return $ Just $ pPrint EngineSuccess
             --
             EngineSuccess -> return Nothing
@@ -119,8 +131,8 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
                                     [ hang "env:" 2 $ pPrint env,
                                       hang "mismatches:" 2 . bullets $
                                         mismatches <&> \case
-                                          (x, e, Nothing) -> quotes (pPrint x) <+> "was expected to be substituted for" <+> quotes (pPrint e) <+> "but it actually wasn't substituted"
-                                          (x, e, Just e') -> quotes (pPrint x) <+> "was expected to be substituted for" <+> quotes (pPrint e) <+> "but it was actually substituted for" <+> pPrint e'
+                                          (x, e, Nothing) -> "expected" <+> ticks (pPrint x <+> ":=" <+> pPrint e) <+> "but actually is wasn't substituted"
+                                          (x, e, Just e') -> "expected" <+> ticks (pPrint x <+> ":=" <+> pPrint e) <+> "but actually" <+> ticks (pPrint x <+> ":=" <+> pPrint e')
                                     ]
       | otherwise -> do
           case result_expected of
@@ -133,7 +145,9 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
       case Config.verbosity of
         Config.LoggingVerbosity l -> do
           putStrLn ""
+          putStrLn "====[ BEGIN logs ]================"
           msgs & traverse_ \msg -> when (msg.level <= l) do putStrLn $ prettyShow msg
+          putStrLn "====[ END   logs ]================"
           putStrLn ""
         _ -> return ()
       assertFailure . render $
