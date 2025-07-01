@@ -49,7 +49,7 @@ tests =
 rules1 :: [Rule]
 rules1 =
   concat
-    [ -- basic rules
+    [ -- core rules
       [ let (a, a', a'_subtype_a, b, b', b_subtype_b') = ("?a", "?a'", "?{a <: a'}", "?b", "?b'", "?{b <: b'}")
          in Rule
               { name = "subArrow",
@@ -87,7 +87,7 @@ rules1 =
                 conc = Valid (a :<: f :@ a') (pure functor_f a_subtype_a')
               }
       ],
-      -- axioms
+      -- datatype rules
       [ Rule
           { name = "subNatOfInt",
             hyps = [],
