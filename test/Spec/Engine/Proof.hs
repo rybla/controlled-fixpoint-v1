@@ -15,7 +15,7 @@ import Spec.Engine.Common
   )
 import Test.Tasty (TestName, TestTree, testGroup)
 import Text.PrettyPrint (Doc, parens, text)
-import Text.PrettyPrint.HughesPJClass (pPrint, prettyShow, render, (<+>))
+import Text.PrettyPrint.HughesPJClass (pPrint, render, (<+>))
 
 tests :: TestTree
 tests =
@@ -34,14 +34,35 @@ tests_NormV1 =
       mkTest_success (1 + 1),
       mkTest_success (0 + 2),
       mkTest_success (2 + 0),
-      mkTest_success (3 + 4)
+      mkTest_success (3 + 4),
+      mkTest_successWithProof 0 pZ,
+      mkTest_successWithProof 1 (pS pZ),
+      mkTest_successWithProof (0 + 0) (pPZ pZ pZ),
+      mkTest_successWithProof (1 + 0) (pPZ (pS pZ) pZ),
+      mkTest_successWithProof (1 + 1) (pPS (pS pZ) (pS pZ) (pPZ (pS pZ) pZ)),
+      mkTest_successWithProof (0 + 2) (pPS pZ (pS (pS pZ)) (pPS pZ (pS pZ) (pPZ pZ pZ))),
+      mkTest_successWithProof (2 + 0) (pPZ (pS (pS pZ)) pZ),
+      mkTest_successWithProof (3 + 4) (pPS (pS (pS (pS pZ))) (pS (pS (pS (pS pZ)))) (pPS (pS (pS (pS pZ))) (pS (pS (pS pZ))) (pPS (pS (pS (pS pZ))) (pS (pS pZ)) (pPS (pS (pS (pS pZ))) (pS pZ) (pPZ (pS (pS (pS pZ))) pZ)))))
     ]
   where
+    pZ = con "Z⇓" []
+    pS a = con "S⇓" [a]
+    pPZ a b = con "+Z⇓" [a, b]
+    pPS a b c = con "+S⇓" [a, b, c]
+
     mkTest_success :: Expr -> TestTree
     mkTest_success x =
       mkTest (render (prettyExpr x <+> "⇓" <+> text (show y))) x $
         EngineSuccessWithSubst
           (Subst $ Map.fromList [("?out", fromIntegral y)])
+      where
+        y = interpret x
+
+    mkTest_successWithProof :: Expr -> Expr -> TestTree
+    mkTest_successWithProof x pf =
+      mkTest (render (prettyExpr x <+> "⇓" <+> text (show y) <+> "via proof")) x $
+        EngineSuccessWithSubst
+          (Subst $ Map.fromList [("?out", fromIntegral y), ("?{in ⇓ out}", pf)])
       where
         y = interpret x
 
@@ -55,34 +76,35 @@ tests_NormV1 =
             delayable = \case
               Valid (VarExpr _ :⇓ VarExpr _) _ -> True
               _ -> False,
-            initialGas = 50
+            initialGas = 100
           }
 
     rules =
       [ -- normal forms
-        let name_ = "{Z ⇓}"
+        let name_ = "Z⇓"
          in Rule
               { name = RuleName name_,
                 hyps = [],
                 conc = Valid (Z :⇓ Z) . ConExpr $ Con (ConName name_) []
               },
-        let name_ = "{S a ⇓}"
+        let name_ = "S⇓"
             (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
          in Rule
               { name = RuleName name_,
                 hyps = [AtomHyp $ Valid (a :⇓ a') pf_a_norm_a'],
-                conc = Valid (S a :⇓ S a') . ConExpr $ Con (ConName name_) [a, a', pf_a_norm_a']
+                conc = Valid (S a :⇓ S a') . ConExpr $ Con (ConName name_) [pf_a_norm_a']
               },
-        let name_ = "{a + Z ⇓}"
-            (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
+        let name_ = "+Z⇓"
+            (a, a', pf_a_norm_a', b, pf_b_norm_Z) = ("?a", "?a'", "?{a ⇓ a'}", "b", "?{b ⇓ Z}")
          in Rule
               { name = RuleName name_,
                 hyps =
-                  [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a'
+                  [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a',
+                    AtomHyp $ Valid (b :⇓ Z) pf_b_norm_Z
                   ],
-                conc = Valid (a + 0 :⇓ a') . ConExpr $ Con (ConName name_) [a, a', pf_a_norm_a']
+                conc = Valid (a + b :⇓ a') . ConExpr $ Con (ConName name_) [pf_a_norm_a', pf_b_norm_Z]
               },
-        let name_ = "{a + S b ⇓}"
+        let name_ = "+S⇓"
             (a, a', pf_a_norm_a', b, b', pf_b_norm_Sb', c, pf_a'_plus_b'_norm_c) = ("?a", "?a'", "?{a ⇓ a'}", "?b", "?b'", "?{b ⇓ S b'}", "?c", "?{a' + b' ⇓ c}")
          in Rule
               { name = RuleName name_,
@@ -91,7 +113,7 @@ tests_NormV1 =
                     AtomHyp $ Valid (b :⇓ S b') pf_b_norm_Sb',
                     AtomHyp $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
                   ],
-                conc = Valid (a + b :⇓ S c) . ConExpr $ Con (ConName name_) [a, a', pf_a_norm_a', b, b', c, pf_b_norm_Sb']
+                conc = Valid (a + b :⇓ S c) . ConExpr $ Con (ConName name_) [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
               }
       ]
 
@@ -99,23 +121,20 @@ interpret :: Expr -> Int
 interpret Z = 0
 interpret (S n) = 1 + interpret n
 interpret (a :+ b) = interpret a + interpret b
+interpret e = error . render $ "interpret" <+> pPrint e
 
 prettyExpr :: Expr -> Doc
 prettyExpr e | Just i <- toInt e = text (show i)
 prettyExpr (S a) = parens ("S" <+> prettyExpr a)
 prettyExpr (a :+ b) = prettyExpr a <+> "+" <+> prettyExpr b
-prettyExpr e = pPrint e
+prettyExpr e = error . render $ "prettyExpr" <+> pPrint e
 
 toInt :: Expr -> Maybe Int
 toInt Z = Just 0
 toInt (S a) = do
   i <- toInt a
   Just (1 + i)
-toInt (a :+ b) = do
-  i <- toInt a
-  j <- toInt b
-  Just (i + j)
-toInt e = error $ render $ "toInt" <+> pPrint e
+toInt _ = Nothing
 
 -- nat
 

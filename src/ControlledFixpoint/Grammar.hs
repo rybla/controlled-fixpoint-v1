@@ -106,6 +106,9 @@ instance Pretty Con where
   pPrint (Con c []) = pPrint c
   pPrint (Con c es) = parens $ pPrint c <+> (es <&> pPrint & punctuate " " & hcat)
 
+con :: ConName -> [Expr] -> Expr
+con c es = ConExpr (Con c es)
+
 -- | Substitution of meta-variables
 newtype Subst = Subst {unSubst :: Map Var Expr}
   deriving (Show, Eq, Generic)
