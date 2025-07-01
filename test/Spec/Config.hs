@@ -12,4 +12,4 @@ data Verbosity
 
 verbosity :: Verbosity
 -- verbosity = NormalVerbosity
-verbosity = LoggingVerbosity (Msg.Level 100)
+verbosity = LoggingVerbosity (Msg.Level 1)

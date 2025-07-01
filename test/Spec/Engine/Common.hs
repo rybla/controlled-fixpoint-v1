@@ -126,13 +126,9 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
       case Config.verbosity of
         Config.LoggingVerbosity l -> do
           putStrLn ""
-          msgs & traverse_ \msg -> when ((msg & Msg.level) <= l) do putStrLn $ prettyShow msg
+          msgs & traverse_ \msg -> when (msg.level <= l) do putStrLn $ prettyShow msg
           putStrLn ""
         _ -> return ()
-      -- when (Config.verbosity >= Config.LoggingVerbosity) do
-      --   putStrLn ""
-      --   msgs & traverse_ (putStrLn . prettyShow)
-      --   putStrLn ""
       assertFailure . render $
         vcat
           [ "expected:" <+> pPrint result_expected,

@@ -8,7 +8,6 @@
 
 module ControlledFixpoint.Grammar where
 
-import Control.Category ((>>>))
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
 import Control.Newtype.Generics (Newtype, over)
@@ -97,7 +96,7 @@ instance IsString Var where fromString s = Var s Nothing
 
 instance Pretty Var where
   pPrint (Var x Nothing) = text x
-  pPrint (Var x (Just i)) = text x <> "#" <> pPrint i
+  pPrint (Var x (Just i)) = text x <> text (i & subscriptNumber)
 
 -- | Constructor expression
 data Con = Con ConName [Expr]

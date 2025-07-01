@@ -16,7 +16,7 @@ import Control.Monad.State (StateT (runStateT), gets, modify, runState)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import qualified ControlledFixpoint.Common as Common
-import ControlledFixpoint.Common.Msg as Msg (Msg (..), mk)
+import ControlledFixpoint.Common.Msg as Msg (Level (Level), Msg (..), mk)
 import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
@@ -65,7 +65,7 @@ data Ctx = Ctx
 instance Pretty Ctx where
   pPrint ctx =
     hang "engine context:" 2 . bullets $
-      [ hang "rules = " 2 . bullets $
+      [ hang "rules =" 2 . bullets $
           ctx.config.rules <&> pPrint
       ]
 
@@ -158,7 +158,7 @@ loop = do
   -- update gas
   do
     env <- get
-    tellT $ Msg.mk ("gas = " <> pPrint env.gas)
+    tellT $ Msg.mk ("gas =" <+> pPrint env.gas)
     -- check gas
     when (env.gas <= 0) do
       throwError $ Msg.mk "Out of gas"
@@ -196,14 +196,14 @@ loop = do
                   modify \env' -> env' {freshCounter = env_freshening'.freshCounter}
                   return rule'
 
-                tellT $ Msg.mk ("attempting to use rule" <+> pPrint rule.name)
-
                 tellT $
                   (Msg.mk "attempting to unify goal with rule's conclusion")
                     { Msg.contents =
-                        [ "goal      =" <+> pPrint goal,
+                        [ "rule      =" <+> pPrint rule.name,
+                          "goal      =" <+> pPrint goal,
                           "rule.conc =" <+> pPrint rule.conc
-                        ]
+                        ],
+                      level = Msg.Level 2
                     }
                 (err_or_goal', env_uni') <-
                   lift . lift . lift . lift . lift $
@@ -224,18 +224,24 @@ loop = do
                     tellT $
                       (Msg.mk "failed to unify goal with rule's conclusion")
                         { Msg.contents =
-                            [ "err       =" <+> pPrint err,
-                              "sigma_uni =" <+> pPrint env_uni'.sigma
-                            ]
+                            [ "rule      =" <+> pPrint rule.name,
+                              "err       =" <+> pPrint err,
+                              "sigma_uni =" <+> pPrint env_uni'.sigma,
+                              "goal      =" <+> pPrint goal
+                            ],
+                          level = Msg.Level 2
                         }
                     return []
                   Right goal' -> do
                     tellT $
                       (Msg.mk "successfully unified goal with rule's conclusion")
                         { Msg.contents =
-                            [ "sigma_uni =" <+> pPrint env_uni'.sigma,
+                            [ "rule      =" <+> pPrint rule.name,
+                              "sigma_uni =" <+> pPrint env_uni'.sigma,
+                              "goal      =" <+> pPrint goal,
                               "goal'     =" <+> pPrint goal'
-                            ]
+                            ],
+                          level = Msg.Level 1
                         }
 
                     -- process the rule's hypotheses
@@ -250,6 +256,7 @@ loop = do
             then do
               -- if no results for unifying the goal with rule conclusions, then
               -- this goal is unsolvable
+              tellT $ (Msg.mk "goal is unsolvable") {Msg.contents = ["goal =" <+> pPrint goal]}
               modify \env' -> env' {failedGoals = goal : env'.failedGoals}
             else do
               -- if there are some results for unifying the goal with rule
@@ -260,15 +267,12 @@ loop = do
               (rule, sigma_uni, subgoals) <- choose results
 
               unless (null subgoals) do
-                tellT $ (Msg.mk "new subgoals") {Msg.contents = subgoals <&> pPrint}
+                tellT $
+                  (Msg.mk "new subgoals")
+                    { Msg.contents = subgoals <&> pPrint,
+                      Msg.level = Msg.Level 1
+                    }
               modify \env' -> env' {activeGoals = env'.activeGoals <> subgoals}
-
-              tellT $
-                (Msg.mk "applying unifying substitution to environment")
-                  { Msg.contents =
-                      [ "sigma_uni =" <+> pPrint sigma_uni
-                      ]
-                  }
 
               delayedGoals_old <- gets delayedGoals
 

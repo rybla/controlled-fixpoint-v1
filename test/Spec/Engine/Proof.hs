@@ -49,7 +49,10 @@ tests_ex1 =
       mkTest_Engine
         (prettyShow $ a :== b)
         Engine.Config
-          { goals = [Valid (a :== b) "{a == b}", Valid (Norm b) "{Norm b}"],
+          { goals =
+              [ Valid (a :== b) "?{a == b}",
+                Valid (Norm b) "{Norm b}"
+              ],
             rules = rules_ex1,
             delayable = const False,
             initialGas = 100
@@ -63,10 +66,11 @@ tests_ex1 =
       mkTest_Engine
         testName
         Engine.Config
-          { goals = [Valid (Norm input) "{Norm input}"],
+          { goals = [Valid (Norm input) "?{Norm input}"],
             rules = rules_ex1,
             delayable = \case
               Valid (VarExpr _ :== VarExpr _) _ -> True
+              Valid (Norm (VarExpr _)) _ -> True
               _ -> False,
             initialGas = 20
           }
@@ -74,62 +78,19 @@ tests_ex1 =
     rules_ex1 =
       [ -- compute Add
         let name_ = "{a + Z == Z}"
+            a = "?a"
          in Rule
               { name = RuleName name_,
                 hyps = [],
-                conc =
-                  Valid ("a" + Z :== Z) $
-                    ConExpr $
-                      Con
-                        (ConName name_)
-                        ["a"]
+                conc = Valid (a + Z :== Z) $ ConExpr $ Con (ConName name_) [a]
               },
         let name_ = "{a + S b == S (a + b)}"
+            (a, b) = ("?a", "?b")
          in Rule
               { name = RuleName name_,
                 hyps = [],
-                conc =
-                  Valid ("a" + S "b" :== S ("a" + "b")) $
-                    ConExpr $
-                      Con
-                        (ConName name_)
-                        ["a", "b"]
+                conc = Valid (a + S b :== S (a + b)) $ ConExpr $ Con (ConName name_) [a, b]
               },
-        -- -- compute Mul
-        -- let name_ = "{a * Z == Z}"
-        --  in Rule
-        --       { name = RuleName name_,
-        --         hyps = [],
-        --         conc =
-        --           Valid ("a" * Z :== Z) $
-        --             ConExpr $
-        --               Con
-        --                 (ConName name_)
-        --                 ["a"]
-        --       },
-        -- let name_ = "{a * (S b) == a + (a * b)}"
-        --  in Rule
-        --       { name = RuleName name_,
-        --         hyps = [],
-        --         conc =
-        --           Valid ("a" * S "b" :== "a" + ("a" * "b")) $
-        --             ConExpr $
-        --               Con
-        --                 (ConName name_)
-        --                 ["a", "b"]
-        --       },
-        -- -- Distributivity
-        -- let name_ = "{a * (b + c) == (a * b) + (a * c)}"
-        --  in Rule
-        --       { name = RuleName name_,
-        --         hyps = [],
-        --         conc =
-        --           Valid ("a" * ("b" + "c") :== ("a" * "b") + ("a" * "c")) $
-        --             ConExpr $
-        --               Con
-        --                 (ConName name_)
-        --                 ["a", "b", "c"]
-        --       },
         -- congruences
         let name_ = "{Z == Z}"
          in Rule
@@ -138,82 +99,50 @@ tests_ex1 =
                 conc = Valid (Z :== Z) . ConExpr $ Con (ConName name_) []
               },
         let name_ = "{a == a' |- S a == S a'}"
+            (a, a', pf_a_eq_a') = ("?a", "?a'", "?{a == a'}")
          in Rule
               { name = RuleName name_,
-                hyps = [AtomHyp $ Valid ("a" :== "a'") "{a == a'}"],
+                hyps = [AtomHyp $ Valid (a :== a') pf_a_eq_a'],
                 conc =
-                  Valid (S "a" :== S "a'") $
+                  Valid (S a :== S a') $
                     ConExpr $
                       Con
                         (ConName name_)
-                        ["a", "a'", "{a == a'}"]
+                        [a, a', pf_a_eq_a']
               },
         let name_ = "{a == a', Norm a |- Norm a'}"
+            (a, a', pf_Norm_a, pf_a_eq_a') = ("?a", "?a'", "?{Norm a}", "?{a == a'}")
          in Rule
               { name = RuleName name_,
                 hyps =
-                  [ AtomHyp $ Valid (Norm "a") "{Norm a}",
-                    AtomHyp $ Valid ("a" :== "a'") "{a == a'}"
+                  [ AtomHyp $ Valid (Norm a) pf_Norm_a,
+                    AtomHyp $ Valid (a :== a') pf_a_eq_a'
                   ],
-                conc =
-                  Valid (Norm "a'") $
-                    ConExpr $
-                      Con
-                        (ConName name_)
-                        ["a", "a'", "{a == a'}"]
+                conc = Valid (Norm a') $ ConExpr $ Con (ConName name_) [a, a', pf_a_eq_a']
               },
         let name_ = "{a == a', b == b' |- a + b == a + b'}"
+            (a, a', pf_a_eq_a', b, b', b_eq_b') = ("?a", "?a'", "?{a == a'}", "?b", "?b'", "?{b == b'}")
          in Rule
               { name = RuleName name_,
                 hyps =
-                  [ AtomHyp $ Valid ("a" :== "a'") "{a == a'}",
-                    AtomHyp $ Valid ("b" :== "b'") "{b == b'}"
+                  [ AtomHyp $ Valid (a :== a') pf_a_eq_a',
+                    AtomHyp $ Valid (b :== b') b_eq_b'
                   ],
-                conc =
-                  Valid ("a" + "b" :== "a" + "b'") . ConExpr $
-                    Con (ConName name_) ["a", "a'", "b", "b'", "{a == a'}", "{b == b'}"]
+                conc = Valid (a + b :== a + b') . ConExpr $ Con (ConName name_) [a, a', b, b', pf_a_eq_a', b_eq_b']
               },
-        -- let name_ = "{a == a', b == b' |- a * b == a * b'}"
-        --  in Rule
-        --       { name = RuleName name_,
-        --         hyps =
-        --           [ AtomHyp $ Valid ("a" :== "a'") "{a == a'}",
-        --             AtomHyp $ Valid ("b" :== "b'") "{b == b'}"
-        --           ],
-        --         conc =
-        --           Valid ("a" * "b" :== "a" * "b'") . ConExpr $
-        --             Con (ConName name_) ["a", "a'", "b", "b'", "{a == a'}", "{b == b'}"]
-        --       },
-        -- -- Transivity
-        -- let name_ = "{a == b, b == c |- a == c}"
-        --  in Rule
-        --       { name = RuleName name_,
-        --         hyps =
-        --           [ AtomHyp $ Valid ("a" :== "b") "{a == b}",
-        --             AtomHyp $ Valid ("b" :== "c") "{b == c}"
-        --           ],
-        --         conc =
-        --           Valid ("a" :== "c") . ConExpr $
-        --             Con (ConName name_) ["a", "b", "c", "{a == b}", "{b == c}"]
-        --       }
         -- normal forms
         let name_ = "{Norm Z}"
          in Rule
               { name = RuleName name_,
                 hyps = [],
-                conc =
-                  Valid (Norm Z) . ConExpr $
-                    Con (ConName name_) []
+                conc = Valid (Norm Z) . ConExpr $ Con (ConName name_) []
               },
         let name_ = "{Norm (S a)}"
+            (a, pf_Norm_a) = ("?a", "?{Norm a}")
          in Rule
               { name = RuleName name_,
-                hyps =
-                  [ AtomHyp $ Valid (Norm "a") "{Norm a}"
-                  ],
-                conc =
-                  Valid (Norm (S "a")) . ConExpr $
-                    Con (ConName name_) ["a", "Norm a"]
+                hyps = [AtomHyp $ Valid (Norm a) pf_Norm_a],
+                conc = Valid (Norm (S a)) . ConExpr $ Con (ConName name_) [a, pf_Norm_a]
               }
       ]
 
