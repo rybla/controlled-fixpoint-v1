@@ -31,6 +31,6 @@ addContent :: Doc -> Msg -> Msg
 addContent content msg = msg {contents = msg.contents <> [content]}
 
 newtype Level = Level Int
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 instance Pretty Level where pPrint (Level l) = pPrint l

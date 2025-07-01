@@ -8,6 +8,7 @@ module Spec.Engine.Common where
 import Control.Monad (when)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
+import qualified ControlledFixpoint.Common.Msg as Msg
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar (Subst (unSubst))
 import Data.Foldable (traverse_)
@@ -17,7 +18,7 @@ import qualified Data.Set as Set
 import qualified Spec.Config as Config
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
-import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
+import Text.PrettyPrint (Doc, brackets, hang, quotes, render, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 import Utility (bullets, (&))
 
@@ -110,8 +111,8 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
                                     [ hang "env:" 2 $ pPrint env,
                                       hang "mismatches:" 2 . bullets $
                                         mismatches <&> \case
-                                          (x, e, Nothing) -> pPrint x <+> "was expected to be substituted for" <+> pPrint e <+> "but it actually wasn't substituted"
-                                          (x, e, Just e') -> pPrint x <+> "was expected to be substituted for" <+> pPrint e <+> "but it was actually substituted for" <+> pPrint e'
+                                          (x, e, Nothing) -> quotes (pPrint x) <+> "was expected to be substituted for" <+> quotes (pPrint e) <+> "but it actually wasn't substituted"
+                                          (x, e, Just e') -> quotes (pPrint x) <+> "was expected to be substituted for" <+> quotes (pPrint e) <+> "but it was actually substituted for" <+> pPrint e'
                                     ]
             _ -> return Nothing
       | otherwise -> do
@@ -122,10 +123,16 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
   case mb_err of
     Nothing -> return ()
     Just err -> do
-      when (Config.verbosity >= Config.LoggingVerbosity) do
-        putStrLn ""
-        msgs & traverse_ (putStrLn . prettyShow)
-        putStrLn ""
+      case Config.verbosity of
+        Config.LoggingVerbosity l -> do
+          putStrLn ""
+          msgs & traverse_ \msg -> when ((msg & Msg.level) <= l) do putStrLn $ prettyShow msg
+          putStrLn ""
+        _ -> return ()
+      -- when (Config.verbosity >= Config.LoggingVerbosity) do
+      --   putStrLn ""
+      --   msgs & traverse_ (putStrLn . prettyShow)
+      --   putStrLn ""
       assertFailure . render $
         vcat
           [ "expected:" <+> pPrint result_expected,

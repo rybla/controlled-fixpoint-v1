@@ -2,13 +2,14 @@
 
 module Spec.Config where
 
+import qualified ControlledFixpoint.Common.Msg as Msg
+
 data Verbosity
   = SilentVerbosity
   | NormalVerbosity
-  | LoggingVerbosity
-  deriving (Show, Eq, Ord, Enum)
+  | LoggingVerbosity Msg.Level
+  deriving (Show, Eq, Ord)
 
 verbosity :: Verbosity
--- verbosity = LoggingVerbosity
-
-verbosity = NormalVerbosity
+-- verbosity = NormalVerbosity
+verbosity = LoggingVerbosity (Msg.Level 100)

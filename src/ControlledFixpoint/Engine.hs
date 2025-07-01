@@ -163,7 +163,7 @@ loop = do
     when (env.gas <= 0) do
       throwError $ Msg.mk "Out of gas"
     -- update gas
-    modify \env' -> env' {gas = env.gas - length env.activeGoals}
+    modify \env' -> env' {gas = env.gas - 1}
 
   do
     ags <- gets activeGoals
