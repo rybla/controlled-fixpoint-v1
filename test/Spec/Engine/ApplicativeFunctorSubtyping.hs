@@ -2,55 +2,167 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use ++" #-}
 
 module Spec.Engine.ApplicativeFunctorSubtyping (tests) where
 
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
-import Data.Function ((&))
 import qualified Data.Map as Map
 import Spec.Engine.Common
   ( EngineResult (..),
     mkTest_Engine,
   )
-import Test.Tasty (TestName, TestTree, testGroup)
-import Test.Tasty.HUnit (testCase)
-import Text.PrettyPrint (Doc, parens, text)
-import Text.PrettyPrint.HughesPJClass (pPrint, render, (<+>))
+import Test.Tasty (TestTree, testGroup)
+import Text.PrettyPrint (Doc, parens, render, (<+>))
+import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
+import Prelude hiding (fmap, pure)
 
 tests :: TestTree
 tests =
   testGroup
     "ApplicativeFunctorSubtyping"
-    [ testCase "test#1" (return ()),
-      testCase "simple" (return ())
+    [ mkTest (Int :-> Bool) (List :@ Int :-> List :@ Bool) (fmap functorList (subArrow subInt subBool)),
+      mkTest (Int :-> Bool) (List :@ Nat :-> List :@ Bool) (fmap functorList (subArrow subNatOfInt subBool)),
+      mkTest Bool (List :@ Bool) (pure functorList subBool),
+      mkTest Bool (List :@ (List :@ (List :@ (List :@ (List :@ Bool))))) (pure functorList (pure functorList (pure functorList (pure functorList (pure functorList subBool)))))
+    ]
+  where
+    mkTest s t pf' =
+      let pf = "?{s <: t}" :: Var
+       in mkTest_Engine
+            (render $ prettyExpr (s :<: t))
+            ( Config
+                { goals = [Valid (s :<: t) (VarExpr pf)],
+                  rules = rules1,
+                  initialGas = 100,
+                  delayable = \case
+                    Valid (Functor (VarExpr _)) _ -> True
+                    Valid (VarExpr _ :<: VarExpr _) _ -> True
+                    _ -> False
+                }
+            )
+            (EngineSuccessWithSubst $ Subst $ Map.fromList [(pf, pf')])
+
+rules1 :: [Rule]
+rules1 =
+  concat
+    [ -- basic rules
+      [ let (a, a', a'_subtype_a, b, b', b_subtype_b') = ("?a", "?a'", "?{a <: a'}", "?b", "?b'", "?{b <: b'}")
+         in Rule
+              { name = "subArrow",
+                hyps =
+                  [ AtomHyp $ Valid (a' :<: a) a'_subtype_a,
+                    AtomHyp $ Valid (b :<: b') b_subtype_b'
+                  ],
+                conc = Valid ((a :-> b) :<: (a' :-> b')) (subArrow a'_subtype_a b_subtype_b')
+              },
+        let (f, functor_f, a, a', a_subtype_a') = ("?f", "?{Functor f}", "?a", "?a'", "?{a <: a'}")
+         in Rule
+              { name = "subFunctor",
+                hyps =
+                  [ AtomHyp $ Valid (Functor f) functor_f,
+                    AtomHyp $ Valid (a :<: a') a_subtype_a'
+                  ],
+                conc = Valid (f :@ a :<: f :@ a') (subFunctor functor_f a_subtype_a')
+              },
+        let (f, functor_f, a, a', b, b', a_arrow_a'_subtype_b_arrow_b') = ("?f", "?{Functor f}", "?a", "?a'", "?b", "?b'", "?{a -> a' <: b -> b'}")
+         in Rule
+              { name = "fmap",
+                hyps =
+                  [ AtomHyp $ Valid (Functor f) functor_f,
+                    AtomHyp $ Valid (a :-> b :<: a' :-> b') a_arrow_a'_subtype_b_arrow_b'
+                  ],
+                conc = Valid (a :-> b :<: f :@ a' :-> f :@ b') (fmap functor_f a_arrow_a'_subtype_b_arrow_b')
+              },
+        let (f, functor_f, a, a', a_subtype_a') = ("?f", "?{Functor f}", "?a", "?a'", "?{a <: a'}")
+         in Rule
+              { name = "pure",
+                hyps =
+                  [ AtomHyp $ Valid (Functor f) functor_f,
+                    AtomHyp $ Valid (a :<: a') a_subtype_a'
+                  ],
+                conc = Valid (a :<: f :@ a') (pure functor_f a_subtype_a')
+              }
+      ],
+      -- axioms
+      [ Rule
+          { name = "subNatOfInt",
+            hyps = [],
+            conc = Valid (Nat :<: Int) subNatOfInt
+          },
+        Rule
+          { name = "functorList",
+            hyps = [],
+            conc = Valid (Functor List) functorList
+          },
+        Rule
+          { name = "subBool",
+            hyps = [],
+            conc = Valid (Bool :<: Bool) subBool
+          },
+        Rule
+          { name = "subInt",
+            hyps = [],
+            conc = Valid (Int :<: Int) subInt
+          },
+        Rule
+          { name = "subNat",
+            hyps = [],
+            conc = Valid (Nat :<: Nat) subNat
+          }
+      ]
     ]
 
-rules :: [Rule]
-rules =
-  [ Rule
-      { name = "fun-sub"
-      },
-    Rule
-      { name = "fmap"
-      },
-    Rule
-      { name = "pure"
-      },
-    Rule
-      { name = "func",
-        hyps = [],
-        conc = Valid _ _
-      }
-  ]
+subArrow :: Expr -> Expr -> Expr
+subArrow a'_subtype_a b_subtype_b' = con "subArrow" [a'_subtype_a, b_subtype_b']
+
+subFunctor :: Expr -> Expr -> Expr
+subFunctor functor_f a_subtype_a' = con "subFunctor" [functor_f, a_subtype_a']
+
+fmap :: Expr -> Expr -> Expr
+fmap functor_f a_arrow_a'_subtype_b_arrow_b' = con "fmap" [functor_f, a_arrow_a'_subtype_b_arrow_b']
+
+pure :: Expr -> Expr -> Expr
+pure functor_f a_subtype_a' = con "pure" [functor_f, a_subtype_a']
+
+subNatOfInt :: Expr
+subNatOfInt = con "subNatOfInt" []
+
+functorList :: Expr
+functorList = con "functorList" []
+
+subBool :: Expr
+subBool = con "subBool" []
+
+subInt :: Expr
+subInt = con "subInt" []
+
+subNat :: Expr
+subNat = con "subNat" []
+
+prettyExpr :: Expr -> Doc
+prettyExpr (s :<: t) = prettyExpr s <+> "<:" <+> prettyExpr t
+prettyExpr (Functor f) = "Functor" <+> prettyExpr f
+prettyExpr (s :-> t) = parens (prettyExpr s <+> "->" <+> prettyExpr t)
+prettyExpr (f :@ t) = parens (prettyExpr f <+> prettyExpr t)
+prettyExpr List = "List"
+prettyExpr Bool = "Bool"
+prettyExpr Nat = "Nat"
+prettyExpr Int = "Int"
+prettyExpr e = pPrint e
 
 -- definitions
+
+pattern Valid :: Expr -> Expr -> Atom
+pattern Valid st pf = Atom "Valid" (Tuple [st, pf])
 
 pattern Tuple :: [Expr] -> Expr
 pattern Tuple es = ConExpr (Con "Tuple" es)
 
-pattern Valid :: Expr -> Expr -> Atom
-pattern Valid st pf = Atom "Valid" (Tuple [st, pf])
+-- relations
 
 pattern (:<:) :: Expr -> Expr -> Expr
 pattern (:<:) s t = ConExpr (Con "Subtype" [s, t])
@@ -58,19 +170,28 @@ pattern (:<:) s t = ConExpr (Con "Subtype" [s, t])
 infix 4 :<:
 
 pattern Functor :: Expr -> Expr
-pattern Functor e = ConExpr (Con "Functor" [e])
+pattern Functor f = ConExpr (Con "Functor" [f])
+
+-- expressions
 
 pattern (:->) :: Expr -> Expr -> Expr
 pattern a :-> b = ConExpr (Con "Arrow" [a, b])
 
-pattern List :: Expr -> Expr
-pattern List a = ConExpr (Con "List" [a])
+infixr 5 :->
+
+pattern (:@) :: Expr -> Expr -> Expr
+pattern f :@ a = ConExpr (Con "App" [f, a])
+
+infixl 6 :@
+
+pattern List :: Expr
+pattern List = ConExpr (Con "List" [])
 
 pattern Bool :: Expr
 pattern Bool = ConExpr (Con "Bool" [])
 
+pattern Nat :: Expr
+pattern Nat = ConExpr (Con "Nat" [])
+
 pattern Int :: Expr
 pattern Int = ConExpr (Con "Int" [])
-
-pattern Real :: Expr
-pattern Real = ConExpr (Con "Real" [])
