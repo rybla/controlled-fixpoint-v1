@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.Subtyping (tests) where
@@ -39,9 +40,9 @@ mkTest a b =
         { initialGas = FiniteGas 50,
           strategy = DepthFirstStrategy,
           rules = rulesSubtyping,
-          goals = [a `subtype` b],
+          goals = [a :<: b],
           delayable = \case
-            Atom "atom" (ConExpr (Con "subtype" [VarExpr _, VarExpr _])) -> True
+            VarExpr _ :<: VarExpr _ -> True
             _ -> False
         }
     )
@@ -51,30 +52,30 @@ rulesSubtyping =
   [ Rule
       { name = "bool <: bool",
         hyps = [],
-        conc = bool `subtype` bool
+        conc = bool :<: bool
       },
     Rule
       { name = "int <: int",
         hyps = [],
-        conc = int `subtype` int
+        conc = int :<: int
       },
     Rule
       { name = "nat <: nat",
         hyps = [],
-        conc = nat `subtype` nat
+        conc = nat :<: nat
       },
     Rule
       { name = "nat <: int",
         hyps = [],
-        conc = nat `subtype` int
+        conc = nat :<: int
       },
     Rule
       { name = "a' <: a , b <: b'  ⊢  a → b <: a' → b'",
         hyps =
-          [ AtomHyp $ a' `subtype` a,
-            AtomHyp $ b `subtype` b'
+          [ AtomHyp $ a' :<: a,
+            AtomHyp $ b :<: b'
           ],
-        conc = (a `arr` b) `subtype` (a' `arr` b')
+        conc = (a `arr` b) :<: (a' `arr` b')
       }
   ]
   where
@@ -82,8 +83,8 @@ rulesSubtyping =
 
 -- atoms
 
-subtype :: Expr -> Expr -> Atom
-subtype a b = Atom "atom" $ ConExpr (Con "subtype" [a, b])
+pattern (:<:) :: Expr -> Expr -> Atom
+pattern (:<:) s t = Atom "Subtype" [s, t]
 
 -- expressions
 

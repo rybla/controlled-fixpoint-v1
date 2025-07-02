@@ -39,6 +39,7 @@ dependencies:
   - list-t
   - pretty
   - newtype-generics
+  - lens
 
 ghc-options:
   - -Wall
@@ -64,6 +65,8 @@ executables:
       - -with-rtsopts=-N
     dependencies:
       - controlled-fixpoint-v1
+      - filepath
+      - parseargs
 
 tests:
   controlled-fixpoint-v1-test:
@@ -75,5 +78,7 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - controlled-fixpoint-v1
+      - filepath
       - tasty
       - tasty-hunit
+      - tasty-golden

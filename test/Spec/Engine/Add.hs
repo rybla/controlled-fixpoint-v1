@@ -54,14 +54,8 @@ rulesAdd =
   where
     (x, z, y) = ("x", "y", "z")
 
-pattern Valid :: Expr -> Atom
-pattern Valid x = Atom "Valid" (Tuple [x])
-
-pattern Tuple :: [Expr] -> Expr
-pattern Tuple xs = ConExpr (Con "Tuple" xs)
-
 pattern (:==) :: Expr -> Expr -> Atom
-pattern x :== y = Valid (ConExpr (Con "Equal" [x, y]))
+pattern x :== y = Atom "Equal" [x, y]
 
 infix 4 :==
 

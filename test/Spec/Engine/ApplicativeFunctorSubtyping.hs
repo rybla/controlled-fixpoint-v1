@@ -183,13 +183,10 @@ prettyExpr Nat = "Nat"
 prettyExpr Int = "Int"
 prettyExpr e = pPrint e
 
--- definitions
+-- atoms
 
 pattern Valid :: Expr -> Expr -> Atom
-pattern Valid st pf = Atom "Valid" (Tuple [st, pf])
-
-pattern Tuple :: [Expr] -> Expr
-pattern Tuple es = ConExpr (Con "Tuple" es)
+pattern Valid st pf = Atom "Valid" [st, pf]
 
 -- relations
 

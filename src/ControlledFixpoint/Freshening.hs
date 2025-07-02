@@ -28,7 +28,7 @@ freshenHyp :: Hyp -> M Hyp
 freshenHyp (AtomHyp r) = AtomHyp <$> (r & freshenAtom)
 
 freshenAtom :: Atom -> M Atom
-freshenAtom (Atom a e) = Atom a <$> (e & freshenExpr)
+freshenAtom (Atom a es) = Atom a <$> (es <&>>= freshenExpr)
 
 freshenExpr :: Expr -> M Expr
 freshenExpr (VarExpr x) = freshenVar x

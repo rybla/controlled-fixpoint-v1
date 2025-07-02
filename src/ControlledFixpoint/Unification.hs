@@ -7,6 +7,7 @@ module ControlledFixpoint.Unification where
 import Control.Monad (when, zipWithM)
 import Control.Monad.Except (ExceptT, MonadError (throwError))
 import Control.Monad.State (StateT, get, gets, modify)
+import Control.Monad.Trans (lift)
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
@@ -25,6 +26,9 @@ type T m =
     ( (StateT Env)
         (Common.T m)
     )
+
+liftT :: (Monad m) => Common.T m a -> T m a
+liftT = lift . lift
 
 newtype Env = Env
   { sigma :: Subst
@@ -69,10 +73,12 @@ setVarM x e = do
 --------------------------------------------------------------------------------
 
 unifyAtom :: (Monad m) => Atom -> Atom -> T m Atom
-unifyAtom (Atom a1 e1) (Atom a2 e2) = do
-  when (a1 /= a2) do throwError $ AtomsError (Atom a1 e1) (Atom a2 e2)
-  e <- unifyExpr e1 e2 >>= normExpr
-  pure (Atom a1 e)
+unifyAtom a1@(Atom c1 es1) a2@(Atom c2 es2) = do
+  when (c1 /= c2) do throwError $ AtomsError a1 a2
+  when ((es1 & length) /= (es2 & length)) do throwError $ AtomsError a1 a2
+  let n = c1
+  es <- zipWithM unifyExpr es1 es2
+  pure (Atom n es)
 
 unifyExpr :: (Monad m) => Expr -> Expr -> T m Expr
 unifyExpr (VarExpr x1) e2 = do
@@ -83,6 +89,7 @@ unifyExpr e1 (VarExpr x2) = do
   return e1
 unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
   when (c1 /= c2) do throwError $ ExprsError e1 e2
+  when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
   let c = c1
   es <- zipWithM unifyExpr es1 es2
   pure (ConExpr (Con c es))

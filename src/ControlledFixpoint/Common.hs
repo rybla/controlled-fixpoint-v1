@@ -3,6 +3,7 @@
 module ControlledFixpoint.Common where
 
 import Control.Monad.Except (ExceptT)
+import Control.Monad.Trans (lift)
 import Control.Monad.Writer (WriterT)
 import ControlledFixpoint.Common.Msg (Msg)
 
@@ -11,3 +12,6 @@ type T m =
     ( (WriterT [Msg])
         m
     )
+
+liftT :: (Monad m) => m a -> T m a
+liftT = lift . lift

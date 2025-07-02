@@ -159,11 +159,8 @@ instance Num Expr where
 
 -- definitions
 
-pattern Tuple :: [Expr] -> Expr
-pattern Tuple es = ConExpr (Con "Tuple" es)
-
 pattern Valid :: Expr -> Expr -> Atom
-pattern Valid st pf = Atom "Valid" (Tuple [st, pf])
+pattern Valid st pf = Atom "Valid" [st, pf]
 
 pattern (:⇓) :: Expr -> Expr -> Expr
 pattern (:⇓) a b = ConExpr (Con "Norm" [a, b])

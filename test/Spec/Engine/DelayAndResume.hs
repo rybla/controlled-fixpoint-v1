@@ -105,14 +105,17 @@ unrolling_tests =
           }
       ]
 
+pattern Valid :: Expr -> Atom
+pattern Valid st = Atom "Valid" [st]
+
 pattern (:~) :: Expr -> Expr -> Atom
-pattern x :~ y = Atom "Valid" (ConExpr (Con "Rel" [x, y]))
+pattern x :~ y = Valid (ConExpr (Con "Rel" [x, y]))
 
 pattern P :: Expr -> Expr -> Atom
-pattern P x y = Atom "Valid" (ConExpr (Con "P" [x, y]))
+pattern P x y = Valid (ConExpr (Con "P" [x, y]))
 
 pattern Q :: Expr -> Expr -> Atom
-pattern Q x y = Atom "Valid" (ConExpr (Con "Q" [x, y]))
+pattern Q x y = Valid (ConExpr (Con "Q" [x, y]))
 
 pattern A :: Expr
 pattern A = ConExpr (Con "A" [])

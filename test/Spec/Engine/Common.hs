@@ -16,12 +16,17 @@ import Data.Foldable (traverse_)
 import Data.Functor ((<&>))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Spec.Common as Common
 import qualified Spec.Config as Config
+import System.FilePath ((</>))
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
 import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 import Utility (bullets, ticks, (&))
+
+goldenDirpath :: FilePath
+goldenDirpath = Common.goldenDirpath </> "Engine"
 
 -- |
 -- A `EngineResult` has some optional associated metadata about how the run

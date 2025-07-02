@@ -63,14 +63,11 @@ instance Pretty Hyp where
 --------------------------------------------------------------------------------
 
 -- | An 'Atom' is an atomic formula.
-data Atom = Atom
-  { name :: AtomName,
-    arg :: Expr
-  }
+data Atom = Atom AtomName [Expr]
   deriving (Show, Eq, Ord)
 
 instance Pretty Atom where
-  pPrint atom = pPrint atom.name <+> (atom.arg & pPrint)
+  pPrint (Atom c es) = pPrint c <+> (es <&> pPrint & hsep)
 
 --------------------------------------------------------------------------------
 -- Expr
@@ -157,7 +154,7 @@ instance Pretty ConName where pPrint (ConName x) = text x
 --------------------------------------------------------------------------------
 
 varsAtom :: Atom -> Set Var
-varsAtom (Atom _ e) = e & varsExpr
+varsAtom (Atom _ es) = es <&> varsExpr & Set.unions
 
 varsExpr :: Expr -> Set Var
 varsExpr (VarExpr x) = Set.singleton x
@@ -182,11 +179,7 @@ substHyp :: Subst -> Hyp -> Hyp
 substHyp sigma (AtomHyp atom) = AtomHyp (substAtom sigma atom)
 
 substAtom :: Subst -> Atom -> Atom
-substAtom sigma r =
-  Atom
-    { name = r.name,
-      arg = r.arg & substExpr sigma
-    }
+substAtom sigma (Atom c es) = Atom c (es <&> substExpr sigma)
 
 substExpr :: Subst -> Expr -> Expr
 substExpr (Subst m) (VarExpr x) = case m Map.!? x of
