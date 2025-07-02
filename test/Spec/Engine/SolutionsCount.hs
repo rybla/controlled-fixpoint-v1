@@ -29,7 +29,7 @@ tests =
                       conc = Atom "P" [ConExpr (Con "2" [])]
                     }
                 ],
-              delayable = const False,
+              shouldSuspend = const False,
               goals = [Atom "P" ["x"]]
             }
         )

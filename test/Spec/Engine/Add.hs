@@ -32,7 +32,7 @@ mkTest a b c =
           strategy = DepthFirstStrategy,
           rules = rulesAdd,
           goals = [fromIntegral a :+ fromIntegral b :== fromIntegral c],
-          delayable = const False
+          shouldSuspend = const False
         }
     )
 

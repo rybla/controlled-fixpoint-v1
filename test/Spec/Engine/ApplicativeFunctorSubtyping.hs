@@ -52,12 +52,12 @@ tests_v1 =
       let pf = "?{s <: t}"
        in mkTest_Engine
             (render $ prettyExpr (s :<: t))
-            ( Config
+            ( Engine.Config
                 { goals = [Valid (s :<: t) (VarExpr pf)],
                   rules = rules_v1,
                   initialGas = FiniteGas 50,
                   strategy = DepthFirstStrategy,
-                  delayable = \case
+                  shouldSuspend = \case
                     Valid (Functor (VarExpr _)) _ -> True
                     Valid (VarExpr _ :<: VarExpr _) _ -> True
                     _ -> False

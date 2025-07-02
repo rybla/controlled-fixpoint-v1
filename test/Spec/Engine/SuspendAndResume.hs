@@ -2,7 +2,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Spec.Engine.DelayAndResume (tests) where
+module Spec.Engine.SuspendAndResume (tests) where
 
 import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
@@ -12,9 +12,9 @@ import Test.Tasty (TestTree, testGroup)
 tests :: TestTree
 tests =
   testGroup
-    "DelayAndResume"
+    "SuspendAndResume"
     [ mkTest_Engine
-        "simple delay"
+        "simple suspend"
         Engine.Config
           { initialGas = FiniteGas 50,
             strategy = DepthFirstStrategy,
@@ -30,7 +30,7 @@ tests =
                     conc = B :~ A
                   }
               ],
-            delayable = \case
+            shouldSuspend = \case
               VarExpr _ :~ VarExpr _ -> True
               _ -> False,
             goals = ["y" :~ "x", A :~ "y", "x" :~ B]
@@ -48,7 +48,7 @@ tests =
                     conc = A :~ "x"
                   }
               ],
-            delayable = const False,
+            shouldSuspend = const False,
             goals = [A :~ B]
           }
         (EngineError OutOfGas),
@@ -63,7 +63,7 @@ unrolling_tests =
         "avoid nonterminating branch"
         cfg
           { goals = [P "x" "y", Q "y" B],
-            delayable = \case
+            shouldSuspend = \case
               P (VarExpr _) (VarExpr _) -> True
               _ -> False
           }
@@ -82,7 +82,7 @@ unrolling_tests =
         { initialGas = FiniteGas 10,
           strategy = DepthFirstStrategy,
           rules = rules1,
-          delayable = const False,
+          shouldSuspend = const False,
           goals = []
         }
 

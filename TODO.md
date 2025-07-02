@@ -16,9 +16,9 @@
 
 - [x] actually there are 3 lists of goals
   - active goals
-  - delayed goals
-    - define predicate for what counts as a goal to delay
+  - suspended goals
+    - define predicate for what counts as a goal to suspend
   - failed goals (didn't unify with any rule conclusions)
-  - [ ] write test that demonstrates how goals are delayed
-- [x] demo delay and resume
-  - viz module `Spec.Engine.DelayAndResume`
+  - [ ] write test that demonstrates how goals are suspended
+- [x] demo suspend and resume
+  - viz module `Spec.Engine.SuspendAndResume`

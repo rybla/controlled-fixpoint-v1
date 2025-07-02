@@ -25,11 +25,11 @@ tests =
       mkTest
         "x"
         ("y" `arr` "z")
-        EngineSuccessWithDelays,
+        EngineSuccessWithSuspends,
       mkTest
         ("x" `arr` "y")
         ("z" `arr` "w")
-        EngineSuccessWithDelays
+        EngineSuccessWithSuspends
     ]
 
 mkTest :: Expr -> Expr -> EngineResult -> TestTree
@@ -41,7 +41,7 @@ mkTest a b =
           strategy = DepthFirstStrategy,
           rules = rulesSubtyping,
           goals = [a :<: b],
-          delayable = \case
+          shouldSuspend = \case
             VarExpr _ :<: VarExpr _ -> True
             _ -> False
         }

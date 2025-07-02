@@ -31,15 +31,15 @@ import Utility
 
 -- | Engine configuration
 --
--- The `delayable` predicate specifies when to delay a goal `Atom`. For example,
--- you might want to delay a goal that would trivially unify with many rule
--- heads, such as something like `IsTrue a` (where `a` might be constrained in
--- other goals).
+-- The `shouldSuspend` predicate specifies when to suspend a goal `Atom`. For
+-- example, you might want to suspend a goal that would trivially unify with
+-- many rule heads, such as something like `IsTrue a` (where `a` might be
+-- constrained in other goals).
 data Config = Config
   { initialGas :: Gas,
     rules :: [Rule],
     goals :: [Atom],
-    delayable :: Atom -> Bool,
+    shouldSuspend :: Atom -> Bool,
     strategy :: Strategy
   }
 
@@ -79,7 +79,7 @@ data Env = Env
   { gas :: Gas,
     freshCounter :: Int,
     activeGoals :: [Atom],
-    delayedGoals :: [Atom],
+    suspendedGoals :: [Atom],
     failedGoals :: [Atom],
     sigma :: Subst,
     stepsRev :: [Step]
@@ -91,7 +91,7 @@ instance Pretty Env where
     hang "engine environment:" 2 . bullets $
       [ "gas          =" <+> pPrint env.gas,
         "activeGoals  =" <+> pPrint env.activeGoals,
-        "delayedGoals =" <+> pPrint env.delayedGoals,
+        "suspendedGoals =" <+> pPrint env.suspendedGoals,
         "failedGoals  =" <+> pPrint env.failedGoals,
         hang "steps:" 2 . bullets $
           env.stepsRev & reverse <&> pPrint,
@@ -159,7 +159,7 @@ run cfg = do
         Env
           { gas = cfg.initialGas,
             activeGoals = cfg.goals,
-            delayedGoals = mempty,
+            suspendedGoals = mempty,
             failedGoals = mempty,
             freshCounter = 0,
             stepsRev = [],
@@ -216,14 +216,14 @@ loop = do
                 ]
             }
 
-      if ctx.config.delayable goal
+      if ctx.config.shouldSuspend goal
         then do
-          tellT $ (Msg.mk "delaying goal") {Msg.contents = ["goal =" <+> pPrint goal]}
+          tellT $ (Msg.mk "suspending goal") {Msg.contents = ["goal =" <+> pPrint goal]}
           modify \env ->
             env
-              { delayedGoals = case ctx.config.strategy of
-                  BreadthFirstStrategy -> env.delayedGoals <> [goal]
-                  DepthFirstStrategy -> [goal] <> env.delayedGoals
+              { suspendedGoals = case ctx.config.strategy of
+                  BreadthFirstStrategy -> env.suspendedGoals <> [goal]
+                  DepthFirstStrategy -> [goal] <> env.suspendedGoals
               }
         else do
           -- freshen rule
@@ -306,7 +306,7 @@ loop = do
                       Msg.level = Msg.Level 1
                     }
 
-              delayedGoals_old <- gets delayedGoals
+              suspendedGoals_old <- gets suspendedGoals
 
               do
                 env <- get
@@ -320,8 +320,8 @@ loop = do
 
               modify \env ->
                 env
-                  { delayedGoals =
-                      env.delayedGoals
+                  { suspendedGoals =
+                      env.suspendedGoals
                         <&> substAtom sigma_uni,
                     activeGoals =
                       ( case ctx.config.strategy of
@@ -334,27 +334,27 @@ loop = do
                         & composeSubst_unsafe sigma_uni
                   }
 
-              -- for each delayed goal that was refined by sigma_uni, make it active again
-              delayedGoals_curr <- gets delayedGoals
-              (activeGoals_reactivated, delayedGoals_new) <-
-                zip delayedGoals_old delayedGoals_curr
+              -- for each suspended goal that was refined by sigma_uni, make it active again
+              suspendedGoals_curr <- gets suspendedGoals
+              (activeGoals_reactivated, suspendedGoals_new) <-
+                zip suspendedGoals_old suspendedGoals_curr
                   & foldM
-                    ( \(activeGoals_reactivated, delayedGoals_new) (delayedGoal_old, delayedGoal_curr) ->
-                        if delayedGoal_old == delayedGoal_curr
+                    ( \(activeGoals_reactivated, suspendedGoals_new) (suspendedGoal_old, suspendedGoal_curr) ->
+                        if suspendedGoal_old == suspendedGoal_curr
                           then
-                            -- if the delayed goal was NOT refined by the
-                            -- substitution, then leave it delayed
-                            return (activeGoals_reactivated, delayedGoal_old : delayedGoals_new)
+                            -- if the suspended goal was NOT refined by the
+                            -- substitution, then leave it suspended
+                            return (activeGoals_reactivated, suspendedGoal_old : suspendedGoals_new)
                           else
-                            -- if the delayed goal was refined by the substitution,
+                            -- if the suspended goal was refined by the substitution,
                             -- then reactivate it
-                            return (delayedGoal_curr : activeGoals_reactivated, delayedGoals_new)
+                            return (suspendedGoal_curr : activeGoals_reactivated, suspendedGoals_new)
                     )
                     ([], [])
               modify \env ->
                 env
                   { activeGoals = activeGoals_reactivated <> env.activeGoals,
-                    delayedGoals = delayedGoals_new
+                    suspendedGoals = suspendedGoals_new
                   }
 
               -- record step

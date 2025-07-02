@@ -94,7 +94,7 @@ module Main (main) where
 --             rules = rulesSubtyping,
 --             -- goals = [subtype (arr "x" "y") (arr "x'" "y'")],
 --             goals = ["x" `subtype` ("y" `arr` "z")],
---             delayable = \case
+--             shouldSuspend = \case
 --               Atom _ (ConExpr (Con "subtype" [VarExpr _, VarExpr _])) -> True
 --               _ -> False
 --           }

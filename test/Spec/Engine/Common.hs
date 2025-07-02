@@ -40,14 +40,14 @@ data EngineResult
     EngineFailure
   | -- |
     -- Engine run resulted in at least one branch that solved all goals and
-    -- all successful branches had no delayed goals.
+    -- all successful branches had no suspended goals.
     EngineSuccess
   | -- |
     -- Engine run resulted in at least one branch that solved all goals and had
-    -- some delayed goals.
-    EngineSuccessWithDelays
-  | -- | Engine run resulted in each solution branch having no delayed goals.
-    EngineSuccessWithoutDelays
+    -- some suspended goals.
+    EngineSuccessWithSuspends
+  | -- | Engine run resulted in each solution branch having no suspended goals.
+    EngineSuccessWithoutSuspends
   | -- | Engine run resulted in at least `n` branches that solved all goals.
     EngineSuccessWithSolutionsCount Int
   | -- |
@@ -61,8 +61,8 @@ instance Pretty EngineResult where
   pPrint (EngineError err) = "error:" <+> pPrint err
   pPrint EngineFailure = "failure"
   pPrint EngineSuccess = "success"
-  pPrint EngineSuccessWithDelays = "success with delays"
-  pPrint EngineSuccessWithoutDelays = "success without delays"
+  pPrint EngineSuccessWithSuspends = "success with suspends"
+  pPrint EngineSuccessWithoutSuspends = "success without suspends"
   pPrint (EngineSuccessWithSolutionsCount n) = "success with" <+> pPrint n <+> "solutions"
   pPrint (EngineSuccessWithSubst _) = "success with subst"
 
@@ -94,15 +94,15 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
             EngineFailure -> return $ Just $ pPrint EngineSuccess
             --
             EngineSuccess -> return Nothing
-            EngineSuccessWithDelays ->
-              let envs_successfulWithDelays = envs_successful & filter \env -> not (null env.delayedGoals)
-               in if null envs_successfulWithDelays
-                    then return $ Just $ pPrint EngineSuccessWithoutDelays
+            EngineSuccessWithSuspends ->
+              let envs_successfulWithSuspends = envs_successful & filter \env -> not (null env.suspendedGoals)
+               in if null envs_successfulWithSuspends
+                    then return $ Just $ pPrint EngineSuccessWithoutSuspends
                     else return Nothing
-            EngineSuccessWithoutDelays ->
-              let envs_successfulWithDelays = envs_successful & filter \env -> not (null env.delayedGoals)
-               in if not $ null envs_successfulWithDelays
-                    then return $ Just $ pPrint EngineSuccessWithDelays
+            EngineSuccessWithoutSuspends ->
+              let envs_successfulWithSuspends = envs_successful & filter \env -> not (null env.suspendedGoals)
+               in if not $ null envs_successfulWithSuspends
+                    then return $ Just $ pPrint EngineSuccessWithSuspends
                     else return Nothing
             EngineSuccessWithSolutionsCount n ->
               if (envs_successful & length) == n
