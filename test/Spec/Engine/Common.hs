@@ -10,7 +10,7 @@ import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
 import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
-import qualified ControlledFixpoint.Engine as Engine
+import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar (Subst (unSubst))
 import Data.Foldable (traverse_)
 import Data.Functor ((<&>))
@@ -152,6 +152,6 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
         _ -> return ()
       assertFailure . render $
         vcat
-          [ "expected:" <+> pPrint result_expected,
-            "actual:" <+> err
+          [ "expected :" <+> pPrint result_expected,
+            "actual   :" <+> err
           ]

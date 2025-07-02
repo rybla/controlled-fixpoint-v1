@@ -5,7 +5,7 @@
 
 module Spec.Engine.Proof (tests) where
 
-import qualified ControlledFixpoint.Engine as Engine
+import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
 import qualified Data.Map as Map
@@ -76,7 +76,7 @@ tests_NormV1 =
             delayable = \case
               Valid (VarExpr _ :⇓ VarExpr _) _ -> True
               _ -> False,
-            initialGas = 100
+            initialGas = FiniteGas 100
           }
 
     rules =

@@ -4,7 +4,7 @@
 
 module Spec.Engine.Add (tests) where
 
-import qualified ControlledFixpoint.Engine as Engine
+import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
@@ -24,15 +24,13 @@ mkTest :: Int -> Int -> Int -> EngineResult -> TestTree
 mkTest a b c =
   mkTest_Engine
     ("`" <> show a <> " + " <> show b <> " = " <> show c <> "`")
-    ( Engine.Config
-        { initialGas = 100,
+    ( Config
+        { initialGas = FiniteGas 100,
           rules = rulesAdd,
-          goals = [goal],
+          goals = [isTrue (fromIntegral a +. fromIntegral b ==. fromIntegral c)],
           delayable = const False
         }
     )
-  where
-    goal = isTrue (fromIntegral a +. fromIntegral b ==. fromIntegral c)
 
 rulesAdd :: [Rule]
 rulesAdd =

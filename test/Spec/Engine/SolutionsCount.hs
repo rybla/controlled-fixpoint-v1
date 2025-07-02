@@ -3,8 +3,7 @@
 
 module Spec.Engine.SolutionsCount (tests) where
 
-import ControlledFixpoint.Engine (Config (initialGas))
-import qualified ControlledFixpoint.Engine as Engine
+import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
@@ -16,7 +15,7 @@ tests =
     [ mkTest_Engine
         "Ex1"
         ( Engine.Config
-            { initialGas = 100,
+            { initialGas = FiniteGas 100,
               rules =
                 [ Rule
                     { name = "P 1",

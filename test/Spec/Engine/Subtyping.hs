@@ -3,7 +3,7 @@
 
 module Spec.Engine.Subtyping (tests) where
 
-import qualified ControlledFixpoint.Engine as Engine
+import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
@@ -36,7 +36,7 @@ mkTest a b =
   mkTest_Engine
     ("`" <> displayExpr a <> "  <:  " <> displayExpr b <> "`")
     ( Engine.Config
-        { initialGas = 100,
+        { initialGas = FiniteGas 100,
           rules = rulesSubtyping,
           goals = [a `subtype` b],
           delayable = \case

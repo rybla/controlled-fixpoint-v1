@@ -8,7 +8,7 @@
 
 module Spec.Engine.ApplicativeFunctorSubtyping (tests) where
 
-import ControlledFixpoint.Engine
+import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import qualified Data.Map as Map
 import Spec.Engine.Common
@@ -37,7 +37,7 @@ tests =
             ( Config
                 { goals = [Valid (s :<: t) (VarExpr pf)],
                   rules = rules1,
-                  initialGas = 100,
+                  initialGas = FiniteGas 100,
                   delayable = \case
                     Valid (Functor (VarExpr _)) _ -> True
                     Valid (VarExpr _ :<: VarExpr _) _ -> True

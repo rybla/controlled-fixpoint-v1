@@ -9,10 +9,13 @@ import qualified Spec.Engine.DelayAndResume
 import qualified Spec.Engine.Proof
 import qualified Spec.Engine.SolutionsCount
 import qualified Spec.Engine.Subtyping
+import System.Environment (setEnv)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
 main :: IO ()
-main = defaultMain tests
+main = do
+  "TASTY_NUM_THREADS" `setEnv` "1"
+  defaultMain tests
 
 tests :: TestTree
 tests =

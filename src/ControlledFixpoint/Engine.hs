@@ -36,7 +36,7 @@ import Utility
 -- heads, such as something like `IsTrue a` (where `a` might be constrained in
 -- other goals).
 data Config = Config
-  { initialGas :: Int,
+  { initialGas :: Gas,
     rules :: [Rule],
     goals :: [Atom],
     delayable :: Atom -> Bool
@@ -61,6 +61,23 @@ data Error
 instance Pretty Error where
   pPrint OutOfGas = "out of gas"
 
+data Gas
+  = FiniteGas Int
+  | InfiniteGas
+  deriving (Eq, Show)
+
+instance Pretty Gas where
+  pPrint (FiniteGas n) = pPrint n
+  pPrint InfiniteGas = "∞"
+
+isDepletedGas :: Gas -> Bool
+isDepletedGas (FiniteGas n) = n <= 0
+isDepletedGas InfiniteGas = False
+
+decrementGas :: Gas -> Gas
+decrementGas (FiniteGas n) = FiniteGas (n - 1)
+decrementGas InfiniteGas = InfiniteGas
+
 tellT :: (Monad m) => Msg -> T m ()
 tellT msg = lift . lift . lift . lift $ tell [msg]
 
@@ -78,7 +95,7 @@ instance Pretty Ctx where
 
 -- | Engine environment
 data Env = Env
-  { gas :: Int,
+  { gas :: Gas,
     freshCounter :: Int,
     activeGoals :: [Atom],
     delayedGoals :: [Atom],
@@ -156,15 +173,14 @@ loop = do
   do
     env <- get
     -- check gas
-    when (env.gas <= 0) do
+    when (env.gas & isDepletedGas) do
       throwError (OutOfGas, env)
     -- update gas
-    modify \env' -> env' {gas = env'.gas - 1}
+    modify \env' -> env' {gas = env'.gas & decrementGas}
 
   extractNextActiveGoal >>= \case
     -- if there are no more active goals, then done and terminate this branch successfully
     Nothing -> do
-      -- tellT (Msg.mk "no more active goals")
       env <- get
       tellT $
         (Msg.mk "--------------------------------")
