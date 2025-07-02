@@ -21,12 +21,19 @@ tests :: TestTree
 tests =
   testGroup
     "Proof"
-    [tests_NormV1]
+    [tests_Norm]
 
-tests_NormV1 :: TestTree
-tests_NormV1 =
+tests_Norm :: TestTree
+tests_Norm =
   testGroup
-    "NormV1"
+    "Norm"
+    [ tests_Norm_v1
+    ]
+
+tests_Norm_v1 :: TestTree
+tests_Norm_v1 =
+  testGroup
+    "v1"
     [ mkTest_success 0,
       mkTest_success 1,
       mkTest_success (0 + 0),
@@ -73,14 +80,15 @@ tests_NormV1 =
         Engine.Config
           { goals = [Valid (in_ :⇓ "?out") "?{in ⇓ out}"],
             strategy = DepthFirstStrategy,
-            rules = rules1,
+            rules = rules_v1,
             delayable = \case
               Valid (VarExpr _ :⇓ VarExpr _) _ -> True
               _ -> False,
-            initialGas = FiniteGas 100
+            initialGas = FiniteGas 50
           }
 
-    rules1 =
+    rules_v1 :: [Rule]
+    rules_v1 =
       [ -- normal forms
         let ruleName = "Z⇓"
          in Rule

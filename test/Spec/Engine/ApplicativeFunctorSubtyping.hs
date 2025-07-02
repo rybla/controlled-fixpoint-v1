@@ -24,20 +24,38 @@ tests :: TestTree
 tests =
   testGroup
     "ApplicativeFunctorSubtyping"
-    [ mkTest (Int :-> Bool) (List :@ Int :-> List :@ Bool) (fmap functorList (subArrow subInt subBool)),
-      mkTest (Int :-> Bool) (List :@ Nat :-> List :@ Bool) (fmap functorList (subArrow subNatOfInt subBool)),
-      mkTest Bool (List :@ Bool) (pure functorList subBool),
-      mkTest Bool (List :@ (List :@ (List :@ (List :@ (List :@ Bool))))) (pure functorList (pure functorList (pure functorList (pure functorList (pure functorList subBool)))))
+    [tests_v1]
+
+tests_v1 :: TestTree
+tests_v1 =
+  testGroup
+    "v1"
+    [ mkTest
+        (Int :-> Bool)
+        (List :@ Int :-> List :@ Bool)
+        (fmap functorList (subArrow subInt subBool)),
+      mkTest
+        (Int :-> Bool)
+        (List :@ Nat :-> List :@ Bool)
+        (fmap functorList (subArrow subNatOfInt subBool)),
+      mkTest
+        Bool
+        (List :@ Bool)
+        (pure functorList subBool),
+      mkTest
+        Bool
+        (List :@ (List :@ (List :@ (List :@ (List :@ Bool)))))
+        (pure functorList (pure functorList (pure functorList (pure functorList (pure functorList subBool)))))
     ]
   where
     mkTest s t pf' =
-      let pf = "?{s <: t}" :: Var
+      let pf = "?{s <: t}"
        in mkTest_Engine
             (render $ prettyExpr (s :<: t))
             ( Config
                 { goals = [Valid (s :<: t) (VarExpr pf)],
-                  rules = rules1,
-                  initialGas = FiniteGas 100,
+                  rules = rules_v1,
+                  initialGas = FiniteGas 50,
                   strategy = DepthFirstStrategy,
                   delayable = \case
                     Valid (Functor (VarExpr _)) _ -> True
@@ -47,12 +65,11 @@ tests =
             )
             (EngineSuccessWithSubst $ Subst $ Map.fromList [(pf, pf')])
 
-rules1 :: [Rule]
-rules1 =
-  concat
-    [ -- core rules
-      [ let (a, a', a'_subtype_a, b, b', b_subtype_b') = ("?a", "?a'", "?{a <: a'}", "?b", "?b'", "?{b <: b'}")
-         in Rule
+    rules_v1 :: [Rule]
+    rules_v1 =
+      concat
+        [ -- core rules
+          [ Rule
               { name = "subArrow",
                 hyps =
                   [ AtomHyp $ Valid (a' :<: a) a'_subtype_a,
@@ -60,8 +77,7 @@ rules1 =
                   ],
                 conc = Valid ((a :-> b) :<: (a' :-> b')) (subArrow a'_subtype_a b_subtype_b')
               },
-        let (f, functor_f, a, a', a_subtype_a') = ("?f", "?{Functor f}", "?a", "?a'", "?{a <: a'}")
-         in Rule
+            Rule
               { name = "subFunctor",
                 hyps =
                   [ AtomHyp $ Valid (Functor f) functor_f,
@@ -69,8 +85,7 @@ rules1 =
                   ],
                 conc = Valid (f :@ a :<: f :@ a') (subFunctor functor_f a_subtype_a')
               },
-        let (f, functor_f, a, a', b, b', a_arrow_a'_subtype_b_arrow_b') = ("?f", "?{Functor f}", "?a", "?a'", "?b", "?b'", "?{a -> a' <: b -> b'}")
-         in Rule
+            Rule
               { name = "fmap",
                 hyps =
                   [ AtomHyp $ Valid (Functor f) functor_f,
@@ -78,8 +93,7 @@ rules1 =
                   ],
                 conc = Valid (a :-> b :<: f :@ a' :-> f :@ b') (fmap functor_f a_arrow_a'_subtype_b_arrow_b')
               },
-        let (f, functor_f, a, a', a_subtype_a') = ("?f", "?{Functor f}", "?a", "?a'", "?{a <: a'}")
-         in Rule
+            Rule
               { name = "pure",
                 hyps =
                   [ AtomHyp $ Valid (Functor f) functor_f,
@@ -87,35 +101,49 @@ rules1 =
                   ],
                 conc = Valid (a :<: f :@ a') (pure functor_f a_subtype_a')
               }
-      ],
-      -- datatype rules
-      [ Rule
-          { name = "subNatOfInt",
-            hyps = [],
-            conc = Valid (Nat :<: Int) subNatOfInt
-          },
-        Rule
-          { name = "functorList",
-            hyps = [],
-            conc = Valid (Functor List) functorList
-          },
-        Rule
-          { name = "subBool",
-            hyps = [],
-            conc = Valid (Bool :<: Bool) subBool
-          },
-        Rule
-          { name = "subInt",
-            hyps = [],
-            conc = Valid (Int :<: Int) subInt
-          },
-        Rule
-          { name = "subNat",
-            hyps = [],
-            conc = Valid (Nat :<: Nat) subNat
-          }
-      ]
-    ]
+          ],
+          -- datatype rules
+          [ Rule
+              { name = "subNatOfInt",
+                hyps = [],
+                conc = Valid (Nat :<: Int) subNatOfInt
+              },
+            Rule
+              { name = "functorList",
+                hyps = [],
+                conc = Valid (Functor List) functorList
+              },
+            Rule
+              { name = "subBool",
+                hyps = [],
+                conc = Valid (Bool :<: Bool) subBool
+              },
+            Rule
+              { name = "subInt",
+                hyps = [],
+                conc = Valid (Int :<: Int) subInt
+              },
+            Rule
+              { name = "subNat",
+                hyps = [],
+                conc = Valid (Nat :<: Nat) subNat
+              }
+          ]
+        ]
+      where
+        f = "?f"
+        functor_f = "?{Functor f}"
+
+        a = "?a"
+        a' = "?a'"
+        a'_subtype_a = "?{a' <: a}"
+        a_subtype_a' = "?{a <: a'}"
+
+        b = "?b"
+        b' = "?b'"
+        b_subtype_b' = "?{b <: b'}"
+
+        a_arrow_a'_subtype_b_arrow_b' = "?{a -> a' <: b -> b'}"
 
 subArrow :: Expr -> Expr -> Expr
 subArrow a'_subtype_a b_subtype_b' = con "subArrow" [a'_subtype_a, b_subtype_b']

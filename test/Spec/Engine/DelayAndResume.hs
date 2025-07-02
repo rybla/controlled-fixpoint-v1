@@ -16,7 +16,7 @@ tests =
     [ mkTest_Engine
         "simple delay"
         Engine.Config
-          { initialGas = FiniteGas 100,
+          { initialGas = FiniteGas 50,
             strategy = DepthFirstStrategy,
             rules =
               [ Rule

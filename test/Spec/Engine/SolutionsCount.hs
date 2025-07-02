@@ -13,9 +13,9 @@ tests =
   testGroup
     "SolutionsCount"
     [ mkTest_Engine
-        "Ex1"
+        "v1"
         ( Engine.Config
-            { initialGas = FiniteGas 100,
+            { initialGas = FiniteGas 50,
               strategy = DepthFirstStrategy,
               rules =
                 [ Rule

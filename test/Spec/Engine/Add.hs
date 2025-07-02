@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# OPTIONS_GHC -Wno-missing-methods #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.Add (tests) where
@@ -8,6 +9,8 @@ import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
+import Text.PrettyPrint (render, (<+>))
+import Text.PrettyPrint.HughesPJClass (pPrint)
 
 tests :: TestTree
 tests =
@@ -23,12 +26,12 @@ tests =
 mkTest :: Int -> Int -> Int -> EngineResult -> TestTree
 mkTest a b c =
   mkTest_Engine
-    ("`" <> show a <> " + " <> show b <> " = " <> show c <> "`")
+    (render $ pPrint a <+> "+" <+> pPrint b <+> "=" <+> pPrint c)
     ( Config
-        { initialGas = FiniteGas 100,
+        { initialGas = FiniteGas 50,
           strategy = DepthFirstStrategy,
           rules = rulesAdd,
-          goals = [isTrue (fromIntegral a +. fromIntegral b ==. fromIntegral c)],
+          goals = [fromIntegral a :+ fromIntegral b :== fromIntegral c],
           delayable = const False
         }
     )
@@ -36,45 +39,45 @@ mkTest a b c =
 rulesAdd :: [Rule]
 rulesAdd =
   [ Rule
-      { name = RuleName $ show @String "0 + x = x",
+      { name = "0+",
         hyps = [],
-        conc = isTrue (0 + "x" ==. "x")
+        conc = 0 + x :== x
       },
     Rule
-      { name = RuleName $ show @String "x + y = z ==> suc x + y = suc z",
+      { name = "S+",
         hyps =
-          [AtomHyp $ isTrue ("x" +. "y" ==. "z")],
+          [AtomHyp $ x :+ y :== z],
         conc =
-          isTrue (suc "x" +. "y" ==. suc "z")
+          S x :+ y :== S z
       }
   ]
+  where
+    (x, z, y) = ("x", "y", "z")
 
-isTrue :: Expr -> Atom
-isTrue = Atom "isTrue"
+pattern Valid :: Expr -> Atom
+pattern Valid x = Atom "Valid" (Tuple [x])
 
-(==.) :: Expr -> Expr -> Expr
-x ==. y = ConExpr (Con "equal" [x, y])
+pattern Tuple :: [Expr] -> Expr
+pattern Tuple xs = ConExpr (Con "Tuple" xs)
 
-infix 4 ==.
+pattern (:==) :: Expr -> Expr -> Atom
+pattern x :== y = Valid (ConExpr (Con "Equal" [x, y]))
 
-(+.) :: Expr -> Expr -> Expr
-x +. y = ConExpr (Con "add" [x, y])
+infix 4 :==
 
-infixl 6 +.
+pattern (:+) :: Expr -> Expr -> Expr
+pattern x :+ y = ConExpr (Con "Add" [x, y])
 
-suc :: Expr -> Expr
-suc x = ConExpr (Con "suc" [x])
+infixl 6 :+
 
-zero :: Expr
-zero = ConExpr (Con "zero" [])
+pattern S :: Expr -> Expr
+pattern S x = ConExpr (Con "S" [x])
+
+pattern Z :: Expr
+pattern Z = ConExpr (Con "Z" [])
 
 instance Num Expr where
-  (+) = (+.)
-  (*) = undefined
+  (+) = (:+)
   fromInteger n | n < 0 = undefined
-  fromInteger 0 = zero
-  fromInteger n = suc (fromInteger (n - 1))
-
-  abs = undefined
-  signum = undefined
-  negate = undefined
+  fromInteger 0 = Z
+  fromInteger n = S $ fromInteger (n - 1)

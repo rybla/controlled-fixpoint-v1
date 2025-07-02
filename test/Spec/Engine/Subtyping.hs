@@ -36,7 +36,7 @@ mkTest a b =
   mkTest_Engine
     ("`" <> displayExpr a <> "  <:  " <> displayExpr b <> "`")
     ( Engine.Config
-        { initialGas = FiniteGas 100,
+        { initialGas = FiniteGas 50,
           strategy = DepthFirstStrategy,
           rules = rulesSubtyping,
           goals = [a `subtype` b],
