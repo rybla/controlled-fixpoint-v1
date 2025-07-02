@@ -37,6 +37,7 @@ mkTest a b =
     ("`" <> displayExpr a <> "  <:  " <> displayExpr b <> "`")
     ( Engine.Config
         { initialGas = FiniteGas 100,
+          strategy = DepthFirstStrategy,
           rules = rulesSubtyping,
           goals = [a `subtype` b],
           delayable = \case

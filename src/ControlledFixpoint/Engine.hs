@@ -39,7 +39,8 @@ data Config = Config
   { initialGas :: Gas,
     rules :: [Rule],
     goals :: [Atom],
-    delayable :: Atom -> Bool
+    delayable :: Atom -> Bool,
+    strategy :: Strategy
   }
 
 type T m =
@@ -54,32 +55,12 @@ type T m =
         )
     )
 
+tellT :: (Monad m) => Msg -> T m ()
+tellT msg = lift . lift . lift . lift $ tell [msg]
+
 data Error
   = OutOfGas
   deriving (Eq, Show)
-
-instance Pretty Error where
-  pPrint OutOfGas = "out of gas"
-
-data Gas
-  = FiniteGas Int
-  | InfiniteGas
-  deriving (Eq, Show)
-
-instance Pretty Gas where
-  pPrint (FiniteGas n) = pPrint n
-  pPrint InfiniteGas = "∞"
-
-isDepletedGas :: Gas -> Bool
-isDepletedGas (FiniteGas n) = n <= 0
-isDepletedGas InfiniteGas = False
-
-decrementGas :: Gas -> Gas
-decrementGas (FiniteGas n) = FiniteGas (n - 1)
-decrementGas InfiniteGas = InfiniteGas
-
-tellT :: (Monad m) => Msg -> T m ()
-tellT msg = lift . lift . lift . lift $ tell [msg]
 
 -- | Engine context
 data Ctx = Ctx
@@ -116,6 +97,40 @@ instance Pretty Env where
           env.stepsRev & reverse <&> pPrint,
         "sigma        =" <+> pPrint env.sigma
       ]
+
+-- | The proof-search strategy.
+data Strategy
+  = -- |
+    -- A breadth-first strategy:
+    --   - subgoals are inserted at the end of the list of subgoals to solve
+    --     next, so they are to be solved after any pre-existing subgoals
+    BreadthFirstStrategy
+  | -- |
+    -- A depth-first strategy:
+    --   - subgoals are inserted at the beginning of the list of subgoals to
+    --     solve next, so they are to be solved before any pre-existing subgoals
+    DepthFirstStrategy
+  deriving (Eq, Show, Enum, Bounded)
+
+instance Pretty Error where
+  pPrint OutOfGas = "out of gas"
+
+data Gas
+  = FiniteGas Int
+  | InfiniteGas
+  deriving (Eq, Show)
+
+instance Pretty Gas where
+  pPrint (FiniteGas n) = pPrint n
+  pPrint InfiniteGas = "∞"
+
+isDepletedGas :: Gas -> Bool
+isDepletedGas (FiniteGas n) = n <= 0
+isDepletedGas InfiniteGas = False
+
+decrementGas :: Gas -> Gas
+decrementGas (FiniteGas n) = FiniteGas (n - 1)
+decrementGas InfiniteGas = InfiniteGas
 
 data Step = Step
   { goal :: Atom,
@@ -204,7 +219,12 @@ loop = do
       if ctx.config.delayable goal
         then do
           tellT $ (Msg.mk "delaying goal") {Msg.contents = ["goal =" <+> pPrint goal]}
-          modify \env -> env {delayedGoals = goal : env.delayedGoals}
+          modify \env ->
+            env
+              { delayedGoals = case ctx.config.strategy of
+                  BreadthFirstStrategy -> env.delayedGoals <> [goal]
+                  DepthFirstStrategy -> [goal] <> env.delayedGoals
+              }
         else do
           -- freshen rule
           rule <- do
@@ -300,9 +320,18 @@ loop = do
 
               modify \env ->
                 env
-                  { delayedGoals = env.delayedGoals <&> substAtom sigma_uni,
-                    activeGoals = (env.activeGoals <> subgoals) <&> substAtom sigma_uni,
-                    sigma = env.sigma & composeSubst_unsafe sigma_uni
+                  { delayedGoals =
+                      env.delayedGoals
+                        <&> substAtom sigma_uni,
+                    activeGoals =
+                      ( case ctx.config.strategy of
+                          BreadthFirstStrategy -> env.activeGoals <> subgoals
+                          DepthFirstStrategy -> subgoals <> env.activeGoals
+                      )
+                        <&> substAtom sigma_uni,
+                    sigma =
+                      env.sigma
+                        & composeSubst_unsafe sigma_uni
                   }
 
               -- for each delayed goal that was refined by sigma_uni, make it active again

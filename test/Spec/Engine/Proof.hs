@@ -72,48 +72,49 @@ tests_NormV1 =
         testName
         Engine.Config
           { goals = [Valid (in_ :⇓ "?out") "?{in ⇓ out}"],
-            rules = rules,
+            strategy = DepthFirstStrategy,
+            rules = rules1,
             delayable = \case
               Valid (VarExpr _ :⇓ VarExpr _) _ -> True
               _ -> False,
             initialGas = FiniteGas 100
           }
 
-    rules =
+    rules1 =
       [ -- normal forms
-        let name_ = "Z⇓"
+        let ruleName = "Z⇓"
          in Rule
-              { name = RuleName name_,
+              { name = RuleName ruleName,
                 hyps = [],
-                conc = Valid (Z :⇓ Z) . ConExpr $ Con (ConName name_) []
+                conc = Valid (Z :⇓ Z) $ con (ConName ruleName) []
               },
-        let name_ = "S⇓"
+        let ruleName = "S⇓"
             (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
          in Rule
-              { name = RuleName name_,
+              { name = RuleName ruleName,
                 hyps = [AtomHyp $ Valid (a :⇓ a') pf_a_norm_a'],
-                conc = Valid (S a :⇓ S a') . ConExpr $ Con (ConName name_) [pf_a_norm_a']
+                conc = Valid (S a :⇓ S a') $ con (ConName ruleName) [pf_a_norm_a']
               },
-        let name_ = "+Z⇓"
+        let ruleName = "+Z⇓"
             (a, a', pf_a_norm_a', b, pf_b_norm_Z) = ("?a", "?a'", "?{a ⇓ a'}", "b", "?{b ⇓ Z}")
          in Rule
-              { name = RuleName name_,
+              { name = RuleName ruleName,
                 hyps =
                   [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a',
                     AtomHyp $ Valid (b :⇓ Z) pf_b_norm_Z
                   ],
-                conc = Valid (a + b :⇓ a') . ConExpr $ Con (ConName name_) [pf_a_norm_a', pf_b_norm_Z]
+                conc = Valid (a + b :⇓ a') $ con (ConName ruleName) [pf_a_norm_a', pf_b_norm_Z]
               },
-        let name_ = "+S⇓"
+        let ruleName = "+S⇓"
             (a, a', pf_a_norm_a', b, b', pf_b_norm_Sb', c, pf_a'_plus_b'_norm_c) = ("?a", "?a'", "?{a ⇓ a'}", "?b", "?b'", "?{b ⇓ S b'}", "?c", "?{a' + b' ⇓ c}")
          in Rule
-              { name = RuleName name_,
+              { name = RuleName ruleName,
                 hyps =
                   [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a',
                     AtomHyp $ Valid (b :⇓ S b') pf_b_norm_Sb',
                     AtomHyp $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
                   ],
-                conc = Valid (a + b :⇓ S c) . ConExpr $ Con (ConName name_) [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
+                conc = Valid (a + b :⇓ S c) $ con (ConName ruleName) [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
               }
       ]
 

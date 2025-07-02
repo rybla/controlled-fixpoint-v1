@@ -26,6 +26,7 @@ mkTest a b c =
     ("`" <> show a <> " + " <> show b <> " = " <> show c <> "`")
     ( Config
         { initialGas = FiniteGas 100,
+          strategy = DepthFirstStrategy,
           rules = rulesAdd,
           goals = [isTrue (fromIntegral a +. fromIntegral b ==. fromIntegral c)],
           delayable = const False

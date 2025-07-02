@@ -38,6 +38,7 @@ tests =
                 { goals = [Valid (s :<: t) (VarExpr pf)],
                   rules = rules1,
                   initialGas = FiniteGas 100,
+                  strategy = DepthFirstStrategy,
                   delayable = \case
                     Valid (Functor (VarExpr _)) _ -> True
                     Valid (VarExpr _ :<: VarExpr _) _ -> True

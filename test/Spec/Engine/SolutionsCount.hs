@@ -16,6 +16,7 @@ tests =
         "Ex1"
         ( Engine.Config
             { initialGas = FiniteGas 100,
+              strategy = DepthFirstStrategy,
               rules =
                 [ Rule
                     { name = "P 1",

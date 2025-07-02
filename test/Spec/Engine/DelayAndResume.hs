@@ -17,6 +17,7 @@ tests =
         "simple delay"
         Engine.Config
           { initialGas = FiniteGas 100,
+            strategy = DepthFirstStrategy,
             rules =
               [ Rule
                   { name = "R1",
@@ -36,9 +37,10 @@ tests =
           }
         EngineSuccess,
       mkTest_Engine
-        "simple_nonterminating"
+        "simple nonterminating"
         Engine.Config
           { initialGas = FiniteGas 10,
+            strategy = DepthFirstStrategy,
             rules =
               [ Rule
                   { name = "R1",
@@ -58,7 +60,7 @@ unrolling_tests =
   testGroup
     "unrolling"
     [ mkTest_Engine
-        "avoid_nonterminating_branch"
+        "avoid nonterminating branch"
         cfg
           { goals = [P "x" "y", Q "y" B],
             delayable = \case
@@ -67,7 +69,7 @@ unrolling_tests =
           }
         EngineSuccess,
       mkTest_Engine
-        "exhaust_terminating_branch"
+        "exhaust terminating branch"
         cfg
           { goals = [P "x" "y", Q "y" B]
           }
@@ -78,6 +80,7 @@ unrolling_tests =
     cfg =
       Engine.Config
         { initialGas = FiniteGas 10,
+          strategy = DepthFirstStrategy,
           rules = rules1,
           delayable = const False,
           goals = []
