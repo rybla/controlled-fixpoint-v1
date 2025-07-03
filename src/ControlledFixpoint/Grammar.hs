@@ -89,6 +89,9 @@ instance IsString Expr where fromString x = VarExpr (fromString x)
 data Var = Var String (Maybe Int)
   deriving (Show, Eq, Ord)
 
+var :: Var -> Expr
+var = VarExpr
+
 instance IsString Var where fromString s = Var s Nothing
 
 instance Pretty Var where

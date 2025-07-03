@@ -52,6 +52,7 @@ library
     , containers
     , lens
     , list-t
+    , listsafe
     , mtl
     , newtype-generics
     , parallel
@@ -83,6 +84,7 @@ executable controlled-fixpoint-v1-exe
     , filepath
     , lens
     , list-t
+    , listsafe
     , mtl
     , newtype-generics
     , parallel
@@ -127,6 +129,7 @@ test-suite controlled-fixpoint-v1-test
     , filepath
     , lens
     , list-t
+    , listsafe
     , mtl
     , newtype-generics
     , parallel

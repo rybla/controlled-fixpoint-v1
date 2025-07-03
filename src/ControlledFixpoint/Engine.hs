@@ -21,7 +21,7 @@ import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
 import ListT (ListT, cons, toList)
-import Text.PrettyPrint (hang, quotes, (<+>))
+import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, quotes, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -42,6 +42,21 @@ data Config = Config
     shouldSuspend :: Atom -> Bool,
     strategy :: Strategy
   }
+
+instance Show Config where
+  show cfg =
+    render $
+      "Config"
+        <+> braces
+          ( [ "initialGas =" <+> text (show cfg.initialGas),
+              "rules =" <+> text (show cfg.rules),
+              "goals =" <+> text (show cfg.goals),
+              "shouldSuspend =" <+> text "<function>",
+              "strategy =" <+> text (show cfg.strategy)
+            ]
+              & punctuate comma
+              & hsep
+          )
 
 type T m =
   (ReaderT Ctx)

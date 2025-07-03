@@ -5,7 +5,6 @@
 
 module Utility where
 
-import Control.Category ((>>>))
 import Control.Monad (foldM)
 import Data.Kind (Type)
 import Data.Traversable (for)
@@ -98,20 +97,23 @@ fixpointEqM f a = do
     then fixpointEqM f a'
     else return a
 
+-- subscriptNumber :: Int -> String
+-- subscriptNumber =
+--   show >>> map \case
+--     '0' -> '₀'
+--     '1' -> '₁'
+--     '2' -> '₂'
+--     '3' -> '₃'
+--     '4' -> '₄'
+--     '5' -> '₅'
+--     '6' -> '₆'
+--     '7' -> '₇'
+--     '8' -> '₈'
+--     '9' -> '₉'
+--     c -> c
+
 subscriptNumber :: Int -> String
-subscriptNumber =
-  show >>> map \case
-    '0' -> '₀'
-    '1' -> '₁'
-    '2' -> '₂'
-    '3' -> '₃'
-    '4' -> '₄'
-    '5' -> '₅'
-    '6' -> '₆'
-    '7' -> '₇'
-    '8' -> '₈'
-    '9' -> '₉'
-    c -> c
+subscriptNumber i = "_" <> show i
 
 ticks :: Doc -> Doc
 ticks x = text "`" <> x <> text "`"
