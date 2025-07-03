@@ -138,7 +138,7 @@ instance IsString RuleName where fromString = RuleName
 
 instance Pretty RuleName where pPrint (RuleName x) = text x
 
--- | Relation name
+-- | Atom name
 newtype AtomName = AtomName String
   deriving (Show, Eq, Ord)
 
