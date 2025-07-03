@@ -5,6 +5,7 @@ module ControlledFixpoint.Freshening where
 
 import Control.Monad.State (MonadState (..), State)
 import ControlledFixpoint.Grammar
+import Data.Function ((&))
 import Utility
 
 data Env = Env

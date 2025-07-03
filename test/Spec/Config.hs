@@ -11,5 +11,5 @@ data Verbosity
   deriving (Show, Eq, Ord)
 
 verbosity :: Verbosity
--- verbosity = LoggingVerbosity (Msg.Level 1)
+-- verbosity = LoggingVerbosity (Msg.Level 2)
 verbosity = NormalVerbosity

@@ -20,6 +20,8 @@ import ControlledFixpoint.Common.Msg as Msg (Level (Level), Msg (..), mk)
 import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
+import Data.Function ((&))
+import Data.Functor ((<&>))
 import ListT (ListT, cons, toList)
 import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, quotes, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))

@@ -13,6 +13,8 @@ import Control.Monad.Error.Class (MonadError (throwError))
 import Control.Newtype.Generics (Newtype, over)
 import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
+import Data.Function ((&))
+import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)

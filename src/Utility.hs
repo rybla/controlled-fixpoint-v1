@@ -5,25 +5,11 @@
 
 module Utility where
 
+import Control.Lens (FunctorWithIndex (imap))
 import Control.Monad (foldM)
 import Data.Kind (Type)
 import Data.Traversable (for)
 import Text.PrettyPrint (Doc, nest, text, vcat, (<+>))
-
-infixl 1 &
-
-(&) :: a -> (a -> b) -> b
-(&) = flip ($)
-
-(&!) :: a -> (a -> b) -> b
-(&!) = flip ($!)
-
-infixl 1 &!
-
-(<&>) :: (Functor f) => f a -> (a -> b) -> f b
-(<&>) = flip (<$>)
-
-infixl 1 <&>
 
 -- | Infix application.
 --
@@ -47,6 +33,11 @@ infixl 4 =<<$>
 (<&>>=) = for
 
 infixr 4 <&>>=
+
+(<&@>) :: (FunctorWithIndex i f) => (i -> a -> b) -> f a -> f b
+(<&@>) = imap
+
+infixl 1 <&@>
 
 filterMap :: (a -> Maybe b) -> [a] -> [b]
 -- filterMap f = go []

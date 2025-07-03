@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+
 module Spec.Engine.Library.Common where
 
 import qualified Spec.Engine.Common as Common

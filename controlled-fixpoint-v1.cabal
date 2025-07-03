@@ -31,6 +31,7 @@ library
       ControlledFixpoint.Freshening
       ControlledFixpoint.Grammar
       ControlledFixpoint.Library.AugmentDerivation
+      ControlledFixpoint.Library.AugmentGoalTrace
       ControlledFixpoint.Unification
       Utility
   other-modules:
@@ -104,6 +105,7 @@ test-suite controlled-fixpoint-v1-test
       Spec.Engine.ApplicativeFunctorSubtyping
       Spec.Engine.Common
       Spec.Engine.Library.AugmentDerivation
+      Spec.Engine.Library.AugmentGoalTrace
       Spec.Engine.Library.Common
       Spec.Engine.Proof
       Spec.Engine.SolutionsCount

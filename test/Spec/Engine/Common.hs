@@ -13,6 +13,7 @@ import qualified ControlledFixpoint.Common.Msg as Msg
 import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar (Subst (unSubst))
 import Data.Foldable (traverse_)
+import Data.Function ((&))
 import Data.Functor ((<&>))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -23,7 +24,7 @@ import Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
 import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
-import Utility (bullets, ticks, (&))
+import Utility (bullets, ticks)
 
 goldenDirpath :: FilePath
 goldenDirpath = Common.goldenDirpath </> "Engine"
@@ -123,7 +124,7 @@ mkTest_Engine name cfg result_expected = testCase (render (text name <+> bracket
                                     (Nothing, _) -> []
                             )
                         )
-                      & filter (\(_env, mismatches) -> not $ null mismatches) of
+                    & filter (\(_env, mismatches) -> not $ null mismatches) of
                     envs_mismatching ->
                       if null envs_mismatching
                         then return Nothing

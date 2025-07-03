@@ -6,6 +6,7 @@ module Main (main) where
 import qualified Spec.Engine.Add
 import qualified Spec.Engine.ApplicativeFunctorSubtyping
 import qualified Spec.Engine.Library.AugmentDerivation
+import qualified Spec.Engine.Library.AugmentGoalTrace
 import qualified Spec.Engine.Proof
 import qualified Spec.Engine.SolutionsCount
 import qualified Spec.Engine.Subtyping
@@ -28,5 +29,6 @@ tests =
       Spec.Engine.SolutionsCount.tests,
       Spec.Engine.Proof.tests,
       Spec.Engine.ApplicativeFunctorSubtyping.tests,
-      Spec.Engine.Library.AugmentDerivation.tests
+      Spec.Engine.Library.AugmentDerivation.tests,
+      Spec.Engine.Library.AugmentGoalTrace.tests
     ]
