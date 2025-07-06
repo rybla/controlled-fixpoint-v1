@@ -54,6 +54,7 @@ tests =
                   ],
                 goals =
                   [A],
+                exprAliases = [],
                 shouldSuspend = const False,
                 strategy = DepthFirstStrategy
               }
@@ -68,6 +69,7 @@ tests =
                   ],
                 goals =
                   [A, A],
+                exprAliases = [],
                 shouldSuspend = const False,
                 strategy = DepthFirstStrategy
               }

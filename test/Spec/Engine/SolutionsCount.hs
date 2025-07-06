@@ -29,6 +29,7 @@ tests =
                       conc = Atom "P" [ConExpr (Con "2" [])]
                     }
                 ],
+              exprAliases = [],
               shouldSuspend = const False,
               goals = [Atom "P" ["x"]]
             }

@@ -31,6 +31,7 @@ mkTest a b c =
         { initialGas = FiniteGas 50,
           strategy = DepthFirstStrategy,
           rules = rulesAdd,
+          exprAliases = [],
           goals = [fromIntegral a :+ fromIntegral b :== fromIntegral c],
           shouldSuspend = const False
         }

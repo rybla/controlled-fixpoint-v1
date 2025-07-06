@@ -42,6 +42,7 @@ data Config = Config
     rules :: [Rule],
     goals :: [Atom],
     shouldSuspend :: Atom -> Bool,
+    exprAliases :: [ExprAlias],
     strategy :: Strategy
   }
 
@@ -278,6 +279,11 @@ loop = do
                   Unification.normEnv
                   return atom
               )
+                & flip
+                  runReaderT
+                  Unification.Ctx
+                    { exprAliases = ctx.config.exprAliases
+                    }
                 & runExceptT
                 & flip runStateT Unification.emptyEnv
 

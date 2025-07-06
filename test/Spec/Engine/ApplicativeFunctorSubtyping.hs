@@ -57,6 +57,7 @@ tests_v1 =
                   rules = rules_v1,
                   initialGas = FiniteGas 50,
                   strategy = DepthFirstStrategy,
+                  exprAliases = [],
                   shouldSuspend = \case
                     Valid (Functor (VarExpr _)) _ -> True
                     Valid (VarExpr _ :<: VarExpr _) _ -> True

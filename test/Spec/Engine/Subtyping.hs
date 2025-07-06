@@ -40,6 +40,7 @@ mkTest a b =
         { initialGas = FiniteGas 50,
           strategy = DepthFirstStrategy,
           rules = rulesSubtyping,
+          exprAliases = [],
           goals = [a :<: b],
           shouldSuspend = \case
             VarExpr _ :<: VarExpr _ -> True

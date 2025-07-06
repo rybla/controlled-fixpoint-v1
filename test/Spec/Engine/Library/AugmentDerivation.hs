@@ -135,6 +135,7 @@ tests =
                           }
                       ],
                     goals = [T (S (S (S (S Z))))],
+                    exprAliases = [],
                     shouldSuspend = const False,
                     strategy = DepthFirstStrategy
                   }

@@ -1,11 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module ControlledFixpoint.Unification where
 
 import Control.Monad (when, zipWithM)
-import Control.Monad.Except (ExceptT, MonadError (throwError))
+import Control.Monad.Except (ExceptT, throwError)
+import Control.Monad.Reader (ReaderT, ask)
 import Control.Monad.State (StateT, get, gets, modify)
 import Control.Monad.Trans (lift)
 import qualified ControlledFixpoint.Common as Common
@@ -22,15 +26,21 @@ import Utility (bullets, fixpointEqM)
 --------------------------------------------------------------------------------
 
 type T m =
-  (ExceptT Error)
-    ( (StateT Env)
-        (Common.T m)
-    )
+  ( (ReaderT Ctx)
+      ( (ExceptT Error)
+          ( (StateT Env)
+              (Common.T m)
+          )
+      )
+  )
 
 liftT :: (Monad m) => Common.T m a -> T m a
-liftT = lift . lift
+liftT = lift . lift . lift
 
-newtype Env = Env
+newtype Ctx = Ctx
+  {exprAliases :: [ExprAlias]}
+
+data Env = Env
   { sigma :: Subst
   }
 
@@ -78,7 +88,7 @@ unifyAtom a1@(Atom c1 es1) a2@(Atom c2 es2) = do
   when ((es1 & length) /= (es2 & length)) do throwError $ AtomsError a1 a2
   let n = c1
   es <- zipWithM unifyExpr es1 es2
-  pure (Atom n es)
+  pure $ Atom n es
 
 unifyExpr :: (Monad m) => Expr -> Expr -> T m Expr
 unifyExpr (VarExpr x1) e2 = do
@@ -88,11 +98,24 @@ unifyExpr e1 (VarExpr x2) = do
   setVarM x2 e1
   return e1
 unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
-  when (c1 /= c2) do throwError $ ExprsError e1 e2
-  when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
-  let c = c1
-  es <- zipWithM unifyExpr es1 es2
-  pure (ConExpr (Con c es))
+  ctx <- ask
+  if c1 /= c2
+    then do
+      -- if expressions are not directly directly comparable, then try applying
+      -- the `ExprAlias`s to them (try `e1` first, then `e2`)
+      case applyExprAliass ctx.exprAliases e1 of
+        Nothing -> case applyExprAliass ctx.exprAliases e2 of
+          Nothing -> throwError $ ExprsError e1 e2
+          Just e2' -> unifyExpr e1 e2'
+        Just e1' -> unifyExpr e2 e1'
+    else do
+      when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
+      let c = c1
+      es <- zipWithM unifyExpr es1 es2
+      pure $ con c es
+
+-- unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) | Just e1' <-  = _
+-- unifyExpr e1 e2 = ExprsError e1 e2
 
 normExpr :: (Monad m) => Expr -> T m Expr
 normExpr = liftA2 substExpr (gets sigma) . return

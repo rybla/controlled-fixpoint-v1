@@ -81,6 +81,7 @@ tests_Norm_v1 =
           { goals = [Valid (in_ :⇓ "?out") "?{in ⇓ out}"],
             strategy = DepthFirstStrategy,
             rules = rules_v1,
+            exprAliases = [],
             shouldSuspend = \case
               Valid (VarExpr _ :⇓ VarExpr _) _ -> True
               _ -> False,

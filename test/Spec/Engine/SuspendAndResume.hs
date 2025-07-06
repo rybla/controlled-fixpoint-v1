@@ -30,6 +30,7 @@ tests =
                     conc = B :~ A
                   }
               ],
+            exprAliases = [],
             shouldSuspend = \case
               VarExpr _ :~ VarExpr _ -> True
               _ -> False,
@@ -48,6 +49,7 @@ tests =
                     conc = A :~ "x"
                   }
               ],
+            exprAliases = [],
             shouldSuspend = const False,
             goals = [A :~ B]
           }
@@ -82,6 +84,7 @@ unrolling_tests =
         { initialGas = FiniteGas 10,
           strategy = DepthFirstStrategy,
           rules = rules1,
+          exprAliases = [],
           shouldSuspend = const False,
           goals = []
         }

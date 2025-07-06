@@ -2,12 +2,14 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module ControlledFixpoint.Grammar where
 
+import Control.Category ((>>>))
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
 import Control.Newtype.Generics (Newtype, over)
@@ -15,6 +17,7 @@ import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import Data.Function ((&))
 import Data.Functor ((<&>))
+import qualified Data.List.Safe as List
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -111,6 +114,9 @@ instance Pretty Con where
 con :: ConName -> [Expr] -> Expr
 con c es = ConExpr (Con c es)
 
+pattern ConE :: ConName -> [Expr] -> Expr
+pattern ConE c es = ConExpr (Con c es)
+
 -- | Substitution of meta-variables
 newtype Subst = Subst {unSubst :: Map Var Expr}
   deriving (Show, Eq, Generic)
@@ -127,11 +133,25 @@ instance Pretty Subst where
         & hsep
 
 --------------------------------------------------------------------------------
+-- ExprAlias
+--------------------------------------------------------------------------------
+
+-- | An expression alias. These are unfolded lazily during unification, so as a
+-- result the solver does it's best to not unfold definitions unless it's
+-- required in order to unify two expressions. Note that you _do_ need to be
+-- careful about recursively aliases, since a recursive alias could lead to
+-- infinite unfolding during unification.
+newtype ExprAlias = ExprAlias {unExprAlias :: Expr -> Maybe Expr}
+
+applyExprAliass :: [ExprAlias] -> Expr -> Maybe Expr
+applyExprAliass ds e = foldMap (maybe [] pure . (unExprAlias >>> ($ e))) ds & List.head
+
+--------------------------------------------------------------------------------
 -- Names
 --------------------------------------------------------------------------------
 
 -- | Rule name
-newtype RuleName = RuleName String
+newtype RuleName = RuleName {unRuleName :: String}
   deriving (Show, Eq, Ord)
 
 instance IsString RuleName where fromString = RuleName
@@ -139,7 +159,7 @@ instance IsString RuleName where fromString = RuleName
 instance Pretty RuleName where pPrint (RuleName x) = text x
 
 -- | Atom name
-newtype AtomName = AtomName String
+newtype AtomName = AtomName {unAtomName :: String}
   deriving (Show, Eq, Ord)
 
 instance IsString AtomName where fromString = AtomName
@@ -147,7 +167,7 @@ instance IsString AtomName where fromString = AtomName
 instance Pretty AtomName where pPrint (AtomName x) = text x
 
 -- | Constructor name
-newtype ConName = ConName String
+newtype ConName = ConName {unConName :: String}
   deriving (Show, Eq, Ord)
 
 instance IsString ConName where fromString = ConName
