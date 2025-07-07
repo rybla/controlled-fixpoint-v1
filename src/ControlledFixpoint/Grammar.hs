@@ -117,6 +117,14 @@ con c es = ConExpr (Con c es)
 pattern ConE :: ConName -> [Expr] -> Expr
 pattern ConE c es = ConExpr (Con c es)
 
+pattern (:%) :: ConName -> [Expr] -> Expr
+pattern c :% es = ConExpr (Con c es)
+
+infix 4 :%
+
+instance IsString Con where
+  fromString s = Con (fromString s) []
+
 -- | Substitution of meta-variables
 newtype Subst = Subst {unSubst :: Map Var Expr}
   deriving (Show, Eq, Generic)

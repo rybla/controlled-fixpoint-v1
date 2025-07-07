@@ -46,6 +46,17 @@ data Config = Config
     strategy :: Strategy
   }
 
+defaultConfig :: Config
+defaultConfig =
+  Config
+    { initialGas = InfiniteGas,
+      rules = [],
+      goals = [],
+      shouldSuspend = const False,
+      exprAliases = [],
+      strategy = DepthFirstStrategy
+    }
+
 instance Show Config where
   show cfg =
     render $
