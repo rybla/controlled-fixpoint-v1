@@ -118,13 +118,13 @@ data Env = Env
 instance Pretty Env where
   pPrint env =
     hang "engine environment:" 2 . bullets $
-      [ "gas          =" <+> pPrint env.gas,
-        "activeGoals  =" <+> pPrint env.activeGoals,
+      [ "gas            =" <+> pPrint env.gas,
+        "activeGoals    =" <+> pPrint env.activeGoals,
         "suspendedGoals =" <+> pPrint env.suspendedGoals,
-        "failedGoals  =" <+> pPrint env.failedGoals,
+        "failedGoals    =" <+> pPrint env.failedGoals,
         hang "steps:" 2 . bullets $
           env.stepsRev & reverse <&> pPrint,
-        "sigma        =" <+> pPrint env.sigma
+        "sigma          =" <+> pPrint env.sigma
       ]
 
 -- | The proof-search strategy.
