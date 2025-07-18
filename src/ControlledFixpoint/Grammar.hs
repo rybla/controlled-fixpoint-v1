@@ -100,8 +100,8 @@ var = VarExpr
 instance IsString Var where fromString s = Var s Nothing
 
 instance Pretty Var where
-  pPrint (Var x Nothing) = text x
-  pPrint (Var x (Just i)) = text x <> text (i & subscriptNumber)
+  pPrint (Var x Nothing) = text (show x)
+  pPrint (Var x (Just i)) = text (show x) <> text (i & subscriptNumber)
 
 -- | Constructor expression
 data Con = Con ConName [Expr]
@@ -173,7 +173,7 @@ unRuleName (RuleName s) = s
 
 instance IsString RuleName where fromString = RuleName
 
-instance Pretty RuleName where pPrint (RuleName x) = text x
+instance Pretty RuleName where pPrint (RuleName x) = text (show x)
 
 -- | Atom name
 newtype AtomName = AtomName String
@@ -184,7 +184,7 @@ unAtomName (AtomName s) = s
 
 instance IsString AtomName where fromString = AtomName
 
-instance Pretty AtomName where pPrint (AtomName x) = text x
+instance Pretty AtomName where pPrint (AtomName x) = text (show x)
 
 -- | Constructor name
 newtype ConName = ConName String
@@ -195,7 +195,7 @@ unConName (ConName s) = s
 
 instance IsString ConName where fromString = ConName
 
-instance Pretty ConName where pPrint (ConName x) = text x
+instance Pretty ConName where pPrint (ConName x) = text (show x)
 
 --------------------------------------------------------------------------------
 -- Functions
