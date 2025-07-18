@@ -126,8 +126,11 @@ instance IsString Con where
   fromString s = Con (fromString s) []
 
 -- | Substitution of meta-variables
-newtype Subst = Subst {unSubst :: Map Var Expr}
+newtype Subst = Subst (Map Var Expr)
   deriving (Show, Eq, Generic)
+
+unSubst :: Subst -> Map Var Expr
+unSubst (Subst m) = m
 
 instance Newtype Subst
 
@@ -149,7 +152,10 @@ instance Pretty Subst where
 -- required in order to unify two expressions. Note that you _do_ need to be
 -- careful about recursively aliases, since a recursive alias could lead to
 -- infinite unfolding during unification.
-newtype ExprAlias = ExprAlias {unExprAlias :: Expr -> Maybe Expr}
+newtype ExprAlias = ExprAlias (Expr -> Maybe Expr)
+
+unExprAlias :: ExprAlias -> (Expr -> Maybe Expr)
+unExprAlias (ExprAlias f) = f
 
 applyExprAliass :: [ExprAlias] -> Expr -> Maybe Expr
 applyExprAliass ds e = foldMap (maybe [] pure . (unExprAlias >>> ($ e))) ds & List.head
@@ -159,24 +165,33 @@ applyExprAliass ds e = foldMap (maybe [] pure . (unExprAlias >>> ($ e))) ds & Li
 --------------------------------------------------------------------------------
 
 -- | Rule name
-newtype RuleName = RuleName {unRuleName :: String}
+newtype RuleName = RuleName String
   deriving (Show, Eq, Ord)
+
+unRuleName :: RuleName -> String
+unRuleName (RuleName s) = s
 
 instance IsString RuleName where fromString = RuleName
 
 instance Pretty RuleName where pPrint (RuleName x) = text x
 
 -- | Atom name
-newtype AtomName = AtomName {unAtomName :: String}
+newtype AtomName = AtomName String
   deriving (Show, Eq, Ord)
+
+unAtomName :: AtomName -> String
+unAtomName (AtomName s) = s
 
 instance IsString AtomName where fromString = AtomName
 
 instance Pretty AtomName where pPrint (AtomName x) = text x
 
 -- | Constructor name
-newtype ConName = ConName {unConName :: String}
+newtype ConName = ConName String
   deriving (Show, Eq, Ord)
+
+unConName :: ConName -> String
+unConName (ConName s) = s
 
 instance IsString ConName where fromString = ConName
 
