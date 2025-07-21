@@ -1,10 +1,10 @@
+{-# HLINT ignore "Use newtype instead of data" #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use newtype instead of data" #-}
 
 module ControlledFixpoint.Engine where
 
@@ -99,7 +99,7 @@ data Ctx = Ctx
 instance Pretty Ctx where
   pPrint ctx =
     hang "engine context:" 2 . bullets $
-      [ hang "rules =" 2 . bullets $
+      [ hang "rules:" 2 . bullets $
           ctx.config.rules <&> pPrint
       ]
 
