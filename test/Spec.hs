@@ -12,6 +12,7 @@ import qualified Spec.Engine.Proof
 import qualified Spec.Engine.SolutionsCount
 import qualified Spec.Engine.Subtyping
 import qualified Spec.Engine.SuspendAndResume
+import qualified Spec.Unification
 import System.Environment (setEnv)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
@@ -32,5 +33,6 @@ tests =
       Spec.Engine.ApplicativeFunctorSubtyping.tests,
       Spec.Engine.Library.AugmentDerivation.tests,
       Spec.Engine.Library.AugmentGoalTrace.tests,
-      Spec.Engine.ExprAlias.tests
+      Spec.Engine.ExprAlias.tests,
+      Spec.Unification.tests
     ]

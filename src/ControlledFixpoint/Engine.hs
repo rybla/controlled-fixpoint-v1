@@ -8,6 +8,7 @@
 
 module ControlledFixpoint.Engine where
 
+import Control.Lens ((^.))
 import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
 import Control.Monad.RWS (MonadState (..))
@@ -16,7 +17,7 @@ import Control.Monad.State (StateT (runStateT), execStateT, gets, modify, runSta
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter (tell), WriterT (runWriterT))
 import qualified ControlledFixpoint.Common as Common
-import ControlledFixpoint.Common.Msg as Msg (Level (Level), Msg (..), mk)
+import ControlledFixpoint.Common.Msg as Msg
 import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
@@ -177,7 +178,7 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Step a c v) where
 -- Functions
 --------------------------------------------------------------------------------
 
-run :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
+run :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
 run cfg = do
   tell [Msg.mk "Engine.run"]
   let ctx =
@@ -209,7 +210,7 @@ run cfg = do
       return $ Left (err, env')
     Right branches -> return $ Right branches
 
-loop :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a) => T a c v m ()
+loop :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
 loop = do
   ctx <- ask
 
@@ -298,7 +299,7 @@ loop = do
                 & runExceptT
                 & flip runStateT Unification.emptyEnv
 
-          let sigma_uni = env_uni'.sigma
+          let sigma_uni = env_uni' ^. Unification.sigma
 
           case err_or_goal' of
             Left err -> do
@@ -318,10 +319,11 @@ loop = do
               tellT $
                 (Msg.mk "successfully unified goal with rule's conclusion")
                   { Msg.contents =
-                      [ "rule      =" <+> pPrint rule.name,
-                        "sigma_uni =" <+> pPrint sigma_uni,
-                        "goal      =" <+> pPrint goal,
-                        "goal'     =" <+> pPrint goal'
+                      [ "rule         =" <+> pPrint rule.name,
+                        "sigma_uni    =" <+> pPrint sigma_uni,
+                        "goal         =" <+> pPrint goal,
+                        "goal'        =" <+> pPrint goal',
+                        "goal' (show) =" <+> text (show goal')
                       ],
                     level = Msg.Level 1
                   }
