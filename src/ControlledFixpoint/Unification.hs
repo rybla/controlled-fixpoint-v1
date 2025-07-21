@@ -25,48 +25,48 @@ import Utility (bullets, fixpointEqM)
 -- Types
 --------------------------------------------------------------------------------
 
-type T m =
-  ( (ReaderT Ctx)
-      ( (ExceptT Error)
-          ( (StateT Env)
+type T a c v m =
+  ( (ReaderT (Ctx c v))
+      ( (ExceptT (Error a c v))
+          ( (StateT (Env c v))
               (Common.T m)
           )
       )
   )
 
-liftT :: (Monad m) => Common.T m a -> T m a
+liftT :: (Monad m) => Common.T m a -> T a c v m a
 liftT = lift . lift . lift
 
-newtype Ctx = Ctx
-  {exprAliases :: [ExprAlias]}
+newtype Ctx c v = Ctx
+  {exprAliases :: [ExprAlias c v]}
 
-data Env = Env
-  { sigma :: Subst
+data Env c v = Env
+  { sigma :: Subst c v
   }
 
-instance Pretty Env where
+instance (Pretty c, Pretty v) => Pretty (Env c v) where
   pPrint Env {..} =
     hang "Unification.Env" 2 . bullets $
       [ "sigma =" <+> pPrint sigma
       ]
 
-emptyEnv :: Env
+emptyEnv :: Env c v
 emptyEnv =
   Env
     { sigma = emptySubst
     }
 
-data Error
-  = AtomsError Atom Atom
-  | ExprsError Expr Expr
-  | OccursError Var Expr
+data Error a c v
+  = AtomsError (Atom a c v) (Atom a c v)
+  | ExprsError (Expr c v) (Expr c v)
+  | OccursError (Var v) (Expr c v)
 
-instance Pretty Error where
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Error a c v) where
   pPrint (AtomsError a1 a2) = pPrint a1 <+> "!~" <+> pPrint a2
   pPrint (ExprsError e1 e2) = pPrint e1 <+> "!~" <+> pPrint e2
   pPrint (OccursError x e) = pPrint x <+> "was unified with" <+> pPrint e <+> "recursively"
 
-setVarM :: (Monad m) => Var -> Expr -> T m ()
+setVarM :: (Monad m, Ord v, Eq c) => Var v -> Expr c v -> T a c v m ()
 setVarM x e = do
   -- if 'x' occurs in 'e', then is a cyclic substitution, which is inconsistent
   when (Set.member x (varsExpr e)) do throwError $ ExprsError (VarExpr x) e
@@ -82,7 +82,7 @@ setVarM x e = do
 -- Functions
 --------------------------------------------------------------------------------
 
-unifyAtom :: (Monad m) => Atom -> Atom -> T m Atom
+unifyAtom :: (Monad m, Eq a, Ord v, Eq c) => Atom a c v -> Atom a c v -> T a c v m (Atom a c v)
 unifyAtom a1@(Atom c1 es1) a2@(Atom c2 es2) = do
   when (c1 /= c2) do throwError $ AtomsError a1 a2
   when ((es1 & length) /= (es2 & length)) do throwError $ AtomsError a1 a2
@@ -90,7 +90,7 @@ unifyAtom a1@(Atom c1 es1) a2@(Atom c2 es2) = do
   es <- zipWithM unifyExpr es1 es2
   pure $ Atom n es
 
-unifyExpr :: (Monad m) => Expr -> Expr -> T m Expr
+unifyExpr :: (Monad m, Ord v, Eq c) => Expr c v -> Expr c v -> T a c v m (Expr c v)
 unifyExpr (VarExpr x1) e2 = do
   setVarM x1 e2
   return e2
@@ -117,10 +117,10 @@ unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
 -- unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) | Just e1' <-  = _
 -- unifyExpr e1 e2 = ExprsError e1 e2
 
-normExpr :: (Monad m) => Expr -> T m Expr
+normExpr :: (Monad m, Ord v) => Expr c v -> T a c v m (Expr c v)
 normExpr = liftA2 substExpr (gets sigma) . return
 
-normEnv :: (Monad m) => T m ()
+normEnv :: (Monad m, Eq c, Ord v) => T a c v m ()
 normEnv = do
   env <- get
   sigma' <-

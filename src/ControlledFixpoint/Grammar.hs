@@ -33,14 +33,14 @@ import Utility
 --------------------------------------------------------------------------------
 
 -- | Rule
-data Rule = Rule
+data Rule a c v = Rule
   { name :: RuleName,
-    hyps :: [Hyp],
-    conc :: Atom
+    hyps :: [Hyp a c v],
+    conc :: Atom a c v
   }
   deriving (Show, Eq, Ord)
 
-instance Pretty Rule where
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Rule a c v) where
   pPrint rule =
     vcat
       [ "rule" <+> pPrint rule.name,
@@ -57,10 +57,10 @@ instance Pretty Rule where
 -- made this a data type anyway since it may be desirable at some point to have
 -- other kinds of hypotheses, such as functional predicates (predicates that are
 -- checked by executing a `Bool`-valued function.)
-data Hyp = AtomHyp Atom
+data Hyp a c v = AtomHyp (Atom a c v)
   deriving (Show, Eq, Ord)
 
-instance Pretty Hyp where
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
   pPrint (AtomHyp atom) = pPrint atom
 
 --------------------------------------------------------------------------------
@@ -68,10 +68,10 @@ instance Pretty Hyp where
 --------------------------------------------------------------------------------
 
 -- | An 'Atom' is an atomic formula.
-data Atom = Atom AtomName [Expr]
+data Atom a c v = Atom a [Expr c v]
   deriving (Show, Eq, Ord)
 
-instance Pretty Atom where
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Atom a c v) where
   pPrint (Atom c es) = pPrint c <+> (es <&> pPrint & hsep)
 
 --------------------------------------------------------------------------------
@@ -79,62 +79,62 @@ instance Pretty Atom where
 --------------------------------------------------------------------------------
 
 -- | Expression
-data Expr
-  = VarExpr Var
-  | ConExpr Con
+data Expr c v
+  = ConExpr (Con c v)
+  | VarExpr (Var v)
   deriving (Show, Eq, Ord)
 
-instance Pretty Expr where
+instance (Pretty c, Pretty v) => Pretty (Expr c v) where
   pPrint (VarExpr x) = pPrint x
   pPrint (ConExpr c) = pPrint c
 
-instance IsString Expr where fromString x = VarExpr (fromString x)
+instance (IsString v) => IsString (Expr c v) where fromString x = VarExpr (fromString x)
 
 -- | Meta-variable that can be substituted with an expression
-data Var = Var String (Maybe Int)
+data Var v = Var v (Maybe Int)
   deriving (Show, Eq, Ord)
 
-var :: Var -> Expr
+var :: Var v -> Expr c v
 var = VarExpr
 
-instance IsString Var where fromString s = Var s Nothing
+instance (IsString v) => IsString (Var v) where fromString s = Var (fromString s) Nothing
 
-instance Pretty Var where
-  pPrint (Var x Nothing) = text (show x)
-  pPrint (Var x (Just i)) = text (show x) <> text (i & subscriptNumber)
+instance (Pretty v) => Pretty (Var v) where
+  pPrint (Var x Nothing) = pPrint x
+  pPrint (Var x (Just i)) = pPrint x <> text (i & subscriptNumber)
 
 -- | Constructor expression
-data Con = Con ConName [Expr]
+data Con c v = Con c [Expr c v]
   deriving (Show, Eq, Ord)
 
-instance Pretty Con where
+instance (Pretty c, Pretty v) => Pretty (Con c v) where
   pPrint (Con c []) = pPrint c
   pPrint (Con c es) = parens $ pPrint c <+> (es <&> pPrint & punctuate " " & hcat)
 
-con :: ConName -> [Expr] -> Expr
+con :: c -> [Expr c v] -> Expr c v
 con c es = ConExpr (Con c es)
 
-pattern ConE :: ConName -> [Expr] -> Expr
+pattern ConE :: c -> [Expr c v] -> Expr c v
 pattern ConE c es = ConExpr (Con c es)
 
-pattern (:%) :: ConName -> [Expr] -> Expr
+pattern (:%) :: c -> [Expr c v] -> Expr c v
 pattern c :% es = ConExpr (Con c es)
 
 infix 4 :%
 
-instance IsString Con where
+instance (IsString c) => IsString (Con c v) where
   fromString s = Con (fromString s) []
 
 -- | Substitution of meta-variables
-newtype Subst = Subst (Map Var Expr)
+newtype Subst c v = Subst (Map (Var v) (Expr c v))
   deriving (Show, Eq, Generic)
 
-unSubst :: Subst -> Map Var Expr
+unSubst :: Subst c v -> Map (Var v) (Expr c v)
 unSubst (Subst m) = m
 
-instance Newtype Subst
+instance Newtype (Subst c v)
 
-instance Pretty Subst where
+instance (Pretty c, Pretty v) => Pretty (Subst c v) where
   pPrint (Subst m) =
     braces $
       m
@@ -152,12 +152,12 @@ instance Pretty Subst where
 -- required in order to unify two expressions. Note that you _do_ need to be
 -- careful about recursively aliases, since a recursive alias could lead to
 -- infinite unfolding during unification.
-newtype ExprAlias = ExprAlias (Expr -> Maybe Expr)
+newtype ExprAlias c v = ExprAlias (Expr c v -> Maybe (Expr c v))
 
-unExprAlias :: ExprAlias -> (Expr -> Maybe Expr)
+unExprAlias :: ExprAlias c v -> (Expr c v -> Maybe (Expr c v))
 unExprAlias (ExprAlias f) = f
 
-applyExprAliass :: [ExprAlias] -> Expr -> Maybe Expr
+applyExprAliass :: [ExprAlias c v] -> Expr c v -> Maybe (Expr c v)
 applyExprAliass ds e = foldMap (maybe [] pure . (unExprAlias >>> ($ e))) ds & List.head
 
 --------------------------------------------------------------------------------
@@ -175,73 +175,51 @@ instance IsString RuleName where fromString = RuleName
 
 instance Pretty RuleName where pPrint (RuleName x) = text (show x)
 
--- | Atom name
-newtype AtomName = AtomName String
-  deriving (Show, Eq, Ord)
-
-unAtomName :: AtomName -> String
-unAtomName (AtomName s) = s
-
-instance IsString AtomName where fromString = AtomName
-
-instance Pretty AtomName where pPrint (AtomName x) = text (show x)
-
--- | Constructor name
-newtype ConName = ConName String
-  deriving (Show, Eq, Ord)
-
-unConName :: ConName -> String
-unConName (ConName s) = s
-
-instance IsString ConName where fromString = ConName
-
-instance Pretty ConName where pPrint (ConName x) = text (show x)
-
 --------------------------------------------------------------------------------
 -- Functions
 --------------------------------------------------------------------------------
 
-varsAtom :: Atom -> Set Var
+varsAtom :: (Ord v) => Atom a c v -> Set (Var v)
 varsAtom (Atom _ es) = es <&> varsExpr & Set.unions
 
-varsExpr :: Expr -> Set Var
+varsExpr :: (Ord v) => Expr c v -> Set (Var v)
 varsExpr (VarExpr x) = Set.singleton x
 varsExpr (ConExpr (Con _ es)) = es <&> varsExpr & Set.unions
 
-occursInAtom :: Var -> Atom -> Bool
+occursInAtom :: (Ord v) => Var v -> Atom a c v -> Bool
 occursInAtom x a = x `Set.member` varsAtom a
 
-occursInExpr :: Var -> Expr -> Bool
+occursInExpr :: (Ord v) => Var v -> Expr c v -> Bool
 occursInExpr x e = x `Set.member` varsExpr e
 
-emptySubst :: Subst
+emptySubst :: Subst c v
 emptySubst = Subst Map.empty
 
-setVar :: Var -> Expr -> Subst -> Subst
+setVar :: (Ord v) => Var v -> Expr c v -> Subst c v -> Subst c v
 setVar x e =
   over Subst $
     fmap (substExpr (Subst (Map.singleton x e)))
       . Map.insert x e
 
-substHyp :: Subst -> Hyp -> Hyp
+substHyp :: (Ord v) => Subst c v -> Hyp a c v -> Hyp a c v
 substHyp sigma (AtomHyp atom) = AtomHyp (substAtom sigma atom)
 
-substAtom :: Subst -> Atom -> Atom
+substAtom :: (Ord v) => Subst c v -> Atom a c v -> Atom a c v
 substAtom sigma (Atom c es) = Atom c (es <&> substExpr sigma)
 
-substExpr :: Subst -> Expr -> Expr
+substExpr :: (Ord v) => Subst c v -> Expr c v -> Expr c v
 substExpr (Subst m) (VarExpr x) = case m Map.!? x of
   Nothing -> VarExpr x
   Just e -> e
 substExpr sigma (ConExpr (Con c es)) =
   ConExpr (Con c (es <&> substExpr sigma))
 
-substVar :: Subst -> Var -> Maybe Expr
+substVar :: (Ord v) => Subst c v -> Var v -> Maybe (Expr c v)
 substVar (Subst m) x = m Map.!? x
 
 -- | Throws an error if 'sigma'' substitutes a variable that is also substituted
 -- by 'sigma'.
-composeSubst :: (MonadError Msg m) => Subst -> Subst -> m Subst
+composeSubst :: (MonadError Msg m, Ord v, Pretty v, Pretty c) => Subst c v -> Subst c v -> m (Subst c v)
 composeSubst sigma@(Subst m) sigma'@(Subst m') = do
   let keysIntersection = (m & Map.keysSet) `Set.intersection` (m' & Map.keysSet)
   unless (Set.null keysIntersection) do
@@ -256,5 +234,5 @@ composeSubst sigma@(Subst m) sigma'@(Subst m') = do
   return $ Subst $ m `Map.union` (m' <&> substExpr sigma)
 
 -- | Similar to `composeSubst`, but doesn't check for overlaps.
-composeSubst_unsafe :: Subst -> Subst -> Subst
+composeSubst_unsafe :: (Ord v) => Subst c v -> Subst c v -> Subst c v
 composeSubst_unsafe sigma'@(Subst m') sigma@(Subst m) = Subst $ (m' <&> substExpr sigma) `Map.union` (m <&> substExpr sigma')

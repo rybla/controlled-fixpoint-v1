@@ -32,7 +32,7 @@ tests =
         EngineSuccessWithSuspends
     ]
 
-mkTest :: Expr -> Expr -> EngineResult -> TestTree
+mkTest :: Expr C V -> Expr C V -> EngineResult -> TestTree
 mkTest a b =
   mkTest_Engine
     ("`" <> displayExpr a <> "  <:  " <> displayExpr b <> "`")
@@ -48,7 +48,7 @@ mkTest a b =
         }
     )
 
-rulesSubtyping :: [Rule]
+rulesSubtyping :: [Rule A C V]
 rulesSubtyping =
   [ Rule
       { name = "bool <: bool",
@@ -84,24 +84,24 @@ rulesSubtyping =
 
 -- atoms
 
-pattern (:<:) :: Expr -> Expr -> Atom
+pattern (:<:) :: Expr C V -> Expr C V -> Atom A C V
 pattern (:<:) s t = Atom "Subtype" [s, t]
 
 -- expressions
 
-int :: Expr
+int :: Expr C V
 int = ConExpr (Con "int" [])
 
-nat :: Expr
+nat :: Expr C V
 nat = ConExpr (Con "nat" [])
 
-bool :: Expr
+bool :: Expr C V
 bool = ConExpr (Con "bool" [])
 
-arr :: Expr -> Expr -> Expr
+arr :: Expr C V -> Expr C V -> Expr C V
 arr a b = ConExpr (Con "arr" [a, b])
 
-displayExpr :: Expr -> String
+displayExpr :: Expr C V -> String
 displayExpr (ConExpr (Con "int" [])) = "int"
 displayExpr (ConExpr (Con "nat" [])) = "nat"
 displayExpr (ConExpr (Con "bool" [])) = "bool"

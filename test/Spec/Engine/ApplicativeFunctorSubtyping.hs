@@ -12,9 +12,6 @@ import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import qualified Data.Map as Map
 import Spec.Engine.Common
-  ( EngineResult (..),
-    mkTest_Engine,
-  )
 import Test.Tasty (TestTree, testGroup)
 import Text.PrettyPrint (Doc, parens, render, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
@@ -66,7 +63,7 @@ tests_v1 =
             )
             (EngineSuccessWithSubst $ Subst $ Map.fromList [(pf, pf')])
 
-    rules_v1 :: [Rule]
+    rules_v1 :: [Rule A C V]
     rules_v1 =
       concat
         [ -- core rules
@@ -146,34 +143,34 @@ tests_v1 =
 
         a_arrow_a'_subtype_b_arrow_b' = "?{a -> a' <: b -> b'}"
 
-subArrow :: Expr -> Expr -> Expr
+subArrow :: Expr C V -> Expr C V -> Expr C V
 subArrow a'_subtype_a b_subtype_b' = con "subArrow" [a'_subtype_a, b_subtype_b']
 
-subFunctor :: Expr -> Expr -> Expr
+subFunctor :: Expr C V -> Expr C V -> Expr C V
 subFunctor functor_f a_subtype_a' = con "subFunctor" [functor_f, a_subtype_a']
 
-fmap :: Expr -> Expr -> Expr
+fmap :: Expr C V -> Expr C V -> Expr C V
 fmap functor_f a_arrow_a'_subtype_b_arrow_b' = con "fmap" [functor_f, a_arrow_a'_subtype_b_arrow_b']
 
-pure :: Expr -> Expr -> Expr
+pure :: Expr C V -> Expr C V -> Expr C V
 pure functor_f a_subtype_a' = con "pure" [functor_f, a_subtype_a']
 
-subNatOfInt :: Expr
+subNatOfInt :: Expr C V
 subNatOfInt = con "subNatOfInt" []
 
-functorList :: Expr
+functorList :: Expr C V
 functorList = con "functorList" []
 
-subBool :: Expr
+subBool :: Expr C V
 subBool = con "subBool" []
 
-subInt :: Expr
+subInt :: Expr C V
 subInt = con "subInt" []
 
-subNat :: Expr
+subNat :: Expr C V
 subNat = con "subNat" []
 
-prettyExpr :: Expr -> Doc
+prettyExpr :: Expr C V -> Doc
 prettyExpr (s :<: t) = prettyExpr s <+> "<:" <+> prettyExpr t
 prettyExpr (Functor f) = "Functor" <+> prettyExpr f
 prettyExpr (s :-> t) = parens (prettyExpr s <+> "->" <+> prettyExpr t)
@@ -186,39 +183,39 @@ prettyExpr e = pPrint e
 
 -- atoms
 
-pattern Valid :: Expr -> Expr -> Atom
+pattern Valid :: Expr C V -> Expr C V -> Atom A C V
 pattern Valid st pf = Atom "Valid" [st, pf]
 
 -- relations
 
-pattern (:<:) :: Expr -> Expr -> Expr
+pattern (:<:) :: Expr C V -> Expr C V -> Expr C V
 pattern (:<:) s t = ConExpr (Con "Subtype" [s, t])
 
 infix 4 :<:
 
-pattern Functor :: Expr -> Expr
+pattern Functor :: Expr C V -> Expr C V
 pattern Functor f = ConExpr (Con "Functor" [f])
 
 -- expressions
 
-pattern (:->) :: Expr -> Expr -> Expr
+pattern (:->) :: Expr C V -> Expr C V -> Expr C V
 pattern a :-> b = ConExpr (Con "Arrow" [a, b])
 
 infixr 5 :->
 
-pattern (:@) :: Expr -> Expr -> Expr
+pattern (:@) :: Expr C V -> Expr C V -> Expr C V
 pattern f :@ a = ConExpr (Con "App" [f, a])
 
 infixl 6 :@
 
-pattern List :: Expr
+pattern List :: Expr C V
 pattern List = ConExpr (Con "List" [])
 
-pattern Bool :: Expr
+pattern Bool :: Expr C V
 pattern Bool = ConExpr (Con "Bool" [])
 
-pattern Nat :: Expr
+pattern Nat :: Expr C V
 pattern Nat = ConExpr (Con "Nat" [])
 
-pattern Int :: Expr
+pattern Int :: Expr C V
 pattern Int = ConExpr (Con "Int" [])

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -37,7 +38,7 @@ mkTest a b c =
         }
     )
 
-rulesAdd :: [Rule]
+rulesAdd :: [Rule A C V]
 rulesAdd =
   [ Rule
       { name = "0+",
@@ -55,23 +56,23 @@ rulesAdd =
   where
     (x, z, y) = ("x", "y", "z")
 
-pattern (:==) :: Expr -> Expr -> Atom
+pattern (:==) :: Expr C V -> Expr C V -> Atom A C V
 pattern x :== y = Atom "Equal" [x, y]
 
 infix 4 :==
 
-pattern (:+) :: Expr -> Expr -> Expr
+pattern (:+) :: Expr C V -> Expr C V -> Expr C V
 pattern x :+ y = ConExpr (Con "Add" [x, y])
 
 infixl 6 :+
 
-pattern S :: Expr -> Expr
+pattern S :: Expr C V -> Expr C V
 pattern S x = ConExpr (Con "S" [x])
 
-pattern Z :: Expr
+pattern Z :: Expr C V
 pattern Z = ConExpr (Con "Z" [])
 
-instance Num Expr where
+instance Num (Expr C V) where
   (+) = (:+)
   fromInteger n | n < 0 = undefined
   fromInteger 0 = Z

@@ -78,7 +78,7 @@ unrolling_tests =
         (EngineError OutOfGas)
     ]
   where
-    cfg :: Config
+    cfg :: Config A C V
     cfg =
       Engine.Config
         { initialGas = FiniteGas 10,
@@ -89,7 +89,7 @@ unrolling_tests =
           goals = []
         }
 
-    rules1 :: [Rule]
+    rules1 :: [Rule A C V]
     rules1 =
       [ Rule
           { name = "R1",
@@ -108,23 +108,23 @@ unrolling_tests =
           }
       ]
 
-pattern Valid :: Expr -> Atom
+pattern Valid :: Expr C V -> Atom A C V
 pattern Valid st = Atom "Valid" [st]
 
-pattern (:~) :: Expr -> Expr -> Atom
+pattern (:~) :: Expr C V -> Expr C V -> Atom A C V
 pattern x :~ y = Valid (ConExpr (Con "Rel" [x, y]))
 
-pattern P :: Expr -> Expr -> Atom
+pattern P :: Expr C V -> Expr C V -> Atom A C V
 pattern P x y = Valid (ConExpr (Con "P" [x, y]))
 
-pattern Q :: Expr -> Expr -> Atom
+pattern Q :: Expr C V -> Expr C V -> Atom A C V
 pattern Q x y = Valid (ConExpr (Con "Q" [x, y]))
 
-pattern A :: Expr
+pattern A :: Expr C V
 pattern A = ConExpr (Con "A" [])
 
-pattern B :: Expr
+pattern B :: Expr C V
 pattern B = ConExpr (Con "B" [])
 
-pattern S :: Expr -> Expr
+pattern S :: Expr C V -> Expr C V
 pattern S x = ConExpr (Con "S" [x])

@@ -70,17 +70,17 @@ ex1_tests =
           strategy = DepthFirstStrategy
         }
 
-pattern A :: Expr
+pattern A :: Expr C V
 pattern A = "A" :% []
 
-pattern B :: Expr
+pattern B :: Expr C V
 pattern B = "B" :% []
 
-pattern P :: Expr -> Atom
+pattern P :: Expr C V -> Atom A C V
 pattern P x = Atom "P" [x]
 
-pattern Tuple :: Expr -> Expr -> Expr
+pattern Tuple :: Expr C V -> Expr C V -> Expr C V
 pattern Tuple x y = "tuple" :% [x, y]
 
-pattern Swap :: Expr -> Expr
+pattern Swap :: Expr C V -> Expr C V
 pattern Swap t = "App" :% ["swap" :% [], t]

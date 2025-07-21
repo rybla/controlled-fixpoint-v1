@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
@@ -10,9 +11,6 @@ import ControlledFixpoint.Grammar
 import Data.Function ((&))
 import qualified Data.Map as Map
 import Spec.Engine.Common
-  ( EngineResult (..),
-    mkTest_Engine,
-  )
 import Test.Tasty (TestName, TestTree, testGroup)
 import Text.PrettyPrint (Doc, parens, text)
 import Text.PrettyPrint.HughesPJClass (pPrint, render, (<+>))
@@ -57,7 +55,7 @@ tests_Norm_v1 =
     pPZ a b = con "+Z⇓" [a, b]
     pPS a b c = con "+S⇓" [a, b, c]
 
-    mkTest_success :: Expr -> TestTree
+    mkTest_success :: Expr C V -> TestTree
     mkTest_success x =
       mkTest (render (prettyExpr x <+> "⇓" <+> text (show y))) x $
         EngineSuccessWithSubst
@@ -65,7 +63,7 @@ tests_Norm_v1 =
       where
         y = interpret x
 
-    mkTest_successWithProof :: Expr -> Expr -> TestTree
+    mkTest_successWithProof :: Expr C V -> Expr C V -> TestTree
     mkTest_successWithProof x pf =
       mkTest (render (prettyExpr x <+> "⇓" <+> text (show y) <+> "via proof")) x $
         EngineSuccessWithSubst
@@ -73,7 +71,7 @@ tests_Norm_v1 =
       where
         y = interpret x
 
-    mkTest :: TestName -> Expr -> EngineResult -> TestTree
+    mkTest :: TestName -> Expr C V -> EngineResult -> TestTree
     mkTest testName in_ =
       mkTest_Engine
         testName
@@ -88,21 +86,21 @@ tests_Norm_v1 =
             initialGas = FiniteGas 50
           }
 
-    rules_v1 :: [Rule]
+    rules_v1 :: [Rule A C V]
     rules_v1 =
       [ -- normal forms
         let ruleName = "Z⇓"
          in Rule
               { name = RuleName ruleName,
                 hyps = [],
-                conc = Valid (Z :⇓ Z) $ con (ConName ruleName) []
+                conc = Valid (Z :⇓ Z) $ con ruleName []
               },
         let ruleName = "S⇓"
             (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
          in Rule
               { name = RuleName ruleName,
                 hyps = [AtomHyp $ Valid (a :⇓ a') pf_a_norm_a'],
-                conc = Valid (S a :⇓ S a') $ con (ConName ruleName) [pf_a_norm_a']
+                conc = Valid (S a :⇓ S a') $ con ruleName [pf_a_norm_a']
               },
         let ruleName = "+Z⇓"
             (a, a', pf_a_norm_a', b, pf_b_norm_Z) = ("?a", "?a'", "?{a ⇓ a'}", "b", "?{b ⇓ Z}")
@@ -112,7 +110,7 @@ tests_Norm_v1 =
                   [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a',
                     AtomHyp $ Valid (b :⇓ Z) pf_b_norm_Z
                   ],
-                conc = Valid (a + b :⇓ a') $ con (ConName ruleName) [pf_a_norm_a', pf_b_norm_Z]
+                conc = Valid (a + b :⇓ a') $ con ruleName [pf_a_norm_a', pf_b_norm_Z]
               },
         let ruleName = "+S⇓"
             (a, a', pf_a_norm_a', b, b', pf_b_norm_Sb', c, pf_a'_plus_b'_norm_c) = ("?a", "?a'", "?{a ⇓ a'}", "?b", "?b'", "?{b ⇓ S b'}", "?c", "?{a' + b' ⇓ c}")
@@ -123,23 +121,23 @@ tests_Norm_v1 =
                     AtomHyp $ Valid (b :⇓ S b') pf_b_norm_Sb',
                     AtomHyp $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
                   ],
-                conc = Valid (a + b :⇓ S c) $ con (ConName ruleName) [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
+                conc = Valid (a + b :⇓ S c) $ con ruleName [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
               }
       ]
 
-interpret :: Expr -> Int
+interpret :: Expr C V -> Int
 interpret Z = 0
 interpret (S n) = 1 + interpret n
 interpret (a :+ b) = interpret a + interpret b
 interpret e = error . render $ "interpret" <+> pPrint e
 
-prettyExpr :: Expr -> Doc
+prettyExpr :: Expr C V -> Doc
 prettyExpr e | Just i <- toInt e = text (show i)
 prettyExpr (S a) = parens ("S" <+> prettyExpr a)
 prettyExpr (a :+ b) = prettyExpr a <+> "+" <+> prettyExpr b
 prettyExpr e = error . render $ "prettyExpr" <+> pPrint e
 
-toInt :: Expr -> Maybe Int
+toInt :: Expr C V -> Maybe Int
 toInt Z = Just 0
 toInt (S a) = do
   i <- toInt a
@@ -148,27 +146,27 @@ toInt _ = Nothing
 
 -- nat
 
-pattern Z :: Expr
+pattern Z :: Expr C V
 pattern Z = ConExpr (Con "Z" [])
 
-pattern S :: Expr -> Expr
+pattern S :: Expr C V -> Expr C V
 pattern S n = ConExpr (Con "S" [n])
 
-instance Num Expr where
+instance Num (Expr C V) where
   fromInteger n = replicate (fromInteger n) S & foldr ($) Z
   (+) = (:+)
 
 -- definitions
 
-pattern Valid :: Expr -> Expr -> Atom
+pattern Valid :: Expr C V -> Expr C V -> Atom A C V
 pattern Valid st pf = Atom "Valid" [st, pf]
 
-pattern (:⇓) :: Expr -> Expr -> Expr
+pattern (:⇓) :: Expr C V -> Expr C V -> Expr C V
 pattern (:⇓) a b = ConExpr (Con "Norm" [a, b])
 
 infix 4 :⇓
 
-pattern (:+) :: Expr -> Expr -> Expr
+pattern (:+) :: Expr C V -> Expr C V -> Expr C V
 pattern a :+ b = ConExpr (Con "Add" [a, b])
 
 infixl 6 :+

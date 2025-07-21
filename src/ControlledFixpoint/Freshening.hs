@@ -8,14 +8,14 @@ import ControlledFixpoint.Grammar
 import Data.Function ((&))
 import Utility
 
-data Env = Env
-  { sigma :: Subst,
+data Env c v = Env
+  { sigma :: Subst c v,
     freshCounter :: Int
   }
 
-type M = State Env
+type M c v = State (Env c v)
 
-freshenRule :: Rule -> M Rule
+freshenRule :: (Ord v) => Rule a c v -> M c v (Rule a c v)
 freshenRule rule = do
   hyps' <- rule.hyps <&>>= freshenHyp
   conc' <- rule.conc & freshenAtom
@@ -25,17 +25,17 @@ freshenRule rule = do
         conc = conc'
       }
 
-freshenHyp :: Hyp -> M Hyp
+freshenHyp :: (Ord v) => Hyp a c v -> M c v (Hyp a c v)
 freshenHyp (AtomHyp r) = AtomHyp <$> (r & freshenAtom)
 
-freshenAtom :: Atom -> M Atom
+freshenAtom :: (Ord v) => Atom a c v -> M c v (Atom a c v)
 freshenAtom (Atom a es) = Atom a <$> (es <&>>= freshenExpr)
 
-freshenExpr :: Expr -> M Expr
+freshenExpr :: (Ord v) => Expr c v -> M c v (Expr c v)
 freshenExpr (VarExpr x) = freshenVar x
 freshenExpr (ConExpr (Con c es)) = ConExpr . Con c <$> (es <&>>= freshenExpr)
 
-freshenVar :: Var -> M Expr
+freshenVar :: (Ord v) => Var v -> M c v (Expr c v)
 freshenVar x@(Var s _) = do
   env <- get
   case x & substVar env.sigma of

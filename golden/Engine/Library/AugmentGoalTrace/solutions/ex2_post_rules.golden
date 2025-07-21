@@ -1,9 +1,0 @@
-rules =
-  [rule R1
-     B ?goal
-     --------------------------------
-     A ?goal,
-   rule R2
-     --------------------------------
-     B ?goal]
-goals = [A goal#0, A goal#1]

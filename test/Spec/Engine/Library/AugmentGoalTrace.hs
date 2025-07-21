@@ -9,8 +9,8 @@ import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
 import ControlledFixpoint.Library.AugmentGoalTrace as AugmentGoalTrace
 import Data.String (IsString (fromString))
-import Spec.Engine.Common (EngineResult (EngineSuccess), mkTest_Engine)
-import qualified Spec.Engine.Library.Common as Common
+import Spec.Engine.Common hiding (goldenDirpath)
+import qualified Spec.Engine.Common as Common
 import System.FilePath ((<.>), (</>))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Golden (goldenVsString)
@@ -76,8 +76,8 @@ tests =
             AugmentGoalTrace.Config {}
         ]
 
-pattern A :: Atom
+pattern A :: Atom A C V
 pattern A = Atom "A" []
 
-pattern B :: Atom
+pattern B :: Atom A C V
 pattern B = Atom "B" []

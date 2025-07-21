@@ -18,8 +18,8 @@ import Text.PrettyPrint (render, vcat, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..))
 import Utility (bullets)
 
-data Config = Config
-  { isDerivation :: AtomName -> Maybe String
+data Config a = Config
+  { isDerivation :: a -> Maybe String
   }
 
 -- | `augmentDerivation` is an `Engine.Config` tranformation that promotes some
@@ -38,7 +38,7 @@ data Config = Config
 --
 -- See the goldenfile tests for this module for examples of what this
 -- augmentation looks like.
-augmentDerivation :: Config -> Engine.Config -> Engine.Config
+augmentDerivation :: (IsString v, IsString c, Pretty a, Pretty c, Pretty v) => Config a -> Engine.Config a c v -> Engine.Config a c v
 augmentDerivation cfg cfg_engine =
   cfg_engine
     { Engine.rules = cfg_engine.rules <&> augmentDerivation_Rule cfg,
@@ -54,14 +54,14 @@ augmentDerivation cfg cfg_engine =
         a -> cfg_engine.shouldSuspend a
     }
 
-augmentDerivation_Atom :: Config -> Int -> Atom -> Atom
+augmentDerivation_Atom :: (IsString v) => Config a -> Int -> Atom a c v -> Atom a c v
 augmentDerivation_Atom cfg i (Atom a es)
   | Just s <- cfg.isDerivation a,
     x <- var (fromString (s <> show i)) =
       Atom a (es <> [x])
 augmentDerivation_Atom _ _ a = a
 
-augmentDerivation_Rule :: Config -> Rule -> Rule
+augmentDerivation_Rule :: (IsString v, IsString c) => Config a -> Rule a c v -> Rule a c v
 augmentDerivation_Rule cfg rule =
   let (hyps', hypDrvs) =
         rule.hyps
@@ -78,6 +78,6 @@ augmentDerivation_Rule cfg rule =
    in rule
         { hyps = hyps',
           conc = case rule.conc of
-            Atom c es | Just _ <- cfg.isDerivation c -> Atom c (es <> [con (coerce rule.name) hypDrvs])
+            Atom c es | Just _ <- cfg.isDerivation c -> Atom c (es <> [con (fromString $ coerce rule.name) hypDrvs])
             a -> a
         }

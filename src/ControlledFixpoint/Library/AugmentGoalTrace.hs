@@ -8,7 +8,6 @@ module ControlledFixpoint.Library.AugmentGoalTrace where
 import Control.Lens (FunctorWithIndex (imap))
 import qualified ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-import Data.Coerce (coerce)
 import Data.Function
 import Data.Functor ((<&>))
 import qualified Data.List.Safe as List
@@ -24,7 +23,7 @@ data Config = Config {}
 -- each assigned a unique goal trace constant. Each rule is updated to propagate
 -- the goal trace of the conclusion atom the the goal traces of the hypothis
 -- atoms.
-augmentGoalTrace :: Config -> Engine.Config -> Engine.Config
+augmentGoalTrace :: (Pretty c, IsString a, IsString v) => Config -> Engine.Config c v a -> Engine.Config c v a
 augmentGoalTrace cfg cfg_engine =
   cfg_engine
     { Engine.rules = cfg_engine.rules & fmap (augmentGoalTrace_Rule cfg),
@@ -39,10 +38,10 @@ augmentGoalTrace cfg cfg_engine =
           Just es' -> cfg_engine.shouldSuspend (Atom a es')
     }
 
-augmentGoalTrace_Goal :: Config -> Int -> Atom -> Atom
-augmentGoalTrace_Goal _cfg i (Atom a es) = Atom a (es <> [con (coerce ("goal#" <> show i)) []])
+augmentGoalTrace_Goal :: (IsString v) => Config -> Int -> Atom c v a -> Atom c v a
+augmentGoalTrace_Goal _cfg i (Atom a es) = Atom a (es <> [con (fromString ("goal#" <> show i)) []])
 
-augmentGoalTrace_Rule :: Config -> Rule -> Rule
+augmentGoalTrace_Rule :: (IsString a) => Config -> Rule c v a -> Rule c v a
 augmentGoalTrace_Rule _cfg rule =
   rule
     { hyps =

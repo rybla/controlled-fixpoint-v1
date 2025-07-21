@@ -11,7 +11,7 @@ import Control.Monad.Writer (WriterT (runWriterT))
 import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import ControlledFixpoint.Engine as Engine
-import ControlledFixpoint.Grammar (Subst, unSubst)
+import ControlledFixpoint.Grammar
 import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
@@ -26,8 +26,20 @@ import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 import Utility (bullets, ticks)
 
+--------------------------------------------------------------------------------
+
 goldenDirpath :: FilePath
 goldenDirpath = Common.goldenDirpath </> "Engine"
+
+--------------------------------------------------------------------------------
+
+type A = String
+
+type C = String
+
+type V = String
+
+--------------------------------------------------------------------------------
 
 -- |
 -- A `EngineResult` has some optional associated metadata about how the run
@@ -54,7 +66,7 @@ data EngineResult
   | -- |
     -- Engine run resulted in each solution branch using a substitution that is
     -- a sub-substitution of the `sigma`.
-    EngineSuccessWithSubst Subst
+    EngineSuccessWithSubst (Subst C V)
   deriving (Show, Eq)
 
 instance Pretty EngineResult where
@@ -67,7 +79,7 @@ instance Pretty EngineResult where
   pPrint (EngineSuccessWithSolutionsCount n) = "success with" <+> pPrint n <+> "solutions"
   pPrint (EngineSuccessWithSubst _) = "success with subst"
 
-mkTest_Engine :: TestName -> Engine.Config -> EngineResult -> TestTree
+mkTest_Engine :: TestName -> Engine.Config String String String -> EngineResult -> TestTree
 mkTest_Engine name cfg result_expected = testCase (render (text name <+> brackets (pPrint result_expected))) do
   (err_or_envs, msgs) <-
     Engine.run cfg

@@ -11,7 +11,7 @@ import ControlledFixpoint.Library.AugmentDerivation as AugmentDerivation
 import Data.Coerce (coerce)
 import Data.Functor ((<&>))
 import Data.String (IsString (fromString))
-import Spec.Engine.Common (EngineResult (EngineSuccess), mkTest_Engine)
+import Spec.Engine.Common hiding (goldenDirpath)
 import qualified Spec.Engine.Library.Common as Common
 import System.FilePath ((<.>), (</>))
 import Test.Tasty (TestTree, testGroup)
@@ -37,10 +37,11 @@ tests =
                     { name = "R1",
                       hyps = [],
                       conc = Q
-                    }
+                    } ::
+                    Rule A C V
                 ]
                   <&> augmentDerivation_Rule
-                    AugmentDerivation.Config {isDerivation = \(AtomName a) -> Just ("?" <> coerce a)},
+                    AugmentDerivation.Config {isDerivation = \a -> Just ("?" <> a)},
           goldenVsString
             "1_hypothesis"
             (goldenDirpath </> "rules" </> "1_hypothesis" <.> "golden")
@@ -53,7 +54,7 @@ tests =
                     }
                 ]
                   <&> augmentDerivation_Rule
-                    AugmentDerivation.Config {isDerivation = \(AtomName a) -> Just ("?" <> coerce a)},
+                    AugmentDerivation.Config {isDerivation = \a -> Just ("?" <> coerce a)},
           goldenVsString
             "3_hypotheses"
             (goldenDirpath </> "rules" </> "3_hypotheses" <.> "golden")
@@ -70,7 +71,7 @@ tests =
                     }
                 ]
                   <&> augmentDerivation_Rule
-                    AugmentDerivation.Config {isDerivation = \(AtomName a) -> Just ("?" <> coerce a)},
+                    AugmentDerivation.Config {isDerivation = \a -> Just ("?" <> coerce a)},
           goldenVsString
             "3_hypotheses_2_derivations"
             (goldenDirpath </> "rules" </> "3_hypotheses_2_derivations" <.> "golden")
@@ -140,31 +141,31 @@ tests =
                     strategy = DepthFirstStrategy
                   }
                 AugmentDerivation.Config
-                  { isDerivation = \(AtomName a) -> Just ("?" <> coerce a)
+                  { isDerivation = \a -> Just ("?" <> coerce a)
                   }
             ]
     ]
 
-pattern P1 :: Atom
+pattern P1 :: Atom A C V
 pattern P1 = Atom "P1" []
 
-pattern P2 :: Atom
+pattern P2 :: Atom A C v
 pattern P2 = Atom "P2" []
 
-pattern P3 :: Atom
+pattern P3 :: Atom A C v
 pattern P3 = Atom "P3" []
 
-pattern B :: Atom
+pattern B :: Atom A C v
 pattern B = Atom "B" []
 
-pattern Q :: Atom
+pattern Q :: Atom A C v
 pattern Q = Atom "Q" []
 
-pattern Z :: Expr
+pattern Z :: Expr C V
 pattern Z = ConExpr (Con "Z" [])
 
-pattern S :: Expr -> Expr
+pattern S :: Expr C V -> Expr C V
 pattern S n = ConExpr (Con "S" [n])
 
-pattern T :: Expr -> Atom
+pattern T :: Expr C V -> Atom A C V
 pattern T n = Atom "T" [n]

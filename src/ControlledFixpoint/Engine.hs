@@ -37,16 +37,16 @@ import Utility
 -- example, you might want to suspend a goal that would trivially unify with
 -- many rule heads, such as something like `IsTrue a` (where `a` might be
 -- constrained in other goals).
-data Config = Config
+data Config a c v = Config
   { initialGas :: Gas,
-    rules :: [Rule],
-    goals :: [Atom],
-    shouldSuspend :: Atom -> Bool,
-    exprAliases :: [ExprAlias],
+    rules :: [Rule a c v],
+    goals :: [Atom a c v],
+    shouldSuspend :: Atom a c v -> Bool,
+    exprAliases :: [ExprAlias c v],
     strategy :: Strategy
   }
 
-defaultConfig :: Config
+defaultConfig :: Config a c v
 defaultConfig =
   Config
     { initialGas = InfiniteGas,
@@ -57,7 +57,7 @@ defaultConfig =
       strategy = DepthFirstStrategy
     }
 
-instance Show Config where
+instance (Show a, Show c, Show v) => Show (Config a c v) where
   show cfg =
     render $
       "Config"
@@ -72,11 +72,11 @@ instance Show Config where
               & hsep
           )
 
-type T m =
-  (ReaderT Ctx)
-    ( (StateT Env)
+type T a c v m =
+  (ReaderT (Ctx a c v))
+    ( (StateT (Env a c v))
         ( ListT
-            ( (ExceptT (Error, Env))
+            ( (ExceptT (Error, Env a c v))
                 ( (WriterT [Msg])
                     (Common.T m)
                 )
@@ -84,7 +84,7 @@ type T m =
         )
     )
 
-tellT :: (Monad m) => Msg -> T m ()
+tellT :: (Monad m) => Msg -> T a c v m ()
 tellT msg = lift . lift . lift . lift $ tell [msg]
 
 data Error
@@ -92,11 +92,11 @@ data Error
   deriving (Eq, Show)
 
 -- | Engine context
-data Ctx = Ctx
-  { config :: Config
+data Ctx a c v = Ctx
+  { config :: Config a c v
   }
 
-instance Pretty Ctx where
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Ctx a c v) where
   pPrint ctx =
     hang "engine context:" 2 . bullets $
       [ hang "rules:" 2 . bullets $
@@ -104,18 +104,18 @@ instance Pretty Ctx where
       ]
 
 -- | Engine environment
-data Env = Env
+data Env a c v = Env
   { gas :: Gas,
     freshCounter :: Int,
-    activeGoals :: [Atom],
-    suspendedGoals :: [Atom],
-    failedGoals :: [Atom],
-    sigma :: Subst,
-    stepsRev :: [Step]
+    activeGoals :: [Atom a c v],
+    suspendedGoals :: [Atom a c v],
+    failedGoals :: [Atom a c v],
+    sigma :: Subst c v,
+    stepsRev :: [Step a c v]
   }
   deriving (Show, Eq)
 
-instance Pretty Env where
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Env a c v) where
   pPrint env =
     hang "engine environment:" 2 . bullets $
       [ "gas            =" <+> pPrint env.gas,
@@ -161,15 +161,15 @@ decrementGas :: Gas -> Gas
 decrementGas (FiniteGas n) = FiniteGas (n - 1)
 decrementGas InfiniteGas = InfiniteGas
 
-data Step = Step
-  { goal :: Atom,
-    rule :: Rule,
-    sigma :: Subst,
-    subgoals :: [Atom]
+data Step a c v = Step
+  { goal :: Atom a c v,
+    rule :: Rule a c v,
+    sigma :: Subst c v,
+    subgoals :: [Atom a c v]
   }
   deriving (Show, Eq)
 
-instance Pretty Step where
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Step a c v) where
   pPrint step =
     (pPrint step.rule.name <> ":") <+> pPrint step.goal <+> "<==" <+> pPrint step.subgoals <+> "with" <+> pPrint step.sigma
 
@@ -177,7 +177,7 @@ instance Pretty Step where
 -- Functions
 --------------------------------------------------------------------------------
 
-run :: (Monad m) => Config -> Common.T m (Either (Error, Env) [Env])
+run :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
 run cfg = do
   tell [Msg.mk "Engine.run"]
   let ctx =
@@ -209,7 +209,7 @@ run cfg = do
       return $ Left (err, env')
     Right branches -> return $ Right branches
 
-loop :: forall m. (Monad m) => T m ()
+loop :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a) => T a c v m ()
 loop = do
   ctx <- ask
 
@@ -399,14 +399,14 @@ loop = do
       loop
 
 -- | Nondeterministically choose from a list.
-choose :: (Monad m) => [a] -> T m a
+choose :: (Monad m) => [x] -> T a c v m x
 choose = lift . lift . foldr ListT.cons mempty
 
 -- | Nondeterministically rejected branch.
-reject :: (Monad m) => T m a
+reject :: (Monad m) => T a c v m x
 reject = lift . lift $ mempty
 
-extractNextActiveGoal :: (Monad m) => T m (Maybe Atom)
+extractNextActiveGoal :: (Monad m) => T a c v m (Maybe (Atom a c v))
 extractNextActiveGoal = do
   env <- get
   case env.activeGoals of
