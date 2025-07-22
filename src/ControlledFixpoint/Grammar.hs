@@ -224,7 +224,7 @@ composeSubst sigma@(Subst m) sigma'@(Subst m') = do
   let keysIntersection = (m & Map.keysSet) `Set.intersection` (m' & Map.keysSet)
   unless (Set.null keysIntersection) do
     throwError $
-      (Msg.mk "In 'composeSubst', there are variables that both substitutions substitute")
+      (Msg.mk 0 "In 'composeSubst', there are variables that both substitutions substitute")
         { Msg.contents =
             [ "keysIntersection =" <+> (keysIntersection & Set.toList & pPrint),
               "sigma  =" <+> pPrint sigma,

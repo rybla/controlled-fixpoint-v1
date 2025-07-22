@@ -19,12 +19,12 @@ instance Pretty Msg where
     m.title
       $+$ nest 2 (bullets m.contents)
 
-mk :: Doc -> Msg
-mk title =
+mk :: Int -> Doc -> Msg
+mk l title =
   Msg
-    { title,
-      contents = mempty,
-      level = Level 0
+    { level = Level l,
+      title,
+      contents = mempty
     }
 
 addContent :: Doc -> Msg -> Msg

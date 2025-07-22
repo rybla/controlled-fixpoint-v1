@@ -80,7 +80,7 @@ instance Pretty EngineResult where
   pPrint (EngineSuccessWithSubst _) = "success with subst"
 
 mkTest_Engine :: TestName -> Engine.Config String String String -> EngineResult -> TestTree
-mkTest_Engine name cfg result_expected = testCase (render (text name <+> brackets (pPrint result_expected))) do
+mkTest_Engine testName cfg result_expected = testCase (render (text testName <+> brackets (pPrint result_expected))) do
   (err_or_envs, msgs) <-
     Engine.run cfg
       & runExceptT
