@@ -32,7 +32,7 @@ import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
 --------------------------------------------------------------------------------
--- Types
+-- types
 --------------------------------------------------------------------------------
 
 -- | Engine configuration
@@ -177,36 +177,44 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Step a c v) where
     (pPrint step.rule.name <> ":") <+> pPrint step.goal <+> "<==" <+> pPrint step.subgoals <+> "with" <+> pPrint step.sigma
 
 --------------------------------------------------------------------------------
--- Functions
+-- functions
 --------------------------------------------------------------------------------
+
+mkCtx :: Config a c v -> Ctx a c v
+mkCtx cfg =
+  Ctx
+    { config = cfg
+    }
+
+mkEnv :: Config a c v -> Env a c v
+mkEnv cfg =
+  Env
+    { gas = cfg.initialGas,
+      activeGoals = cfg.goals,
+      suspendedGoals = mempty,
+      failedGoals = mempty,
+      freshCounter = 0,
+      stepsRev = [],
+      sigma = emptySubst
+    }
 
 run :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
 run cfg = do
   Writer.tell [Msg.mk 0 "Engine.run"]
-  let ctx0 =
-        Ctx
-          { config = cfg
-          }
-  let env0 =
-        Env
-          { gas = cfg.initialGas,
-            activeGoals = cfg.goals,
-            suspendedGoals = mempty,
-            failedGoals = mempty,
-            freshCounter = 0,
-            stepsRev = [],
-            sigma = emptySubst
-          }
+  let env0 = mkEnv cfg
+  runEnv cfg env0
+
+runEnv :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Env a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
+runEnv cfg env0 = do
   err_or_branches :: Either (Error, Env a c v) [Env a c v] <-
     loop
-      & flip runReaderT ctx0
+      & flip runReaderT (mkCtx cfg)
       & flip execStateT env0
       & ListT.toList
       & runExceptT
 
   case err_or_branches of
-    Left (err, env) -> do
-      return $ Left (err, env)
+    Left (err, env) -> return $ Left (err, env)
     Right branches -> return $ Right branches
 
 loop :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
