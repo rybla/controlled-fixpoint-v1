@@ -21,7 +21,7 @@ tests =
       mkTest 0 1 1 EngineSuccess,
       mkTest 1 0 1 EngineSuccess,
       mkTest 1 2 3 EngineSuccess,
-      mkTest 1 2 2 EngineFailure
+      mkTest 1 2 3 EngineFailure
     ]
 
 mkTest :: Int -> Int -> Int -> EngineResult -> TestTree

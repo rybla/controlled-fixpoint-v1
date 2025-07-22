@@ -134,7 +134,7 @@ normEnv = do
 
 setVarM :: (Monad m, Ord v, Eq c, Pretty v, Pretty c) => Var v -> Expr c v -> T a c v m ()
 setVarM x e = do
-  tell [Msg.mk 3 $ "[setVarM] setVarM" <+> pPrint x <+> pPrint e]
+  tell [Msg.mk 4 $ "[setVarM] setVarM" <+> pPrint x <+> pPrint e]
   -- if 'x' occurs in 'e', then is a cyclic substitution, which is inconsistent
   when (Set.member x (varsExpr e)) do throwError $ ExprsError (VarExpr x) e
   e' <-
@@ -143,7 +143,7 @@ setVarM x e = do
       -- if 'x' is already substituted, then must unify the old substitute 'e'
       -- with the new substitute 'e''
       Just e' -> do
-        tell [Msg.mk 3 $ "[setVarM]" <+> pPrint x <+> "was already substituted, so must check: " <+> pPrint e <+> "~" <+> pPrint e']
+        tell [Msg.mk 4 $ "[setVarM]" <+> pPrint x <+> "was already substituted, so must check: " <+> pPrint e <+> "~" <+> pPrint e']
         unifyExpr e e'
-  tell [Msg.mk 3 $ "[setVarM]" <+> pPrint x <+> ":=" <+> pPrint e']
+  tell [Msg.mk 4 $ "[setVarM]" <+> pPrint x <+> ":=" <+> pPrint e']
   sigma %= setVar x e'

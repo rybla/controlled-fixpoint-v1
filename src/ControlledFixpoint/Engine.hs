@@ -27,7 +27,7 @@ import qualified ControlledFixpoint.Unification as Unification
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import ListT (ListT, cons, toList)
-import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, quotes, render, text, (<+>))
+import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -256,7 +256,7 @@ loop' = do
         tell
           [ (Msg.mk 1 "--------------------------------")
               { Msg.contents =
-                  [ "status =" <+> "processing goal" <+> quotes (pPrint goal),
+                  [ "status =" <+> "processing goal:" <+> pPrint goal,
                     "env =" <+> pPrint env
                   ]
               }
@@ -293,7 +293,7 @@ loop' = do
             return rule'
 
           tell
-            [ (Msg.mk 2 "attempting to unify goal with rule's conclusion")
+            [ (Msg.mk 3 "attempting to unify goal with rule's conclusion")
                 { Msg.contents =
                     [ "rule =" <+> pPrint rule.name,
                       "goal =" <+> pPrint goal,

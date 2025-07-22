@@ -17,10 +17,11 @@ data Msg = Msg
 
 instance Pretty Msg where
   pPrint m =
-    vcat
-      [ brackets (pPrint m.level) <+> m.title,
-        nest 2 (bullets m.contents)
-      ]
+    brackets (pPrint m.level)
+      <+> vcat
+        [ m.title,
+          nest 2 (bullets m.contents)
+        ]
 
 mk :: Int -> Doc -> Msg
 mk l title =

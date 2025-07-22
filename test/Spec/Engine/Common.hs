@@ -23,7 +23,7 @@ import System.FilePath ((</>))
 import Test.Tasty as Tasty
 import Test.Tasty.HUnit (assertFailure, testCase)
 import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
-import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
+import Text.PrettyPrint.HughesPJClass (Pretty (..))
 import Utility (bullets, ticks)
 
 --------------------------------------------------------------------------------
@@ -162,11 +162,10 @@ mkTest_Engine testName cfg result_expected = testCase (render (text testName <+>
     Just err -> do
       case Config.verbosity of
         Config.LoggingVerbosity l -> do
-          putStrLn ""
-          putStrLn "====[ BEGIN logs ]================"
-          msgs & traverse_ \msg -> when (msg.level <= l) do putStrLn $ prettyShow msg
-          putStrLn "====[ END   logs ]================"
-          putStrLn ""
+          let prefix = brackets $ "test " <> text (show testName)
+          putStrLn . render $ prefix <+> "BEGIN logs"
+          msgs & traverse_ \msg -> when (msg.level <= l) do putStrLn . render $ prefix <+> pPrint msg
+          putStrLn . render $ prefix <+> "END logs"
         _ -> return ()
       assertFailure . render $
         vcat
