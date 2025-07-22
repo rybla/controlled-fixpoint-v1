@@ -90,18 +90,18 @@ unifyAtom a1@(Atom c1 es1) a2@(Atom c2 es2) = do
 unifyExpr :: (Monad m, Ord v, Eq c, Pretty v, Pretty c) => Expr c v -> Expr c v -> T a c v m (Expr c v)
 unifyExpr (VarExpr x1) e2 = do
   setVarM x1 e2
-  return e2
+  normExpr e2
 unifyExpr e1 (VarExpr x2) = do
   setVarM x2 e1
-  return e1
+  normExpr e1
 unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
   ctx <- ask
   if c1 /= c2
     then do
       -- if expressions are not directly directly comparable, then try applying
       -- the `ExprAlias`s to them (try `e1` first, then `e2`)
-      case applyExprAliass ctx.exprAliases e1 of
-        Nothing -> case applyExprAliass ctx.exprAliases e2 of
+      case ctx.exprAliases `applyExprAlias` e1 of
+        Nothing -> case ctx.exprAliases `applyExprAlias` e2 of
           Nothing -> throwError $ ExprsError e1 e2
           Just e2' -> unifyExpr e1 e2'
         Just e1' -> unifyExpr e2 e1'

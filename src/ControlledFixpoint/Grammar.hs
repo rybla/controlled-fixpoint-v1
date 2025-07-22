@@ -157,8 +157,8 @@ newtype ExprAlias c v = ExprAlias (Expr c v -> Maybe (Expr c v))
 unExprAlias :: ExprAlias c v -> (Expr c v -> Maybe (Expr c v))
 unExprAlias (ExprAlias f) = f
 
-applyExprAliass :: [ExprAlias c v] -> Expr c v -> Maybe (Expr c v)
-applyExprAliass ds e = foldMap (maybe [] pure . (unExprAlias >>> ($ e))) ds & List.head
+applyExprAlias :: [ExprAlias c v] -> Expr c v -> Maybe (Expr c v)
+applyExprAlias ds e = foldMap (maybe [] pure . (unExprAlias >>> ($ e))) ds & List.head
 
 --------------------------------------------------------------------------------
 -- Names
