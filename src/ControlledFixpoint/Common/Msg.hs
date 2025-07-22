@@ -1,9 +1,10 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 
 module ControlledFixpoint.Common.Msg where
 
-import Text.PrettyPrint (Doc, nest, ($+$))
+import Text.PrettyPrint (Doc, brackets, nest, vcat, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -16,8 +17,10 @@ data Msg = Msg
 
 instance Pretty Msg where
   pPrint m =
-    m.title
-      $+$ nest 2 (bullets m.contents)
+    vcat
+      [ brackets (pPrint m.level) <+> m.title,
+        nest 2 (bullets m.contents)
+      ]
 
 mk :: Int -> Doc -> Msg
 mk l title =
@@ -33,4 +36,4 @@ addContent content msg = msg {contents = msg.contents <> [content]}
 newtype Level = Level Int
   deriving (Show, Eq, Ord)
 
-instance Pretty Level where pPrint (Level l) = pPrint l
+instance Pretty Level where pPrint (Level l) = "L" <> pPrint l
