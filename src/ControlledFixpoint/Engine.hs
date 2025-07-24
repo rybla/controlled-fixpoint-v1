@@ -1,5 +1,3 @@
-{-# HLINT ignore "Redundant $" #-}
-{-# HLINT ignore "Use newtype instead of data" #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -7,8 +5,12 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
+{-# HLINT ignore "Redundant $" #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
+
 module ControlledFixpoint.Engine where
 
+import Control.Category ((>>>))
 import Control.Lens ((^.))
 import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
@@ -89,6 +91,24 @@ type T a c v m =
 
 liftT :: (Monad m) => Common.T m x -> T a c v m x
 liftT = lift . lift . lift . lift
+
+type T' a c v m =
+  (ReaderT (Ctx a c v))
+    ( (StateT (Env a c v))
+        ( (ExceptT (Error, Env a c v))
+            ( Common.T m
+            )
+        )
+    )
+
+runT' :: (Monad m) => T' a c v m x -> T a c v m (x, Env a c v)
+runT' m = do
+  ctx <- ask
+  env <- get
+  m
+    & (`runReaderT` ctx)
+    & (`runStateT` env)
+    & lift . lift . lift
 
 data Error
   = OutOfGas
@@ -219,20 +239,6 @@ runEnv cfg env0 = do
 
 loop :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
 loop = do
-  env <- get
-  overBranches
-    ( \branches -> do
-        when (null branches) do
-          Writer.tell
-            [ (Msg.mk 1 "there were no branches at this point")
-                { Msg.contents = ["env =" <+> pPrint env]
-                }
-            ]
-    )
-    loop'
-
-loop' :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
-loop' = do
   ctx <- ask
 
   -- update gas
@@ -284,160 +290,209 @@ loop' = do
                   DepthFirstStrategy -> [goal] <> env.suspendedGoals
               }
         else do
-          -- freshen rule
-          rule <- do
-            env_freshening <- do
-              env <- get
-              return
-                Freshening.Env
-                  { sigma = emptySubst,
-                    freshCounter = env.freshCounter
-                  }
-            rule_ <- choose ctx.config.rules
-            let (rule', env_freshening') =
-                  Freshening.freshenRule rule_
-                    & flip runState env_freshening
-            modify \env -> env {freshCounter = env_freshening'.freshCounter}
-            return rule'
-
-          tell
-            [ (Msg.mk 3 "attempting to unify goal with rule's conclusion")
-                { Msg.contents =
-                    [ "rule =" <+> pPrint rule.name,
-                      "goal =" <+> pPrint goal,
-                      "conc =" <+> pPrint rule.conc
-                    ]
-                }
-            ]
-          (err_or_goal', env_uni') <-
-            lift . lift . lift . lift $
-              ( do
-                  atom <- Unification.unifyAtom goal rule.conc
-                  -- NOTE: it seems odd that this is required, since I
-                  -- _thought_ that in the implementation of unification
-                  -- it incrementally applies the substitution as it is
-                  -- computed (viz `Unification.setVarM`)
-                  Unification.normEnv
-                  return atom
-              )
-                & flip
-                  runReaderT
-                  Unification.Ctx
-                    { exprAliases = ctx.config.exprAliases
-                    }
-                & runExceptT
-                & flip runStateT Unification.emptyEnv
-
-          let sigma_uni = env_uni' ^. Unification.sigma
-
-          case err_or_goal' of
-            Left err -> do
-              tell
-                [ (Msg.mk 2 "failed to unify goal with rule's conclusion")
-                    { Msg.contents =
-                        [ "rule =" <+> pPrint rule.name,
-                          "err =" <+> pPrint err,
-                          "sigma_uni =" <+> pPrint sigma_uni,
-                          "goal =" <+> pPrint goal
-                        ]
-                    }
-                ]
-              reject
-            Right goal' -> do
-              tell
-                [ (Msg.mk 1 "successfully unified goal with rule's conclusion")
-                    { Msg.contents =
-                        [ "rule =" <+> pPrint rule.name,
-                          "sigma_uni =" <+> pPrint sigma_uni,
-                          "goal =" <+> pPrint goal,
-                          "goal' =" <+> pPrint goal'
-                        ]
-                    }
-                ]
-
-              subgoals <-
-                fmap concat $
-                  rule.hyps <&>>= \case
-                    AtomHyp subgoal -> do
-                      let subgoal' = subgoal & substAtom sigma_uni
-                      return [subgoal']
-
-              unless (null subgoals) do
-                tell
-                  [ (Msg.mk 1 "new subgoals")
-                      { Msg.contents = subgoals <&> pPrint
-                      }
-                  ]
-
-              suspendedGoals_old <- gets suspendedGoals
-
-              do
-                env <- get
-                tell
-                  [ (Msg.mk 1 "new sigma")
-                      { Msg.contents =
-                          [ "old sigma =" <+> pPrint env.sigma,
-                            "new sigma =" <+> pPrint (env.sigma & composeSubst_unsafe sigma_uni)
-                          ]
-                      }
-                  ]
-
-              modify \env ->
-                env
-                  { suspendedGoals =
-                      substAtom sigma_uni
-                        <$> env.suspendedGoals,
-                    activeGoals =
-                      substAtom sigma_uni
-                        <$> case ctx.config.strategy of
-                          BreadthFirstStrategy -> env.activeGoals <> subgoals
-                          DepthFirstStrategy -> subgoals <> env.activeGoals,
-                    sigma =
-                      composeSubst_unsafe sigma_uni $
-                        env.sigma
-                  }
-
-              -- for each suspended goal that was refined by sigma_uni, make it active again
-              suspendedGoals_curr <- gets suspendedGoals
-              (activeGoals_resumed, suspendedGoals_new) <-
-                zip suspendedGoals_old suspendedGoals_curr
-                  & foldM
-                    ( \(activeGoals_resumed, suspendedGoals_new) (suspendedGoal_old, suspendedGoal_curr) ->
-                        if suspendedGoal_old == suspendedGoal_curr
-                          then
-                            -- if the suspended goal was NOT refined by the substitution, then leave it suspended
-                            return (activeGoals_resumed, suspendedGoal_old : suspendedGoals_new)
-                          else do
-                            -- if the suspended goal was refined by the substitution, then resume it
-                            tell
-                              [ (Msg.mk 2 "resume goal")
-                                  { Msg.contents = [pPrint suspendedGoal_curr]
-                                  }
-                              ]
-                            return (suspendedGoal_curr : activeGoals_resumed, suspendedGoals_new)
-                    )
-                    ([], [])
-              modify \env ->
-                env
-                  { activeGoals = activeGoals_resumed <> env.activeGoals,
-                    suspendedGoals = suspendedGoals_new
-                  }
-
-              -- record step
-              modify \env -> env {stepsRev = Step {goal, rule, sigma = sigma_uni, subgoals} : env.stepsRev}
-
-              tell
-                [ (Msg.mk 1 "successfully applied rule")
-                    { Msg.contents =
-                        ["rule =" <+> pPrint rule.name]
-                    }
-                ]
+          tryRules goal
 
       loop
+
+tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Atom a c v -> T a c v m ()
+tryRules goal = do
+  ctx <- ask
+
+  -- freshen rules
+  rules <-
+    ctx.config.rules <&>>= \rule -> do
+      env_freshening <- do
+        env <- get
+        return
+          Freshening.Env
+            { sigma = emptySubst,
+              freshCounter = env.freshCounter
+            }
+      let (rule', env_freshening') =
+            Freshening.freshenRule rule
+              & flip runState env_freshening
+      modify \env -> env {freshCounter = env_freshening'.freshCounter}
+      return rule'
+
+  branches <- do
+    env <- get
+    rules
+      & mapM
+        ( tryRule goal
+            >>> (`runReaderT` ctx)
+            >>> (`runStateT` env)
+            >>> (lift . lift)
+        )
+      & fmap
+        ( filterMap
+            \(success, env') ->
+              if success
+                then Just ((), env')
+                else Nothing
+        )
+
+  if null branches
+    then do
+      do
+        env <- get
+        tell
+          [ (Msg.mk 1 "no rules could be applied to the goal")
+              { Msg.contents =
+                  [ "goal =" <+> pPrint goal,
+                    "env =" <+> pPrint env
+                  ]
+              }
+          ]
+      modify \env -> env {failedGoals = env.failedGoals <> [goal]}
+    else
+      fromBranches branches
+
+-- | Returns a `Bool` indicating whether or not applying the rule was successful.
+tryRule :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Atom a c v -> Rule a c v -> T a c v m Bool
+tryRule goal rule = do
+  ctx <- ask
+  tell
+    [ (Msg.mk 3 "attempting to unify goal with rule's conclusion")
+        { Msg.contents =
+            [ "rule =" <+> pPrint rule.name,
+              "goal =" <+> pPrint goal,
+              "conc =" <+> pPrint rule.conc
+            ]
+        }
+    ]
+  (err_or_goal', env_uni') <-
+    lift . lift . lift . lift $
+      ( do
+          atom <- Unification.unifyAtom goal rule.conc
+          -- NOTE: it seems odd that this is required, since I
+          -- _thought_ that in the implementation of unification
+          -- it incrementally applies the substitution as it is
+          -- computed (viz `Unification.setVarM`)
+          Unification.normEnv
+          return atom
+      )
+        & ( `runReaderT`
+              Unification.Ctx
+                { exprAliases = ctx.config.exprAliases
+                }
+          )
+        & runExceptT
+        & (`runStateT` Unification.emptyEnv)
+
+  let sigma_uni = env_uni' ^. Unification.sigma
+
+  case err_or_goal' of
+    Left err -> do
+      tell
+        [ (Msg.mk 2 "failed to unify goal with rule's conclusion")
+            { Msg.contents =
+                [ "rule =" <+> pPrint rule.name,
+                  "err =" <+> pPrint err,
+                  "sigma_uni =" <+> pPrint sigma_uni,
+                  "goal =" <+> pPrint goal
+                ]
+            }
+        ]
+      return False
+    Right goal' -> do
+      tell
+        [ (Msg.mk 1 "successfully unified goal with rule's conclusion")
+            { Msg.contents =
+                [ "rule =" <+> pPrint rule.name,
+                  "sigma_uni =" <+> pPrint sigma_uni,
+                  "goal =" <+> pPrint goal,
+                  "goal' =" <+> pPrint goal'
+                ]
+            }
+        ]
+
+      subgoals <-
+        fmap concat $
+          rule.hyps <&>>= \case
+            AtomHyp subgoal -> do
+              let subgoal' = subgoal & substAtom sigma_uni
+              return [subgoal']
+
+      unless (null subgoals) do
+        tell
+          [ (Msg.mk 1 "new subgoals")
+              { Msg.contents = subgoals <&> pPrint
+              }
+          ]
+
+      suspendedGoals_old <- gets suspendedGoals
+
+      do
+        env <- get
+        tell
+          [ (Msg.mk 1 "new sigma")
+              { Msg.contents =
+                  [ "old sigma =" <+> pPrint env.sigma,
+                    "new sigma =" <+> pPrint (env.sigma & composeSubst_unsafe sigma_uni)
+                  ]
+              }
+          ]
+
+      modify \env ->
+        env
+          { suspendedGoals =
+              substAtom sigma_uni
+                <$> env.suspendedGoals,
+            activeGoals =
+              substAtom sigma_uni
+                <$> case ctx.config.strategy of
+                  BreadthFirstStrategy -> env.activeGoals <> subgoals
+                  DepthFirstStrategy -> subgoals <> env.activeGoals,
+            sigma =
+              composeSubst_unsafe sigma_uni $
+                env.sigma
+          }
+
+      -- for each suspended goal that was refined by sigma_uni, make it active again
+      suspendedGoals_curr <- gets suspendedGoals
+      (activeGoals_resumed, suspendedGoals_new) <-
+        zip suspendedGoals_old suspendedGoals_curr
+          & foldM
+            ( \(activeGoals_resumed, suspendedGoals_new) (suspendedGoal_old, suspendedGoal_curr) ->
+                if suspendedGoal_old == suspendedGoal_curr
+                  then
+                    -- if the suspended goal was NOT refined by the substitution, then leave it suspended
+                    return (activeGoals_resumed, suspendedGoal_old : suspendedGoals_new)
+                  else do
+                    -- if the suspended goal was refined by the substitution, then resume it
+                    tell
+                      [ (Msg.mk 2 "resume goal")
+                          { Msg.contents = [pPrint suspendedGoal_curr]
+                          }
+                      ]
+                    return (suspendedGoal_curr : activeGoals_resumed, suspendedGoals_new)
+            )
+            ([], [])
+      modify \env ->
+        env
+          { activeGoals = activeGoals_resumed <> env.activeGoals,
+            suspendedGoals = suspendedGoals_new
+          }
+
+      -- record step
+      modify \env -> env {stepsRev = Step {goal, rule, sigma = sigma_uni, subgoals} : env.stepsRev}
+
+      tell
+        [ (Msg.mk 1 "successfully applied rule")
+            { Msg.contents =
+                ["rule =" <+> pPrint rule.name]
+            }
+        ]
+
+      return True
 
 -- | Nondeterministically choose from a list.
 choose :: (Monad m) => [x] -> T a c v m x
 choose = lift . lift . foldr cons mempty
+
+-- | Nondeterministically pursue all branches.
+fromBranches :: (Monad m) => [(x, Env a c v)] -> T a c v m x
+fromBranches branches = lift $ StateT $ const $ foldr cons mempty branches
 
 -- | Nondeterministically rejected branch.
 reject :: (Monad m) => T a c v m x
@@ -450,19 +505,6 @@ extractNextActiveGoal = do
     goal : activeGoals' -> do
       modify \env -> env {activeGoals = activeGoals'}
       return $ Just goal
-
-overBranches :: (Monad m) => ([(x, Env a c v)] -> Common.T m ()) -> T a c v m x -> T a c v m x
-overBranches f m = do
-  ctx <- ask
-  env <- get
-  branches <-
-    m
-      & (`runReaderT` ctx)
-      & (`runStateT` env)
-      & toList
-      & (lift . lift . lift)
-  liftT $ f branches
-  lift $ StateT $ const $ foldr cons mempty branches
 
 tell :: (MonadWriter [Msg] m, MonadTrans t1, MonadTrans t2, MonadTrans t3) => [Msg] -> t1 (t2 (t3 m)) ()
 tell = lift . lift . lift . Writer.tell

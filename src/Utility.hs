@@ -1,5 +1,6 @@
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 
@@ -20,7 +21,9 @@ import Text.PrettyPrint (Doc, nest, text, vcat, (<+>))
 -- @
 --
 -- Inspired by: https://hackage.haskell.org/package/type-operators
-type (f :: Type -> Type) $ (a :: Type) = f a
+type (f :: k -> Type) $ (a :: k) = f a
+
+type a ~> b = forall x. a x -> b x
 
 infixr 2 $
 
