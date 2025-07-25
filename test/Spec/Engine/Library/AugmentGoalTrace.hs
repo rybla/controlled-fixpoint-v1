@@ -49,11 +49,11 @@ tests =
             Engine.Config
               { initialGas = FiniteGas 50,
                 rules =
-                  [ Rule {name = "R1", hyps = [AtomHyp B], conc = A},
+                  [ Rule {name = "R1", hyps = [GoalHyp . mkGoal $ B], conc = A},
                     Rule {name = "R2", hyps = [], conc = B}
                   ],
                 goals =
-                  [A],
+                  [mkGoal A],
                 exprAliases = [],
                 shouldSuspend = const False,
                 strategy = DepthFirstStrategy
@@ -64,11 +64,11 @@ tests =
             Engine.Config
               { initialGas = FiniteGas 50,
                 rules =
-                  [ Rule {name = "R1", hyps = [AtomHyp B], conc = A},
+                  [ Rule {name = "R1", hyps = [GoalHyp . mkGoal $ B], conc = A},
                     Rule {name = "R2", hyps = [], conc = B}
                   ],
                 goals =
-                  [A, A],
+                  [mkGoal A, mkGoal A],
                 exprAliases = [],
                 shouldSuspend = const False,
                 strategy = DepthFirstStrategy

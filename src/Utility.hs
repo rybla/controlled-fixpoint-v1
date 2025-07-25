@@ -10,7 +10,7 @@ import Control.Lens (FunctorWithIndex (imap))
 import Control.Monad (foldM)
 import Data.Kind (Type)
 import Data.Traversable (for)
-import Text.PrettyPrint (Doc, nest, text, vcat, (<+>))
+import Text.PrettyPrint (Doc, comma, hcat, nest, punctuate, text, vcat, (<+>))
 
 -- | Infix application.
 --
@@ -58,6 +58,9 @@ foldMapM f = foldM (\m a -> (m <>) <$> f a) mempty
 
 bullets :: [Doc] -> Doc
 bullets = vcat . fmap (("•" <+>) . nest 2)
+
+commas :: [Doc] -> Doc
+commas = hcat . punctuate comma
 
 extractAtIndex :: Int -> [a] -> Maybe ([a], a)
 extractAtIndex = go []

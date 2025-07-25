@@ -1,4 +1,6 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
@@ -38,17 +40,20 @@ augmentGoalTrace cfg cfg_engine =
           Just es' -> cfg_engine.shouldSuspend (Atom a es')
     }
 
-augmentGoalTrace_Goal :: (IsString v) => Config -> Int -> Atom c v a -> Atom c v a
-augmentGoalTrace_Goal _cfg i (Atom a es) = Atom a (es <> [con (fromString ("goal#" <> show i)) []])
+augmentGoalTrace_Goal :: (IsString v) => Config -> Int -> Goal c v a -> Goal c v a
+augmentGoalTrace_Goal _cfg i goal = goal {atom = augmentGoalTrace_Atom _cfg i goal.atom}
+
+augmentGoalTrace_Atom :: (IsString v) => Config -> Int -> Atom c v a -> Atom c v a
+augmentGoalTrace_Atom _cfg i (Atom a es) = Atom a (es <> [fromString ("goal#" <> show i) :% []])
 
 augmentGoalTrace_Rule :: (IsString a) => Config -> Rule c v a -> Rule c v a
 augmentGoalTrace_Rule _cfg rule =
   rule
     { hyps =
         rule.hyps <&> \case
-          AtomHyp (Atom a es) -> AtomHyp (Atom a (es <> [goal])),
+          GoalHyp goal' -> GoalHyp goal' {atom = goal'.atom {args = goal'.atom.args <> [goal]}},
       conc = case rule.conc of
         Atom a es -> Atom a (es <> [goal])
     }
   where
-    goal = var (fromString "?goal")
+    goal = mkVarExpr (fromString "?goal")

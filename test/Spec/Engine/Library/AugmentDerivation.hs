@@ -49,7 +49,7 @@ tests =
               return . fromString . prettyShow $
                 [ Rule
                     { name = "R1",
-                      hyps = [AtomHyp P1],
+                      hyps = [GoalHyp . mkGoal $ P1],
                       conc = Q
                     }
                 ]
@@ -63,9 +63,9 @@ tests =
                 [ Rule
                     { name = "R1",
                       hyps =
-                        [ AtomHyp P1,
-                          AtomHyp P2,
-                          AtomHyp P3
+                        [ GoalHyp . mkGoal $ P1,
+                          GoalHyp . mkGoal $ P2,
+                          GoalHyp . mkGoal $ P3
                         ],
                       conc = Q
                     }
@@ -80,9 +80,9 @@ tests =
                 [ Rule
                     { name = "R1",
                       hyps =
-                        [ AtomHyp B,
-                          AtomHyp P1,
-                          AtomHyp P2
+                        [ GoalHyp . mkGoal $ B,
+                          GoalHyp . mkGoal $ P1,
+                          GoalHyp . mkGoal $ P2
                         ],
                       conc = Q
                     }
@@ -129,13 +129,13 @@ tests =
                         Rule
                           { name = "T_Sn",
                             hyps =
-                              [ AtomHyp $ T "n",
-                                AtomHyp $ T "n"
+                              [ GoalHyp . mkGoal $ T "n",
+                                GoalHyp . mkGoal $ T "n"
                               ],
                             conc = T (S "n")
                           }
                       ],
-                    goals = [T (S (S (S (S Z))))],
+                    goals = [mkGoal $ T (S (S (S (S Z))))],
                     exprAliases = [],
                     shouldSuspend = const False,
                     strategy = DepthFirstStrategy

@@ -52,10 +52,10 @@ tests_Norm_v1 =
       mkTest_success 0
     ]
   where
-    pZ = con "Z⇓" []
-    pS a = con "S⇓" [a]
-    pPZ a b = con "+Z⇓" [a, b]
-    pPS a b c = con "+S⇓" [a, b, c]
+    pZ = "Z⇓" :% []
+    pS a = "S⇓" :% [a]
+    pPZ a b = "+Z⇓" :% [a, b]
+    pPS a b c = "+S⇓" :% [a, b, c]
 
     mkTest_success :: Expr C V -> TestTree
     mkTest_success x =
@@ -78,7 +78,7 @@ tests_Norm_v1 =
       mkTest_Engine
         testName
         Engine.Config
-          { goals = [Valid (in_ :⇓ "?out") "?{in ⇓ out}"],
+          { goals = [mkGoal $ Valid (in_ :⇓ "?out") "?{in ⇓ out}"],
             strategy = DepthFirstStrategy,
             rules = rules_v1,
             exprAliases = [],
@@ -95,35 +95,35 @@ tests_Norm_v1 =
          in Rule
               { name = RuleName ruleName,
                 hyps = [],
-                conc = Valid (Z :⇓ Z) $ con ruleName []
+                conc = Valid (Z :⇓ Z) $ ruleName :% []
               },
         let ruleName = "S⇓"
             (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
          in Rule
               { name = RuleName ruleName,
-                hyps = [AtomHyp $ Valid (a :⇓ a') pf_a_norm_a'],
-                conc = Valid (S a :⇓ S a') $ con ruleName [pf_a_norm_a']
+                hyps = [GoalHyp . mkGoal $ Valid (a :⇓ a') pf_a_norm_a'],
+                conc = Valid (S a :⇓ S a') $ ruleName :% [pf_a_norm_a']
               },
         let ruleName = "+Z⇓"
             (a, a', pf_a_norm_a', b, pf_b_norm_Z) = ("?a", "?a'", "?{a ⇓ a'}", "b", "?{b ⇓ Z}")
          in Rule
               { name = RuleName ruleName,
                 hyps =
-                  [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a',
-                    AtomHyp $ Valid (b :⇓ Z) pf_b_norm_Z
+                  [ GoalHyp . mkGoal $ Valid (a :⇓ a') pf_a_norm_a',
+                    GoalHyp . mkGoal $ Valid (b :⇓ Z) pf_b_norm_Z
                   ],
-                conc = Valid (a + b :⇓ a') $ con ruleName [pf_a_norm_a', pf_b_norm_Z]
+                conc = Valid (a + b :⇓ a') $ ruleName :% [pf_a_norm_a', pf_b_norm_Z]
               },
         let ruleName = "+S⇓"
             (a, a', pf_a_norm_a', b, b', pf_b_norm_Sb', c, pf_a'_plus_b'_norm_c) = ("?a", "?a'", "?{a ⇓ a'}", "?b", "?b'", "?{b ⇓ S b'}", "?c", "?{a' + b' ⇓ c}")
          in Rule
               { name = RuleName ruleName,
                 hyps =
-                  [ AtomHyp $ Valid (a :⇓ a') pf_a_norm_a',
-                    AtomHyp $ Valid (b :⇓ S b') pf_b_norm_Sb',
-                    AtomHyp $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
+                  [ GoalHyp . mkGoal $ Valid (a :⇓ a') pf_a_norm_a',
+                    GoalHyp . mkGoal $ Valid (b :⇓ S b') pf_b_norm_Sb',
+                    GoalHyp . mkGoal $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
                   ],
-                conc = Valid (a + b :⇓ S c) $ con ruleName [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
+                conc = Valid (a + b :⇓ S c) $ ruleName :% [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
               }
       ]
 

@@ -39,16 +39,16 @@ module Main (main) where
 --     Rule
 --       { name = "a' <: a , b <: b'  |-  a -> b <: a' -> b'",
 --         hyps =
---           [ AtomHyp $ a' `subtype` a,
---             AtomHyp $ b `subtype` b'
+--           [ GoalHyp $ a' `subtype` a,
+--             GoalHyp $ b `subtype` b'
 --           ],
 --         conc = (a `arr` b) `subtype` (a' `arr` b')
 --       }
 --       {- Rule
 --         { name = "map",
 --           hyps =
---             [ AtomHyp $ (a `arr` b) `subtype` (a' `arr` b'),
---               AtomHyp $ functor f
+--             [ GoalHyp $ (a `arr` b) `subtype` (a' `arr` b'),
+--               GoalHyp $ functor f
 --             ],
 --           conc = (a `arr` b) `subtype` ((f `app` a) `arr` (f `app` b))
 --         } -}

@@ -5,6 +5,7 @@
 
 module Spec.Engine.Common where
 
+import qualified Data.Set as Set
 import Control.Monad (when)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
@@ -16,7 +17,6 @@ import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 import qualified Spec.Common as Common
 import qualified Spec.Config as Config
 import System.FilePath ((</>))

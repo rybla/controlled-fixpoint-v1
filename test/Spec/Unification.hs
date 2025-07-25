@@ -6,7 +6,7 @@ import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ReaderT (runReaderT))
 import Control.Monad.State (StateT (runStateT))
 import Control.Monad.Writer (WriterT (runWriterT))
-import ControlledFixpoint.Grammar (Atom (Atom), Expr, con, emptySubst)
+import ControlledFixpoint.Grammar
 import ControlledFixpoint.Unification (unifyAtom)
 import qualified ControlledFixpoint.Unification as Unification
 import Data.Function ((&))
@@ -31,12 +31,12 @@ tests =
     [ mkTest
         "ex1"
         (mkAtom "C2" ["X", "X"])
-        (mkAtom "C2" [con "C0" [], con "C0" []])
-        (mkAtom "C2" [con "C0" [], con "C0" []])
+        (mkAtom "C2" ["C0" :% [], "C0" :% []])
+        (mkAtom "C2" ["C0" :% [], "C0" :% []])
     ]
 
 mkTest :: TestName -> Atom A C V -> Atom A C V -> Atom A C V -> TestTree
-mkTest name atom1 atom2 atomExpected = testCase name do
+mkTest testName atom1 atom2 atomExpected = testCase testName do
   result <-
     atom1 `unifyAtom` atom2
       & (`runReaderT` Unification.Ctx {exprAliases = []})

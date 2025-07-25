@@ -46,7 +46,7 @@ import Utility
 data Config a c v = Config
   { initialGas :: Gas,
     rules :: [Rule a c v],
-    goals :: [Atom a c v],
+    goals :: [Goal a c v],
     shouldSuspend :: Atom a c v -> Bool,
     exprAliases :: [ExprAlias c v],
     strategy :: Strategy
@@ -130,9 +130,9 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Ctx a c v) where
 data Env a c v = Env
   { gas :: Gas,
     freshCounter :: Int,
-    activeGoals :: [Atom a c v],
-    suspendedGoals :: [Atom a c v],
-    failedGoals :: [Atom a c v],
+    activeGoals :: [Goal a c v],
+    suspendedGoals :: [Goal a c v],
+    failedGoals :: [Goal a c v],
     sigma :: Subst c v,
     stepsRev :: [Step a c v]
   }
@@ -185,10 +185,10 @@ decrementGas (FiniteGas n) = FiniteGas (n - 1)
 decrementGas InfiniteGas = InfiniteGas
 
 data Step a c v = Step
-  { goal :: Atom a c v,
+  { goal :: Goal a c v,
     rule :: Rule a c v,
     sigma :: Subst c v,
-    subgoals :: [Atom a c v]
+    subgoals :: [Goal a c v]
   }
   deriving (Show, Eq)
 
@@ -276,7 +276,7 @@ loop = do
               }
           ]
 
-      if ctx.config.shouldSuspend goal
+      if ctx.config.shouldSuspend goal.atom
         then do
           tell
             [ (Msg.mk 1 "suspending goal")
@@ -294,7 +294,7 @@ loop = do
 
       loop
 
-tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Atom a c v -> T a c v m ()
+tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> T a c v m ()
 tryRules goal = do
   ctx <- ask
 
@@ -343,12 +343,15 @@ tryRules goal = do
                   ]
               }
           ]
-      modify \env -> env {failedGoals = env.failedGoals <> [goal]}
+
+      if RequiredGoalOpt `elem` goal.opts
+        then undefined -- TODO
+        else modify \env -> env {failedGoals = env.failedGoals <> [goal]}
     else
       fromBranches branches
 
 -- | Returns a `Bool` indicating whether or not applying the rule was successful.
-tryRule :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Atom a c v -> Rule a c v -> T a c v m Bool
+tryRule :: forall m a c v. (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> Rule a c v -> T a c v m Bool
 tryRule goal rule = do
   ctx <- ask
   tell
@@ -363,7 +366,7 @@ tryRule goal rule = do
   (err_or_goal', env_uni') <-
     lift . lift . lift . lift $
       ( do
-          atom <- Unification.unifyAtom goal rule.conc
+          atom <- Unification.unifyAtom goal.atom rule.conc
           -- NOTE: it seems odd that this is required, since I
           -- _thought_ that in the implementation of unification
           -- it incrementally applies the substitution as it is
@@ -379,8 +382,8 @@ tryRule goal rule = do
         & runExceptT
         & (`runStateT` Unification.emptyEnv)
 
-  let sigma_uni = env_uni' ^. Unification.sigma
-
+  let sigma_uni :: Subst c v
+      sigma_uni = undefined -- env_uni' ^. Unification.sigma
   case err_or_goal' of
     Left err -> do
       tell
@@ -409,8 +412,8 @@ tryRule goal rule = do
       subgoals <-
         fmap concat $
           rule.hyps <&>>= \case
-            AtomHyp subgoal -> do
-              let subgoal' = subgoal & substAtom sigma_uni
+            GoalHyp subgoal -> do
+              let subgoal' = subgoal & substGoal sigma_uni
               return [subgoal']
 
       unless (null subgoals) do
@@ -436,10 +439,10 @@ tryRule goal rule = do
       modify \env ->
         env
           { suspendedGoals =
-              substAtom sigma_uni
+              substGoal sigma_uni
                 <$> env.suspendedGoals,
             activeGoals =
-              substAtom sigma_uni
+              substGoal sigma_uni
                 <$> case ctx.config.strategy of
                   BreadthFirstStrategy -> env.activeGoals <> subgoals
                   DepthFirstStrategy -> subgoals <> env.activeGoals,
@@ -498,7 +501,7 @@ fromBranches branches = lift $ StateT $ const $ foldr cons mempty branches
 reject :: (Monad m) => T a c v m x
 reject = lift . lift $ mempty
 
-extractNextActiveGoal :: (Monad m) => T a c v m (Maybe (Atom a c v))
+extractNextActiveGoal :: (Monad m) => T a c v m (Maybe (Goal a c v))
 extractNextActiveGoal = do
   gets activeGoals >>= \case
     [] -> return Nothing

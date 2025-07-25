@@ -42,7 +42,7 @@ augmentDerivation :: (IsString v, IsString c, Pretty a, Pretty c, Pretty v) => C
 augmentDerivation cfg cfg_engine =
   cfg_engine
     { Engine.rules = cfg_engine.rules <&> augmentDerivation_Rule cfg,
-      Engine.goals = cfg_engine.goals & imap (augmentDerivation_Atom cfg),
+      Engine.goals = cfg_engine.goals & imap (augmentDerivation_Goal cfg),
       Engine.shouldSuspend = \case
         a@(Atom n es) | Just _ <- cfg.isDerivation n -> case List.init es of
           Nothing ->
@@ -54,10 +54,13 @@ augmentDerivation cfg cfg_engine =
         a -> cfg_engine.shouldSuspend a
     }
 
+augmentDerivation_Goal :: (IsString v) => Config a -> Int -> Goal a c v -> Goal a c v
+augmentDerivation_Goal cfg i goal = goal {atom = augmentDerivation_Atom cfg i goal.atom}
+
 augmentDerivation_Atom :: (IsString v) => Config a -> Int -> Atom a c v -> Atom a c v
 augmentDerivation_Atom cfg i (Atom a es)
   | Just s <- cfg.isDerivation a,
-    x <- var (fromString (s <> show i)) =
+    x <- mkVarExpr (fromString (s <> show i)) =
       Atom a (es <> [x])
 augmentDerivation_Atom _ _ a = a
 
@@ -67,10 +70,10 @@ augmentDerivation_Rule cfg rule =
         rule.hyps
           & imap
             ( \i -> \case
-                AtomHyp (Atom c es)
+                GoalHyp goal@(Goal {atom = Atom c es})
                   | Just s <- cfg.isDerivation c,
-                    x <- var (fromString (s <> show i)) ->
-                      (AtomHyp $ Atom c (es <> [x]), [x])
+                    x <- mkVarExpr (fromString (s <> show i)) ->
+                      (GoalHyp goal {atom = Atom c (es <> [x])}, [x])
                 h -> (h, [])
             )
           & unzip
@@ -78,6 +81,6 @@ augmentDerivation_Rule cfg rule =
    in rule
         { hyps = hyps',
           conc = case rule.conc of
-            Atom c es | Just _ <- cfg.isDerivation c -> Atom c (es <> [con (fromString $ coerce rule.name) hypDrvs])
+            Atom c es | Just _ <- cfg.isDerivation c -> Atom c (es <> [fromString (coerce rule.name) :% hypDrvs])
             a -> a
         }

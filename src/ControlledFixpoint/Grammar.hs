@@ -1,11 +1,13 @@
-{-# HLINT ignore "Use newtype instead of data" #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module ControlledFixpoint.Grammar where
 
@@ -24,7 +26,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.String (IsString (fromString))
 import GHC.Generics (Generic)
-import Text.PrettyPrint (braces, comma, hcat, hsep, nest, parens, punctuate, text, vcat, (<+>))
+import Text.PrettyPrint (braces, comma, hang, hcat, hsep, nest, parens, punctuate, text, vcat, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -53,22 +55,49 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Rule a c v) where
 
 -- | Hypothesis.
 --
--- NOTE: For now, there is only one kind of hypothesis: `AtomHyp`. However, I
+-- NOTE: For now, there is only one kind of hypothesis: `GoalHyp`. However, I
 -- made this a data type anyway since it may be desirable at some point to have
 -- other kinds of hypotheses, such as functional predicates (predicates that are
 -- checked by executing a `Bool`-valued function.)
-data Hyp a c v = AtomHyp (Atom a c v)
+data Hyp a c v
+  = GoalHyp (Goal a c v)
   deriving (Show, Eq, Ord)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
-  pPrint (AtomHyp atom) = pPrint atom
+  pPrint (GoalHyp goal) = pPrint goal
+
+--------------------------------------------------------------------------------
+-- Goal
+--------------------------------------------------------------------------------
+
+-- | A `Goal` is an `Atom` along with any other goal-relevant options and metadata.
+data Goal a c v = Goal
+  { atom :: Atom a c v,
+    opts :: Set GoalOpt
+  }
+  deriving (Show, Eq, Ord)
+
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Goal a c v) where
+  pPrint goal =
+    pPrint goal.atom
+      <+> (if null goal.opts then mempty else braces . commas . fmap pPrint . Set.toList $ goal.opts)
+
+data GoalOpt
+  = RequiredGoalOpt
+  deriving (Show, Eq, Ord, Enum, Bounded)
+
+instance Pretty GoalOpt where
+  pPrint RequiredGoalOpt = text "required"
+
+mkGoal :: Atom a c v -> Goal a c v
+mkGoal atom = Goal {atom, opts = Set.empty}
 
 --------------------------------------------------------------------------------
 -- Atom
 --------------------------------------------------------------------------------
 
 -- | An 'Atom' is an atomic formula.
-data Atom a c v = Atom a [Expr c v]
+data Atom a c v = Atom {name :: a, args :: [Expr c v]}
   deriving (Show, Eq, Ord)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Atom a c v) where
@@ -90,12 +119,13 @@ instance (Pretty c, Pretty v) => Pretty (Expr c v) where
 
 instance (IsString v) => IsString (Expr c v) where fromString x = VarExpr (fromString x)
 
--- | Meta-variable that can be substituted with an expression
-data Var v = Var v (Maybe Int)
-  deriving (Show, Eq, Ord)
+--------------------------------------------------------------------------------
+-- Var
+--------------------------------------------------------------------------------
 
-var :: Var v -> Expr c v
-var = VarExpr
+-- | Meta-variable that can be substituted with an expression
+data Var v = Var {label :: v, freshIndex :: Maybe Int}
+  deriving (Show, Eq, Ord)
 
 instance (IsString v) => IsString (Var v) where fromString s = Var (fromString s) Nothing
 
@@ -103,45 +133,62 @@ instance (Pretty v) => Pretty (Var v) where
   pPrint (Var x Nothing) = pPrint x
   pPrint (Var x (Just i)) = pPrint x <> text (i & subscriptNumber)
 
+mkVarExpr :: Var v -> Expr c v
+mkVarExpr = VarExpr
+
+--------------------------------------------------------------------------------
+-- Con
+--------------------------------------------------------------------------------
+
 -- | Constructor expression
-data Con c v = Con c [Expr c v]
+data Con c v = Con {name :: c, args :: [Expr c v]}
   deriving (Show, Eq, Ord)
 
 instance (Pretty c, Pretty v) => Pretty (Con c v) where
   pPrint (Con c []) = pPrint c
   pPrint (Con c es) = parens $ pPrint c <+> (es <&> pPrint & punctuate " " & hcat)
 
-con :: c -> [Expr c v] -> Expr c v
-con c es = ConExpr (Con c es)
-
-pattern ConE :: c -> [Expr c v] -> Expr c v
-pattern ConE c es = ConExpr (Con c es)
+instance (IsString c) => IsString (Con c v) where
+  fromString s = Con (fromString s) []
 
 pattern (:%) :: c -> [Expr c v] -> Expr c v
 pattern c :% es = ConExpr (Con c es)
 
 infix 4 :%
 
-instance (IsString c) => IsString (Con c v) where
-  fromString s = Con (fromString s) []
+mkConExpr :: c -> [Expr c v] -> Expr c v
+mkConExpr c es = c :% es
+
+--------------------------------------------------------------------------------
+-- Subst
+--------------------------------------------------------------------------------
 
 -- | Substitution of meta-variables
 newtype Subst c v = Subst (Map (Var v) (Expr c v))
   deriving (Show, Eq, Generic)
 
-unSubst :: Subst c v -> Map (Var v) (Expr c v)
-unSubst (Subst m) = m
-
 instance Newtype (Subst c v)
 
 instance (Pretty c, Pretty v) => Pretty (Subst c v) where
   pPrint (Subst m) =
-    braces $
-      m
-        & Map.toList
-        <&> (\(x, e) -> pPrint x <+> ":=" <+> pPrint e)
-        & punctuate comma
-        & hsep
+    if vertical
+      then
+        hang "substitution:" 4 . bullets $
+          m
+            & Map.toList
+            & fmap \(x, e) -> pPrint x <+> ":=" <+> pPrint e
+      else
+        braces $
+          m
+            & Map.toList
+            <&> (\(x, e) -> pPrint x <+> ":=" <+> pPrint e)
+            & punctuate comma
+            & hsep
+    where
+      vertical = True
+
+unSubst :: Subst c v -> Map (Var v) (Expr c v)
+unSubst (Subst m) = m
 
 --------------------------------------------------------------------------------
 -- ExprAlias
@@ -202,7 +249,10 @@ setVar x e =
       . Map.insert x e
 
 substHyp :: (Ord v) => Subst c v -> Hyp a c v -> Hyp a c v
-substHyp sigma (AtomHyp atom) = AtomHyp (substAtom sigma atom)
+substHyp sigma (GoalHyp goal) = GoalHyp (substGoal sigma goal)
+
+substGoal :: (Ord v) => Subst c v -> Goal a c v -> Goal a c v
+substGoal sigma goal = goal {atom = substAtom sigma goal.atom}
 
 substAtom :: (Ord v) => Subst c v -> Atom a c v -> Atom a c v
 substAtom sigma (Atom c es) = Atom c (es <&> substExpr sigma)

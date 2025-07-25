@@ -26,7 +26,12 @@ freshenRule rule = do
       }
 
 freshenHyp :: (Ord v) => Hyp a c v -> M c v (Hyp a c v)
-freshenHyp (AtomHyp r) = AtomHyp <$> (r & freshenAtom)
+freshenHyp (GoalHyp goal) = GoalHyp <$> freshenGoal goal
+
+freshenGoal :: (Ord v) => Goal a c v -> M c v (Goal a c v)
+freshenGoal goal = do
+  atom' <- freshenAtom goal.atom
+  return goal {atom = atom'}
 
 freshenAtom :: (Ord v) => Atom a c v -> M c v (Atom a c v)
 freshenAtom (Atom a es) = Atom a <$> (es <&>>= freshenExpr)

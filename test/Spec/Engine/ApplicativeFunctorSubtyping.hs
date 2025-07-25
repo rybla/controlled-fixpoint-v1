@@ -50,7 +50,7 @@ tests_v1 =
        in mkTest_Engine
             (render $ prettyExpr (s :<: t))
             ( Engine.Config
-                { goals = [Valid (s :<: t) (VarExpr pf)],
+                { goals = [mkGoal $ Valid (s :<: t) (VarExpr pf)],
                   rules = rules_v1,
                   initialGas = FiniteGas 50,
                   strategy = DepthFirstStrategy,
@@ -70,32 +70,32 @@ tests_v1 =
           [ Rule
               { name = "subArrow",
                 hyps =
-                  [ AtomHyp $ Valid (a' :<: a) a'_subtype_a,
-                    AtomHyp $ Valid (b :<: b') b_subtype_b'
+                  [ GoalHyp . mkGoal $ Valid (a' :<: a) a'_subtype_a,
+                    GoalHyp . mkGoal $ Valid (b :<: b') b_subtype_b'
                   ],
                 conc = Valid ((a :-> b) :<: (a' :-> b')) (subArrow a'_subtype_a b_subtype_b')
               },
             Rule
               { name = "subFunctor",
                 hyps =
-                  [ AtomHyp $ Valid (Functor f) functor_f,
-                    AtomHyp $ Valid (a :<: a') a_subtype_a'
+                  [ GoalHyp . mkGoal $ Valid (Functor f) functor_f,
+                    GoalHyp . mkGoal $ Valid (a :<: a') a_subtype_a'
                   ],
                 conc = Valid (f :@ a :<: f :@ a') (subFunctor functor_f a_subtype_a')
               },
             Rule
               { name = "fmap",
                 hyps =
-                  [ AtomHyp $ Valid (Functor f) functor_f,
-                    AtomHyp $ Valid (a :-> b :<: a' :-> b') a_arrow_a'_subtype_b_arrow_b'
+                  [ GoalHyp . mkGoal $ Valid (Functor f) functor_f,
+                    GoalHyp . mkGoal $ Valid (a :-> b :<: a' :-> b') a_arrow_a'_subtype_b_arrow_b'
                   ],
                 conc = Valid (a :-> b :<: f :@ a' :-> f :@ b') (fmap functor_f a_arrow_a'_subtype_b_arrow_b')
               },
             Rule
               { name = "pure",
                 hyps =
-                  [ AtomHyp $ Valid (Functor f) functor_f,
-                    AtomHyp $ Valid (a :<: a') a_subtype_a'
+                  [ GoalHyp . mkGoal $ Valid (Functor f) functor_f,
+                    GoalHyp . mkGoal $ Valid (a :<: a') a_subtype_a'
                   ],
                 conc = Valid (a :<: f :@ a') (pure functor_f a_subtype_a')
               }
@@ -144,31 +144,31 @@ tests_v1 =
         a_arrow_a'_subtype_b_arrow_b' = "?{a -> a' <: b -> b'}"
 
 subArrow :: Expr C V -> Expr C V -> Expr C V
-subArrow a'_subtype_a b_subtype_b' = con "subArrow" [a'_subtype_a, b_subtype_b']
+subArrow a'_subtype_a b_subtype_b' = "subArrow" :% [a'_subtype_a, b_subtype_b']
 
 subFunctor :: Expr C V -> Expr C V -> Expr C V
-subFunctor functor_f a_subtype_a' = con "subFunctor" [functor_f, a_subtype_a']
+subFunctor functor_f a_subtype_a' = "subFunctor" :% [functor_f, a_subtype_a']
 
 fmap :: Expr C V -> Expr C V -> Expr C V
-fmap functor_f a_arrow_a'_subtype_b_arrow_b' = con "fmap" [functor_f, a_arrow_a'_subtype_b_arrow_b']
+fmap functor_f a_arrow_a'_subtype_b_arrow_b' = "fmap" :% [functor_f, a_arrow_a'_subtype_b_arrow_b']
 
 pure :: Expr C V -> Expr C V -> Expr C V
-pure functor_f a_subtype_a' = con "pure" [functor_f, a_subtype_a']
+pure functor_f a_subtype_a' = "pure" :% [functor_f, a_subtype_a']
 
 subNatOfInt :: Expr C V
-subNatOfInt = con "subNatOfInt" []
+subNatOfInt = "subNatOfInt" :% []
 
 functorList :: Expr C V
-functorList = con "functorList" []
+functorList = "functorList" :% []
 
 subBool :: Expr C V
-subBool = con "subBool" []
+subBool = "subBool" :% []
 
 subInt :: Expr C V
-subInt = con "subInt" []
+subInt = "subInt" :% []
 
 subNat :: Expr C V
-subNat = con "subNat" []
+subNat = "subNat" :% []
 
 prettyExpr :: Expr C V -> Doc
 prettyExpr (s :<: t) = prettyExpr s <+> "<:" <+> prettyExpr t

@@ -109,7 +109,7 @@ unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
       when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
       let c = c1
       es <- zipWithM unifyExpr es1 es2
-      pure $ con c es
+      pure $ c :% es
 
 normExpr :: (Monad m, Ord v) => Expr c v -> T a c v m (Expr c v)
 normExpr = liftA2 substExpr (gets (^. sigma)) . return
