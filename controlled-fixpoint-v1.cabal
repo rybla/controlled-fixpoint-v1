@@ -109,6 +109,7 @@ test-suite controlled-fixpoint-v1-test
       Spec.Engine.Library.AugmentGoalTrace
       Spec.Engine.Library.Common
       Spec.Engine.Proof
+      Spec.Engine.PruneAtRequiredGoalFailure
       Spec.Engine.SolutionsCount
       Spec.Engine.Subtyping
       Spec.Engine.SuspendAndResume

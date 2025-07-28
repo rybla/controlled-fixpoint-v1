@@ -9,6 +9,7 @@ import qualified Spec.Engine.ExprAlias
 import qualified Spec.Engine.Library.AugmentDerivation
 import qualified Spec.Engine.Library.AugmentGoalTrace
 import qualified Spec.Engine.Proof
+import qualified Spec.Engine.PruneAtRequiredGoalFailure
 import qualified Spec.Engine.SolutionsCount
 import qualified Spec.Engine.Subtyping
 import qualified Spec.Engine.SuspendAndResume
@@ -34,5 +35,6 @@ tests =
       Spec.Engine.Library.AugmentDerivation.tests,
       Spec.Engine.Library.AugmentGoalTrace.tests,
       Spec.Engine.ExprAlias.tests,
+      Spec.Engine.PruneAtRequiredGoalFailure.tests,
       Spec.Unification.tests
     ]
