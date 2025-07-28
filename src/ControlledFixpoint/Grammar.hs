@@ -89,6 +89,9 @@ data GoalOpt
 instance Pretty GoalOpt where
   pPrint RequiredGoalOpt = text "required"
 
+isRequiredGoal :: Goal a c v -> Bool
+isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.opts
+
 mkGoal :: Atom a c v -> Goal a c v
 mkGoal atom = Goal {atom, opts = Set.empty}
 

@@ -292,7 +292,16 @@ loop = do
         else do
           tryRules goal
 
-      loop
+      stopLoop <- do
+        env <- get
+        -- any of these conditions will stop looping
+        return $
+          or
+            [ any isRequiredGoal env.failedGoals
+            ]
+
+      unless stopLoop do
+        loop
 
 tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> T a c v m ()
 tryRules goal = do
@@ -344,9 +353,7 @@ tryRules goal = do
               }
           ]
 
-      if RequiredGoalOpt `elem` goal.opts
-        then undefined -- TODO
-        else modify \env -> env {failedGoals = env.failedGoals <> [goal]}
+      modify \env -> env {failedGoals = env.failedGoals <> [goal]}
     else
       fromBranches branches
 
@@ -367,10 +374,7 @@ tryRule goal rule = do
     lift . lift . lift . lift $
       ( do
           atom <- Unification.unifyAtom goal.atom rule.conc
-          -- NOTE: it seems odd that this is required, since I
-          -- _thought_ that in the implementation of unification
-          -- it incrementally applies the substitution as it is
-          -- computed (viz `Unification.setVarM`)
+          -- NOTE: it seems odd that this is required, since I _thought_ that in the implementation of unification it incrementally applies the substitution as it is computed (viz `Unification.setVarM`)
           Unification.normEnv
           return atom
       )
