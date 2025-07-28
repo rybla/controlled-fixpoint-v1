@@ -383,7 +383,7 @@ tryRule goal rule = do
         & (`runStateT` Unification.emptyEnv)
 
   let sigma_uni :: Subst c v
-      sigma_uni = undefined -- env_uni' ^. Unification.sigma
+      sigma_uni = env_uni' ^. Unification.sigma
   case err_or_goal' of
     Left err -> do
       tell
