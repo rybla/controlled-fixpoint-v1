@@ -377,6 +377,11 @@ tryRules goal = do
     else
       fromBranches branches
 
+-- TODO: somehow, goal fresh indices are getting really high all the sudden in
+-- some places, so that must mean that failed rule applications are still
+-- modifying the environment and incrementing the fresh counter, but i can't
+-- find where that's happening
+
 -- | Returns a `Bool` indicating whether or not applying the rule was successful.
 tryRule :: forall m a c v. (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> Rule a c v -> T a c v m Bool
 tryRule goal rule = do
