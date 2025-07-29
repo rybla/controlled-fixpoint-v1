@@ -188,7 +188,7 @@ instance (Pretty c, Pretty v) => Pretty (Subst c v) where
             & punctuate comma
             & hsep
     where
-      vertical = True
+      vertical = False
 
 unSubst :: Subst c v -> Map (Var v) (Expr c v)
 unSubst (Subst m) = m
