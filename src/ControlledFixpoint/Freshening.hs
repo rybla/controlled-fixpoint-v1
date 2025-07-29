@@ -10,7 +10,8 @@ import Utility
 
 data Env c v = Env
   { sigma :: Subst c v,
-    freshCounter :: Int
+    freshCounter_vars :: Int,
+    freshCounter_goals :: Int
   }
 
 type M c v = State (Env c v)
@@ -31,11 +32,11 @@ freshenHyp (GoalHyp goal) = GoalHyp <$> freshenGoal goal
 -- | Only freshens the goal's `freshIndex`.
 freshenGoalIndex :: Goal a c v -> M c v (Goal a c v)
 freshenGoalIndex goal = do
-  freshIndex' <- do
+  freshGoalIndex' <- do
     env <- get
-    modify \env' -> env' {freshCounter = env'.freshCounter + 1}
-    return (Just env.freshCounter)
-  return goal {freshGoalIndex = freshIndex'}
+    modify \env' -> env' {freshCounter_goals = env'.freshCounter_goals + 1}
+    return (Just env.freshCounter_goals)
+  return goal {freshGoalIndex = freshGoalIndex'}
 
 -- | Only freshens the goal's `freshIndex` if the `freshGoalIndex` is `Nothing`.
 freshenGoalIndex_init :: Goal a c v -> M c v (Goal a c v)
@@ -63,11 +64,11 @@ freshenVar x@(Var s _) = do
   case x & substVar env.sigma of
     Just x' -> return x'
     Nothing -> do
-      let freshCounter' = env.freshCounter + 1
-          x' = VarExpr (Var s (Just env.freshCounter))
+      let freshCounter_vars' = env.freshCounter_vars + 1
+          x' = VarExpr (Var s (Just env.freshCounter_vars))
       put
         env
           { sigma = env.sigma & setVar x x',
-            freshCounter = freshCounter'
+            freshCounter_vars = freshCounter_vars'
           }
       return x'

@@ -132,7 +132,8 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Ctx a c v) where
 
 -- | Engine environment
 data Env a c v = Env
-  { freshCounter :: Int,
+  { freshCounter_vars :: Int,
+    freshCounter_goals :: Int,
     activeGoals :: [Goal a c v],
     suspendedGoals :: [Goal a c v],
     failedGoals :: [Goal a c v],
@@ -215,7 +216,8 @@ mkEnv cfg =
     { activeGoals = cfg.goals,
       suspendedGoals = mempty,
       failedGoals = mempty,
-      freshCounter = 0,
+      freshCounter_vars = 0,
+      freshCounter_goals = 0,
       stepsRev = [],
       sigma = emptySubst,
       earlyTerminationReasons = []
@@ -519,10 +521,15 @@ runFreshening m = do
     return
       Freshening.Env
         { sigma = emptySubst,
-          freshCounter = env.freshCounter
+          freshCounter_vars = env.freshCounter_vars,
+          freshCounter_goals = env.freshCounter_goals
         }
   let (x, env_freshening') = m `runState` env_freshening
-  modify \env -> env {freshCounter = env_freshening'.freshCounter}
+  modify \env ->
+    env
+      { freshCounter_vars = env_freshening'.freshCounter_vars,
+        freshCounter_goals = env_freshening'.freshCounter_goals
+      }
   return x
 
 -- | Nondeterministically choose from a list.
