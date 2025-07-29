@@ -14,9 +14,9 @@ module ControlledFixpoint.Engine where
 import Control.Category ((>>>))
 import Control.Lens ((^.))
 import Control.Monad (foldM, guard, unless, when)
-import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
+import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
-import Control.Monad.State (MonadState (..), StateT (..), execStateT, gets, modify, runState, runStateT)
+import Control.Monad.State (MonadState (..), StateT (..), evalStateT, execStateT, gets, modify, runState, runStateT)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter)
 import qualified Control.Monad.Writer as Writer
@@ -82,15 +82,17 @@ type T a c v m =
   (ReaderT (Ctx a c v))
     ( (StateT (Env a c v))
         ( ListT
-            ( (ExceptT (Error, Env a c v))
-                ( Common.T m
+            ( (StateT Gas) -- gas is shared among branches, rather than each branch getting it's own copy like Env
+                ( (ExceptT (Error, Env a c v))
+                    ( Common.T m
+                    )
                 )
             )
         )
     )
 
 liftT :: (Monad m) => Common.T m x -> T a c v m x
-liftT = lift . lift . lift . lift
+liftT = lift . lift . lift . lift . lift
 
 type T' a c v m =
   (ReaderT (Ctx a c v))
@@ -108,7 +110,7 @@ runT' m = do
   m
     & (`runReaderT` ctx)
     & (`runStateT` env)
-    & lift . lift . lift
+    & lift . lift . lift . lift
 
 data Error
   = OutOfGas
@@ -128,8 +130,7 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Ctx a c v) where
 
 -- | Engine environment
 data Env a c v = Env
-  { gas :: Gas,
-    freshCounter :: Int,
+  { freshCounter :: Int,
     activeGoals :: [Goal a c v],
     suspendedGoals :: [Goal a c v],
     failedGoals :: [Goal a c v],
@@ -141,8 +142,7 @@ data Env a c v = Env
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Env a c v) where
   pPrint env =
     hang "engine environment:" 2 . bullets $
-      [ "gas =" <+> pPrint env.gas,
-        "activeGoals =" <+> pPrint env.activeGoals,
+      [ "activeGoals =" <+> pPrint env.activeGoals,
         "suspendedGoals =" <+> pPrint env.suspendedGoals,
         "failedGoals =" <+> pPrint env.failedGoals,
         hang "steps =" 2 . bullets $
@@ -209,8 +209,7 @@ mkCtx cfg =
 mkEnv :: Config a c v -> Env a c v
 mkEnv cfg =
   Env
-    { gas = cfg.initialGas,
-      activeGoals = cfg.goals,
+    { activeGoals = cfg.goals,
       suspendedGoals = mempty,
       failedGoals = mempty,
       freshCounter = 0,
@@ -231,6 +230,7 @@ runEnv cfg env0 = do
       & flip runReaderT (mkCtx cfg)
       & flip execStateT env0
       & ListT.toList
+      & (`evalStateT` cfg.initialGas)
       & runExceptT
 
   case err_or_branches of
@@ -243,13 +243,13 @@ loop = do
 
   -- update gas
   do
-    g <- gets gas
+    g <- lift . lift $ get
     -- check gas
     when (g & isDepletedGas) do
       env <- get
       throwError (OutOfGas, env)
     -- update gas
-    modify \env -> env {gas = env.gas & decrementGas}
+    lift . lift $ modify decrementGas
 
   -- process next active goal
   extractNextActiveGoal >>= \case
@@ -394,6 +394,7 @@ tryRule goal rule = do
           )
         & runExceptT
         & (`runStateT` Unification.emptyEnv)
+        & lift
 
   let sigma_uni :: Subst c v
       sigma_uni = env_uni' ^. Unification.sigma
