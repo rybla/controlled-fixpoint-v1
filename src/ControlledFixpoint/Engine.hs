@@ -251,66 +251,67 @@ loop = do
     -- update gas
     lift . lift $ modify decrementGas
 
-  -- process next active goal
-  extractNextActiveGoal >>= \case
-    -- if there are no more active goals, then done and terminate this branch successfully
-    Nothing -> do
-      env <- get
+  -- check for early termination
+  earlyTerminationReasons <- do
+    env <- get
+    return . concat $
+      [ env.failedGoals & filterMap \goal' -> do
+          guard $ goal' & isRequiredGoal
+          Just $ "the goal" <+> pPrint goal' <+> "is required"
+      ]
+
+  if not (null earlyTerminationReasons)
+    then do
       tell
-        [ (Msg.mk 1 "--------------------------------")
+        [ (Msg.mk 1 "terminating branch early because of reasons listed below")
             { Msg.contents =
-                [ "status =" <+> "no more active goals",
-                  "env =" <+> pPrint env
+                [ hang "reasons" 4 . bullets $ earlyTerminationReasons
                 ]
             }
         ]
-    Just goal -> do
-      do
-        env <- get
-        tell
-          [ (Msg.mk 1 "--------------------------------")
-              { Msg.contents =
-                  [ "status =" <+> "processing goal:" <+> pPrint goal,
-                    "env =" <+> pPrint env
-                  ]
-              }
-          ]
-
-      if ctx.config.shouldSuspend goal.atom
-        then do
+    else
+      -- process next active goal
+      extractNextActiveGoal >>= \case
+        -- if there are no more active goals, then done and terminate this branch successfully
+        Nothing -> do
+          env <- get
           tell
-            [ (Msg.mk 1 "suspending goal")
-                { Msg.contents = ["goal =" <+> pPrint goal]
+            [ (Msg.mk 1 "--------------------------------")
+                { Msg.contents =
+                    [ "status =" <+> "no more active goals",
+                      "env =" <+> pPrint env
+                    ]
                 }
             ]
-          modify \env ->
-            env
-              { suspendedGoals = case ctx.config.strategy of
-                  BreadthFirstStrategy -> env.suspendedGoals <> [goal]
-                  DepthFirstStrategy -> [goal] <> env.suspendedGoals
-              }
-        else do
-          tryRules goal
+        Just goal -> do
+          do
+            env <- get
+            tell
+              [ (Msg.mk 1 "--------------------------------")
+                  { Msg.contents =
+                      [ "status =" <+> "processing goal:" <+> pPrint goal,
+                        "env =" <+> pPrint env
+                      ]
+                  }
+              ]
 
-      earlyTerminationReasons <- do
-        env <- get
-        return . concat $
-          [ env.failedGoals & filterMap \goal' -> do
-              guard $ goal' & isRequiredGoal
-              Just $ "the goal" <+> pPrint goal' <+> "is required"
-          ]
+          if ctx.config.shouldSuspend goal.atom
+            then do
+              tell
+                [ (Msg.mk 1 "suspending goal")
+                    { Msg.contents = ["goal =" <+> pPrint goal]
+                    }
+                ]
+              modify \env ->
+                env
+                  { suspendedGoals = case ctx.config.strategy of
+                      BreadthFirstStrategy -> env.suspendedGoals <> [goal]
+                      DepthFirstStrategy -> [goal] <> env.suspendedGoals
+                  }
+            else do
+              tryRules goal
 
-      unless (null earlyTerminationReasons) do
-        tell
-          [ (Msg.mk 1 "terminating branch early because of reasons listed below")
-              { Msg.contents =
-                  [ hang "reasons" 4 . bullets $ earlyTerminationReasons
-                  ]
-              }
-          ]
-
-      when (null earlyTerminationReasons) do
-        loop
+          loop
 
 tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> T a c v m ()
 tryRules goal = do
