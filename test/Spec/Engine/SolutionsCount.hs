@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.SolutionsCount (tests) where
@@ -12,7 +13,7 @@ tests :: TestTree
 tests =
   testGroup
     "SolutionsCount"
-    [ mkTest_Engine
+    [ mkTest_Engine @A @C @V
         "v1"
         ( Engine.Config
             { initialGas = FiniteGas 50,

@@ -24,7 +24,7 @@ tests =
       mkTest 1 2 2 EngineFailure
     ]
 
-mkTest :: Int -> Int -> Int -> EngineResult -> TestTree
+mkTest :: Int -> Int -> Int -> EngineResult C V -> TestTree
 mkTest a b c =
   mkTest_Engine
     (render $ pPrint a <+> "+" <+> pPrint b <+> "=" <+> pPrint c)

@@ -32,7 +32,7 @@ tests =
         EngineSuccessWithSuspends
     ]
 
-mkTest :: Expr C V -> Expr C V -> EngineResult -> TestTree
+mkTest :: Expr C V -> Expr C V -> EngineResult C V -> TestTree
 mkTest a b =
   mkTest_Engine
     ("`" <> displayExpr a <> "  <:  " <> displayExpr b <> "`")

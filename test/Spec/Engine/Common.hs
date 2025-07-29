@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Spec.Engine.Common where
 
-import qualified Data.Set as Set
 import Control.Monad (when)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
@@ -17,6 +17,7 @@ import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Spec.Common as Common
 import qualified Spec.Config as Config
 import System.FilePath ((</>))
@@ -44,7 +45,7 @@ type V = String
 -- |
 -- A `EngineResult` has some optional associated metadata about how the run
 -- went.
-data EngineResult
+data EngineResult c v
   = -- | Engine run threw a global error (in `ControlledFixpoint.Common.T`).
     EngineErrorCatastrophic (Maybe Msg)
   | -- | Engine run threw a local error.
@@ -66,10 +67,10 @@ data EngineResult
   | -- |
     -- Engine run resulted in each solution branch using a substitution that is
     -- a sub-substitution of the `sigma`.
-    EngineSuccessWithSubst (Subst C V)
+    EngineSuccessWithSubst (Subst c v)
   deriving (Show, Eq)
 
-instance Pretty EngineResult where
+instance (Pretty c, Pretty v) => Pretty (EngineResult c v) where
   pPrint (EngineErrorCatastrophic err) = "catastrophic error:" <+> pPrint err
   pPrint (EngineError err) = "error:" <+> pPrint err
   pPrint EngineFailure = "failure"
@@ -79,7 +80,7 @@ instance Pretty EngineResult where
   pPrint (EngineSuccessWithSolutionsCount n) = "success with" <+> pPrint n <+> "solutions"
   pPrint (EngineSuccessWithSubst _) = "success with subst"
 
-mkTest_Engine :: TestName -> Engine.Config String String String -> EngineResult -> TestTree
+mkTest_Engine :: forall a c v. (Pretty a, Eq a, Show a, Pretty c, Pretty v, Ord v, Eq c, Show c, Show v) => TestName -> Engine.Config a c v -> EngineResult c v -> TestTree
 mkTest_Engine testName cfg result_expected = testCase (render (text testName <+> brackets (pPrint result_expected))) do
   (err_or_envs, msgs) <-
     Engine.run cfg
@@ -91,36 +92,36 @@ mkTest_Engine testName cfg result_expected = testCase (render (text testName <+>
       EngineErrorCatastrophic Nothing -> return Nothing
       EngineErrorCatastrophic (Just err')
         | err == err' -> return Nothing
-        | otherwise -> return $ Just $ pPrint $ EngineErrorCatastrophic (Just err)
-      _ -> return $ Just $ pPrint $ EngineErrorCatastrophic (Just err)
+        | otherwise -> return $ Just $ pPrint $ EngineErrorCatastrophic @c @v (Just err)
+      _ -> return $ Just $ pPrint $ EngineErrorCatastrophic @c @v (Just err)
     Right (Left (err, _env)) -> case result_expected of
       EngineError err'
         | err == err' -> return Nothing
-        | otherwise -> return $ Just $ pPrint $ EngineError err
-      _ -> return $ Just $ pPrint $ EngineError err
+        | otherwise -> return $ Just $ pPrint $ EngineError @c @v err
+      _ -> return $ Just $ pPrint $ EngineError @c @v err
     Right (Right envs)
       | envs_successful <- envs & filter \env -> null env.failedGoals,
         not (null envs_successful) ->
           case result_expected of
-            EngineErrorCatastrophic _ -> return $ Just $ pPrint EngineSuccess
-            EngineError _ -> return $ Just $ pPrint EngineSuccess
-            EngineFailure -> return $ Just $ pPrint EngineSuccess
+            EngineErrorCatastrophic _ -> return $ Just $ pPrint $ EngineSuccess @c @v
+            EngineError _ -> return $ Just $ pPrint $ EngineSuccess @c @v
+            EngineFailure -> return $ Just $ pPrint $ EngineSuccess @c @v
             --
             EngineSuccess -> return Nothing
             EngineSuccessWithSuspends ->
               let envs_successfulWithSuspends = envs_successful & filter \env -> not (null env.suspendedGoals)
                in if null envs_successfulWithSuspends
-                    then return $ Just $ pPrint EngineSuccessWithoutSuspends
+                    then return $ Just $ pPrint $ EngineSuccessWithoutSuspends @c @v
                     else return Nothing
             EngineSuccessWithoutSuspends ->
               let envs_successfulWithSuspends = envs_successful & filter \env -> not (null env.suspendedGoals)
                in if not $ null envs_successfulWithSuspends
-                    then return $ Just $ pPrint EngineSuccessWithSuspends
+                    then return $ Just $ pPrint $ EngineSuccessWithSuspends @c @v
                     else return Nothing
             EngineSuccessWithSolutionsCount n ->
               if (envs_successful & length) == n
                 then return Nothing
-                else return $ Just $ pPrint (EngineSuccessWithSolutionsCount (envs_successful & length)) $+$ bullets (fmap pPrint envs)
+                else return $ Just $ pPrint (EngineSuccessWithSolutionsCount @c @v (envs_successful & length)) $+$ bullets (fmap pPrint envs)
             EngineSuccessWithSubst s ->
               let m = s & unSubst
                   m_keys = m & Map.keysSet
@@ -155,7 +156,7 @@ mkTest_Engine testName cfg result_expected = testCase (render (text testName <+>
       | otherwise -> do
           case result_expected of
             EngineFailure -> return Nothing
-            _ -> return $ Just $ pPrint EngineFailure $+$ bullets (fmap pPrint envs)
+            _ -> return $ Just $ pPrint (EngineFailure @c @v) $+$ bullets (fmap pPrint envs)
 
   case mb_err of
     Nothing -> return ()

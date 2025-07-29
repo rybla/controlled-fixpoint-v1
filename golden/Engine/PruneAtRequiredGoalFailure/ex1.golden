@@ -1,0 +1,7 @@
+Right (Right [engine environment:
+                - gas = 3
+                - activeGoals = [P]
+                - suspendedGoals = []
+                - failedGoals = [Q {required}]
+                - steps = - "Rule1": P <== [Q {required}, P] with substitution:
+                - sigma = substitution:])

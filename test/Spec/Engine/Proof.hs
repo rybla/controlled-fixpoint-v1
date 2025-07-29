@@ -73,7 +73,7 @@ tests_Norm_v1 =
       where
         y = interpret x
 
-    mkTest :: TestName -> Expr C V -> EngineResult -> TestTree
+    mkTest :: TestName -> Expr C V -> EngineResult C V -> TestTree
     mkTest testName in_ =
       mkTest_Engine
         testName

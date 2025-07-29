@@ -57,7 +57,7 @@ foldMapM :: (Foldable t, Monad m, Monoid b) => (a -> m b) -> t a -> m b
 foldMapM f = foldM (\m a -> (m <>) <$> f a) mempty
 
 bullets :: [Doc] -> Doc
-bullets = vcat . fmap (("•" <+>) . nest 2)
+bullets = vcat . fmap (("-" <+>) . nest 2)
 
 commas :: [Doc] -> Doc
 commas = hcat . punctuate comma
