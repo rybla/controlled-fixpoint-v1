@@ -250,9 +250,9 @@ start = do
 
 init :: (Monad m) => T a c v m ()
 init = do
-  activeGoals' <- gets activeGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex)
-  suspendedGoals' <- gets suspendedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex)
-  failedGoals' <- gets failedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex)
+  activeGoals' <- gets activeGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex_init)
+  suspendedGoals' <- gets suspendedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex_init)
+  failedGoals' <- gets failedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex_init)
   modify \env ->
     env
       { activeGoals = activeGoals',

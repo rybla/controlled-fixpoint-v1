@@ -37,6 +37,13 @@ freshenGoalIndex goal = do
     return (Just env.freshCounter)
   return goal {freshGoalIndex = freshIndex'}
 
+-- | Only freshens the goal's `freshIndex` if the `freshGoalIndex` is `Nothing`.
+freshenGoalIndex_init :: Goal a c v -> M c v (Goal a c v)
+freshenGoalIndex_init goal = do
+  case goal.freshGoalIndex of
+    Nothing -> freshenGoalIndex goal
+    Just _ -> return goal
+
 freshenGoal :: (Ord v) => Goal a c v -> M c v (Goal a c v)
 freshenGoal goal = do
   goal' <- freshenGoalIndex goal
