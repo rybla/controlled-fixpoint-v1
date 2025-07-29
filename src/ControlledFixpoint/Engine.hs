@@ -7,16 +7,16 @@
 
 {-# HLINT ignore "Redundant $" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
+{-# HLINT ignore "Evaluate" #-}
 
 module ControlledFixpoint.Engine where
 
 import Control.Category ((>>>))
 import Control.Lens ((^.))
-import Control.Monad (foldM, unless, when)
+import Control.Monad (foldM, guard, unless, when)
 import Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
-import Control.Monad.RWS (MonadState (..))
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
-import Control.Monad.State (StateT (StateT, runStateT), execStateT, gets, modify, runState)
+import Control.Monad.State (MonadState (..), StateT (..), execStateT, gets, modify, runState, runStateT)
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Control.Monad.Writer (MonadWriter)
 import qualified Control.Monad.Writer as Writer
@@ -292,15 +292,24 @@ loop = do
         else do
           tryRules goal
 
-      stopLoop <- do
+      earlyTerminationReasons <- do
         env <- get
-        -- any of these conditions will stop looping
-        return $
-          or
-            [ any isRequiredGoal env.failedGoals
-            ]
+        return . concat $
+          [ env.failedGoals & filterMap \goal' -> do
+              guard $ goal' & isRequiredGoal
+              Just $ "the goal" <+> pPrint goal' <+> "is required"
+          ]
 
-      unless stopLoop do
+      unless (null earlyTerminationReasons) do
+        tell
+          [ (Msg.mk 1 "terminating branch early because of reasons listed below")
+              { Msg.contents =
+                  [ hang "reasons" 4 . bullets $ earlyTerminationReasons
+                  ]
+              }
+          ]
+
+      when (null earlyTerminationReasons) do
         loop
 
 tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> T a c v m ()
