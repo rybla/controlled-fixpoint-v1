@@ -3,7 +3,7 @@
 
 module ControlledFixpoint.Freshening where
 
-import Control.Monad.State (MonadState (..), State)
+import Control.Monad.State (MonadState (..), State, modify)
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
 import Utility
@@ -28,10 +28,20 @@ freshenRule rule = do
 freshenHyp :: (Ord v) => Hyp a c v -> M c v (Hyp a c v)
 freshenHyp (GoalHyp goal) = GoalHyp <$> freshenGoal goal
 
+-- | Only freshens the goal's `freshIndex`.
+freshenGoalIndex :: Goal a c v -> M c v (Goal a c v)
+freshenGoalIndex goal = do
+  freshIndex' <- do
+    env <- get
+    modify \env' -> env' {freshCounter = env'.freshCounter + 1}
+    return (Just env.freshCounter)
+  return goal {freshGoalIndex = freshIndex'}
+
 freshenGoal :: (Ord v) => Goal a c v -> M c v (Goal a c v)
 freshenGoal goal = do
-  atom' <- freshenAtom goal.atom
-  return goal {atom = atom'}
+  goal' <- freshenGoalIndex goal
+  atom' <- freshenAtom goal'.atom
+  return goal' {atom = atom'}
 
 freshenAtom :: (Ord v) => Atom a c v -> M c v (Atom a c v)
 freshenAtom (Atom a es) = Atom a <$> (es <&>>= freshenExpr)
@@ -47,7 +57,7 @@ freshenVar x@(Var s _) = do
     Just x' -> return x'
     Nothing -> do
       let freshCounter' = env.freshCounter + 1
-          x' = VarExpr (Var s (Just freshCounter'))
+          x' = VarExpr (Var s (Just env.freshCounter))
       put
         env
           { sigma = env.sigma & setVar x x',

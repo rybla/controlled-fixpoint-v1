@@ -73,14 +73,18 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
 -- | A `Goal` is an `Atom` along with any other goal-relevant options and metadata.
 data Goal a c v = Goal
   { atom :: Atom a c v,
-    opts :: Set GoalOpt
+    opts :: Set GoalOpt,
+    freshGoalIndex :: Maybe Int
   }
   deriving (Show, Eq, Ord)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Goal a c v) where
   pPrint goal =
-    pPrint goal.atom
-      <+> (if null goal.opts then mempty else braces . commas . fmap pPrint . Set.toList $ goal.opts)
+    hsep
+      [ goal.freshGoalIndex & maybe mempty \i -> "G#" <> pPrint i,
+        pPrint goal.atom,
+        if null goal.opts then mempty else braces . commas . fmap pPrint . Set.toList $ goal.opts
+      ]
 
 data GoalOpt
   = RequiredGoalOpt
@@ -93,7 +97,7 @@ isRequiredGoal :: Goal a c v -> Bool
 isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.opts
 
 mkGoal :: Atom a c v -> Goal a c v
-mkGoal atom = Goal {atom, opts = Set.empty}
+mkGoal atom = Goal {atom, opts = Set.empty, freshGoalIndex = Nothing}
 
 --------------------------------------------------------------------------------
 -- Atom

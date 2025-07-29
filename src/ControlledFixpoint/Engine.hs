@@ -33,6 +33,7 @@ import ListT (ListT, cons, toList)
 import Text.PrettyPrint (Doc, braces, comma, hang, hsep, punctuate, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
+import Prelude hiding (init)
 
 --------------------------------------------------------------------------------
 -- types
@@ -220,18 +221,20 @@ mkEnv cfg =
       earlyTerminationReasons = []
     }
 
-run :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
-run cfg = do
+-- | To run the solver, you must use either `runConfig` or `runEnv`.
+runConfig :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
+runConfig cfg = do
   Writer.tell [Msg.mk 0 "Engine.run"]
   let env0 = mkEnv cfg
   runEnv cfg env0
 
+-- | To run the solver, you must use either `runConfig` or `runEnv`.
 runEnv :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Env a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
 runEnv cfg env0 = do
   err_or_branches :: Either (Error, Env a c v) [Env a c v] <-
-    loop
-      & flip runReaderT (mkCtx cfg)
-      & flip execStateT env0
+    start
+      & (`runReaderT` mkCtx cfg)
+      & (`execStateT` env0)
       & ListT.toList
       & (`evalStateT` cfg.initialGas)
       & runExceptT
@@ -239,6 +242,23 @@ runEnv cfg env0 = do
   case err_or_branches of
     Left (err, env) -> return $ Left (err, env)
     Right branches -> return $ Right branches
+
+start :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
+start = do
+  init
+  loop
+
+init :: (Monad m) => T a c v m ()
+init = do
+  activeGoals' <- gets activeGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex)
+  suspendedGoals' <- gets suspendedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex)
+  failedGoals' <- gets failedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex)
+  modify \env ->
+    env
+      { activeGoals = activeGoals',
+        suspendedGoals = suspendedGoals',
+        failedGoals = failedGoals'
+      }
 
 loop :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
 loop = do
@@ -319,20 +339,7 @@ tryRules goal = do
   ctx <- ask
 
   -- freshen rules
-  rules <-
-    ctx.config.rules <&>>= \rule -> do
-      env_freshening <- do
-        env <- get
-        return
-          Freshening.Env
-            { sigma = emptySubst,
-              freshCounter = env.freshCounter
-            }
-      let (rule', env_freshening') =
-            Freshening.freshenRule rule
-              & flip runState env_freshening
-      modify \env -> env {freshCounter = env_freshening'.freshCounter}
-      return rule'
+  rules <- ctx.config.rules <&>>= runFreshening . Freshening.freshenRule
 
   branches <- do
     env <- get
@@ -504,6 +511,19 @@ tryRule goal rule = do
         ]
 
       return True
+
+runFreshening :: (Monad m) => Freshening.M c v x -> T a c v m x
+runFreshening m = do
+  env_freshening <- do
+    env <- get
+    return
+      Freshening.Env
+        { sigma = emptySubst,
+          freshCounter = env.freshCounter
+        }
+  let (x, env_freshening') = m `runState` env_freshening
+  modify \env -> env {freshCounter = env_freshening'.freshCounter}
+  return x
 
 -- | Nondeterministically choose from a list.
 choose :: (Monad m) => [x] -> T a c v m x

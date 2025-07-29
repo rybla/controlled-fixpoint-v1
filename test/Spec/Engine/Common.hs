@@ -83,7 +83,7 @@ instance (Pretty c, Pretty v) => Pretty (EngineResult c v) where
 mkTest_Engine :: forall a c v. (Pretty a, Eq a, Show a, Pretty c, Pretty v, Ord v, Eq c, Show c, Show v) => TestName -> Engine.Config a c v -> EngineResult c v -> TestTree
 mkTest_Engine testName cfg result_expected = testCase (render (text testName <+> brackets (pPrint result_expected))) do
   (err_or_envs, msgs) <-
-    Engine.run cfg
+    Engine.runConfig cfg
       & runExceptT
       & runWriterT
 

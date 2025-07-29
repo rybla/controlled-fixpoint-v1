@@ -30,6 +30,7 @@ library
       ControlledFixpoint.Engine
       ControlledFixpoint.Freshening
       ControlledFixpoint.Grammar
+      ControlledFixpoint.Html
       ControlledFixpoint.Library.AugmentDerivation
       ControlledFixpoint.Library.AugmentGoalTrace
       ControlledFixpoint.Unification
