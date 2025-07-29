@@ -13,7 +13,7 @@ module ControlledFixpoint.Engine where
 
 import Control.Category ((>>>))
 import Control.Lens ((^.))
-import Control.Monad (foldM, guard, unless, when)
+import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
 import Control.Monad.State (MonadState (..), StateT (..), evalStateT, execStateT, gets, modify, runState, runStateT)
@@ -26,10 +26,11 @@ import qualified ControlledFixpoint.Common.Msg as Msg
 import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
+import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import ListT (ListT, cons, toList)
-import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, render, text, (<+>))
+import Text.PrettyPrint (Doc, braces, comma, hang, hsep, punctuate, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -135,7 +136,8 @@ data Env a c v = Env
     suspendedGoals :: [Goal a c v],
     failedGoals :: [Goal a c v],
     sigma :: Subst c v,
-    stepsRev :: [Step a c v]
+    stepsRev :: [Step a c v],
+    earlyTerminationReasons :: [Doc]
   }
   deriving (Show, Eq)
 
@@ -214,7 +216,8 @@ mkEnv cfg =
       failedGoals = mempty,
       freshCounter = 0,
       stepsRev = [],
-      sigma = emptySubst
+      sigma = emptySubst,
+      earlyTerminationReasons = []
     }
 
 run :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
@@ -251,25 +254,23 @@ loop = do
     -- update gas
     lift . lift $ modify decrementGas
 
-  -- check for early termination
-  earlyTerminationReasons <- do
+  -- check for failed required goals
+  do
     env <- get
-    return . concat $
-      [ env.failedGoals & filterMap \goal' -> do
-          guard $ goal' & isRequiredGoal
-          Just $ "the goal" <+> pPrint goal' <+> "is required"
-      ]
+    env.failedGoals & traverse_ \failedGoal ->
+      when (failedGoal & isRequiredGoal) do
+        modify \env' -> env' {earlyTerminationReasons = env'.earlyTerminationReasons <> ["failed required goal:" <+> pPrint failedGoal]}
 
-  if not (null earlyTerminationReasons)
-    then do
+  gets earlyTerminationReasons >>= \case
+    etrs | not (null etrs) -> do
       tell
-        [ (Msg.mk 1 "terminating branch early because of reasons listed below")
+        [ (Msg.mk 1 "branch early termination")
             { Msg.contents =
-                [ hang "reasons" 4 . bullets $ earlyTerminationReasons
+                [ hang "reasons:" 4 . bullets $ etrs
                 ]
             }
         ]
-    else
+    _ ->
       -- process next active goal
       extractNextActiveGoal >>= \case
         -- if there are no more active goals, then done and terminate this branch successfully
