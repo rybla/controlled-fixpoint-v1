@@ -14,6 +14,7 @@ import qualified Spec.Engine.Common as Common
 import System.FilePath ((<.>), (</>))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Golden (goldenVsString)
+import Test.Tasty.HUnit (testCase)
 import Text.PrettyPrint (hang, render, vcat)
 import Text.PrettyPrint.HughesPJClass (Pretty (..))
 
@@ -40,7 +41,8 @@ tests =
                     [ hang "rules =" 2 (pPrint cfg_engine_post.rules),
                       hang "goals =" 2 (pPrint cfg_engine_post.goals)
                     ],
-              mkTest_Engine (groupName <> "_post") cfg_engine_post EngineSuccess
+              mkTest_Engine (groupName <> "_post") cfg_engine_post EngineSuccess,
+              mkTest_Engine_visualization (groupName <> "_post") (groupName <> "_post" <> ".html") cfg_engine_post
             ]
           where
             cfg_engine_post = augmentGoalTrace cfg_augmentGoalTrace cfg_engine_pre

@@ -168,6 +168,9 @@ data Strategy
     DepthFirstStrategy
   deriving (Eq, Show, Enum, Bounded)
 
+instance Pretty Strategy where
+  pPrint = text . show
+
 instance Pretty Error where
   pPrint OutOfGas = "out of gas"
 

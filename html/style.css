@@ -1,0 +1,274 @@
+/*
+  STYLE.CSS - CHISELED GRAPHITE GLASS THEME
+
+  This stylesheet is designed to give the provided HTML structure a modern,
+  aesthetic feel based on a "chiseled graphite glass" concept.
+
+  --- ORGANIZATION ---
+
+  1. FONT IMPORTS & ROOT VARIABLES:
+     - Imports the 'Inter' and 'Roboto Mono' fonts from Google Fonts for a clean,
+       modern typographic style.
+     - CSS custom properties (variables) are defined in ':root' for easy
+       management of the color scheme, fonts, and other global styles. This
+       makes it simple to tweak the entire theme.
+
+  2. GENERAL BODY & LAYOUT STYLES:
+     - The 'body' is styled with a dark graphite background and the primary font.
+     - The main container, '.Env', uses a CSS Grid layout to organize the primary
+       sections of the page ('activeGoals', 'sigma', 'steps', etc.) into a
+       responsive two-column layout.
+
+  3. "GLASS" PANEL STYLES:
+     - The core of the design. Classes like '.activeGoals', '.suspendedGoals',
+       '.failedGoals', '.sigma', and '.steps' are styled to look like panes of
+       frosted glass.
+     - This effect is achieved using a semi-transparent background color, a
+       'backdrop-filter' for the blur, a subtle border, and a 'box-shadow' to
+       lift the panels off the background.
+     - A '::before' pseudo-element is used on these panels to create a title
+       label (e.g., "ACTIVE GOALS"), which is derived from the class name.
+
+  4. HIERARCHICAL & NESTED STYLES:
+     - The stylesheet follows the nested structure of the HTML.
+     - '.StepNode' represents a node in the proof tree and is given a distinct
+       style with a left border to show its connection to its children.
+     - Indentation and visual hierarchy are created using padding and margins,
+       especially for nested '.steps' and '.subgoals'.
+
+  5. TYPOGRAPHIC & ELEMENT STYLES:
+     - Specific elements like '.Var', '.ConName', '.RuleName', and '.AtomName' are
+       styled with a monospaced font ('Roboto Mono') and unique colors to make
+       them stand out, similar to syntax highlighting in a code editor.
+     - Small indices like '.VarFreshIndex' and '.freshGoalIndex' are styled to
+       appear like subtle superscripts.
+     - The 'separator' class is styled as a horizontal line to visually divide
+       sections within a node.
+
+  --- AESTHETIC CHOICES ---
+
+  - Color Palette: A dark, low-contrast graphite background with highlights of
+    cyan and magenta for a futuristic, high-tech feel.
+  - Spacing: Generous padding and margins are used throughout to ensure the
+    layout is clean, uncluttered, and readable.
+  - Borders & Shadows: Soft, rounded corners ('border-radius') are used on all
+    panels. Box shadows are used to create depth and the "chiseled" or inset
+    effect on certain items.
+*/
+
+/* 1. FONT IMPORTS & ROOT VARIABLES */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap");
+
+:root {
+  --font-primary: "Inter", sans-serif;
+  --font-mono: "Roboto Mono", monospace;
+
+  --color-bg: #1a1d24;
+  --color-panel-bg: rgba(44, 48, 58, 0.5);
+  --color-panel-border: rgba(255, 255, 255, 0.15);
+  --color-text-primary: #d0d8e8;
+  --color-text-secondary: #8a93a5;
+  --color-accent-cyan: #22d3ee;
+  --color-accent-magenta: #f0abfc;
+  --color-accent-green: #a3e635;
+  --color-accent-orange: #fb923c;
+
+  --border-radius: 12px;
+}
+
+/* 2. GENERAL BODY & LAYOUT STYLES */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  padding: 40px;
+  min-height: 100vh;
+}
+
+.Env {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 30px;
+  width: 100%;
+  max-width: 2000px;
+  margin: 0 auto;
+}
+
+/* 3. "GLASS" PANEL STYLES */
+.activeGoals,
+.suspendedGoals,
+.failedGoals,
+.sigma,
+.steps,
+.earlyTerminationReasons {
+  background-color: var(--color-panel-bg);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--border-radius);
+  padding: 40px 24px 24px 24px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.activeGoals::before,
+.suspendedGoals::before,
+.failedGoals::before,
+.sigma::before,
+.steps:not(.subgoals .steps)::before, /* Target only top-level steps */
+.earlyTerminationReasons::before {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--color-text-secondary);
+  position: absolute;
+  top: 16px;
+  left: 24px;
+}
+
+.activeGoals::before {
+  content: "Active Goals";
+}
+.suspendedGoals::before {
+  content: "Suspended Goals";
+}
+.failedGoals::before {
+  content: "Failed Goals";
+}
+.sigma::before {
+  content: "Substitution (σ)";
+}
+.steps:not(.subgoals .steps)::before {
+  content: "Execution Steps";
+}
+.earlyTerminationReasons::before {
+  content: "Termination Reasons";
+}
+
+.List,
+.Subst,
+.Steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 4. HIERARCHICAL & NESTED STYLES */
+.StepNode {
+  border-left: 2px solid var(--color-panel-border);
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.Step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: calc(var(--border-radius) / 2);
+  padding: 12px;
+}
+
+.subgoals {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-left: 20px;
+  border-left: 2px dashed rgba(255, 255, 255, 0.1);
+  margin-top: 12px;
+}
+
+.subgoals .StepNode {
+  padding-top: 12px;
+}
+
+/* 5. TYPOGRAPHIC & ELEMENT STYLES */
+.SubstItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.Goal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+}
+
+.Var,
+.Con,
+.Atom,
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.Var {
+  color: var(--color-accent-cyan);
+}
+.ConName {
+  color: var(--color-accent-orange);
+}
+.AtomName {
+  color: var(--color-accent-green);
+}
+.RuleName {
+  color: var(--color-accent-magenta);
+}
+
+.VarFreshIndex,
+.freshGoalIndex {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 2px 5px;
+  border-radius: 4px;
+  position: relative;
+  top: -2px;
+  font-weight: 500;
+}
+
+.separator {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-panel-border),
+    transparent
+  );
+  margin: 8px 0;
+}
+
+/* Empty elements, hide them if they have no content */
+.opts:empty,
+.subgoals:empty,
+.List:empty {
+  display: none;
+}
+
+/* Add a message for empty lists instead of hiding them */
+.List:empty::after {
+  content: "None";
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}

@@ -13,19 +13,23 @@ import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
+import ControlledFixpoint.Html (renderEnv, renderHtml)
 import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.String (fromString)
 import qualified Spec.Common as Common
 import qualified Spec.Config as Config
 import System.FilePath ((</>))
 import Test.Tasty as Tasty
+import Test.Tasty.Golden (goldenVsString)
 import Test.Tasty.HUnit (assertFailure, testCase)
 import Text.PrettyPrint (Doc, brackets, hang, render, text, vcat, ($+$), (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (..))
 import Utility (bullets, ticks)
+import Prelude hiding (div)
 
 --------------------------------------------------------------------------------
 
@@ -79,6 +83,20 @@ instance (Pretty c, Pretty v) => Pretty (EngineResult c v) where
   pPrint EngineSuccessWithoutSuspends = "success without suspends"
   pPrint (EngineSuccessWithSolutionsCount n) = "success with" <+> pPrint n <+> "solutions"
   pPrint (EngineSuccessWithSubst _) = "success with subst"
+
+mkTest_Engine_visualization :: forall a c v. (Pretty a, Eq a, Show a, Pretty c, Pretty v, Ord v, Eq c, Show c, Show v) => TestName -> String -> Engine.Config a c v -> TestTree
+mkTest_Engine_visualization testName fileName cfg = goldenVsString testName ("html" </> fileName) do
+  (err_or_envs, _msgs) <-
+    Engine.runConfig cfg
+      & runExceptT
+      & runWriterT
+
+  let content = case err_or_envs of
+        Left _err -> ""
+        Right (Left (_err, env)) -> renderEnv cfg env
+        Right (Right envs) -> vcat . fmap (renderEnv cfg) $ envs
+
+  return . fromString . render . renderHtml $ content
 
 mkTest_Engine :: forall a c v. (Pretty a, Eq a, Show a, Pretty c, Pretty v, Ord v, Eq c, Show c, Show v) => TestName -> Engine.Config a c v -> EngineResult c v -> TestTree
 mkTest_Engine testName cfg result_expected = testCase (render (text testName <+> brackets (pPrint result_expected))) do
