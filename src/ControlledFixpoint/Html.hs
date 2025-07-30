@@ -5,7 +5,7 @@
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Redundant $" #-}
 
-module ControlledFixpoint.Html (renderConfig, renderEnv, renderHtml) where
+module ControlledFixpoint.Html where
 
 import Control.Lens (imap)
 import ControlledFixpoint.Engine
@@ -50,6 +50,23 @@ renderHtml content =
       "</html>"
     ]
 
+renderTrace :: forall a c v. (Pretty a, Pretty c, Pretty v) => Config a c v -> Trace a c v -> Doc
+renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalIndex
+  where
+    renderTraceNode :: GoalIndex -> Doc
+    renderTraceNode gi =
+      case tr.traceSteps Map.!? gi of
+        Nothing -> div "invalid" ["unknown goal index:" <+> pPrintEscaped gi]
+        Just steps ->
+          div "TraceNode" $
+            steps <&> \step ->
+              div "TraceStep" $
+                [ div "goal" [renderGoal step.goal],
+                  div "rule" [renderRuleName step.rule.name],
+                  div "sigma" [renderSubst step.sigma],
+                  div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
+                ]
+
 renderConfig :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Doc
 renderConfig cfg =
   div "Config" $
@@ -74,7 +91,7 @@ renderEnv cfg env =
 renderGoal :: (Pretty v, Pretty c, Pretty a) => Goal a c v -> Doc
 renderGoal g =
   div "Goal" $
-    [ div "freshGoalIndex" . pure . pPrintEscaped . fromMaybe (-1) $ g.freshGoalIndex,
+    [ div "goalIndex" . pure . pPrintEscaped . fromMaybe (-1) $ g.goalIndex,
       div "atom" . pure . renderAtom $ g.atom,
       div "opts" . fmap renderGoalOpt . Set.toList $ g.opts
     ]
@@ -101,7 +118,7 @@ renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pP
 renderStepsGraph :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc
 renderStepsGraph cfg ss =
   let getGoalIndex :: Goal a c v -> Int
-      getGoalIndex g = g.freshGoalIndex & fromMaybe (-1)
+      getGoalIndex g = g.goalIndex & fromMaybe (-1)
 
       graph_fromConclusionGoalIndex :: Map Int (Either (Goal a c v) [Step a c v])
       graph_fromConclusionGoalIndex =

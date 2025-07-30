@@ -125,8 +125,8 @@ data Error
   deriving (Eq, Show)
 
 data Trace a c v = Trace
-  { traceGoals :: Map (Maybe Int) (Goal a c v),
-    traceSteps :: Map Int [Step a c v]
+  { traceGoals :: Map GoalIndex (Goal a c v),
+    traceSteps :: Map GoalIndex [Step a c v]
   }
   deriving (Eq, Show)
 
@@ -139,7 +139,11 @@ instance Semigroup (Trace a c v) where
       }
 
 instance Monoid (Trace a c v) where
-  mempty = Trace {traceGoals = Map.empty, traceSteps = Map.empty}
+  mempty =
+    Trace
+      { traceGoals = Map.empty,
+        traceSteps = Map.empty
+      }
 
 initialTrace :: Trace a c v
 initialTrace =
@@ -314,25 +318,6 @@ loop = do
     -- update gas
     lift . lift $ modify decrementGas
 
-  -- -- check for failed required goals
-  -- do
-  --   env <- get
-  --   env.failedGoals & traverse_ \failedGoal ->
-  --     when (failedGoal & isRequiredGoal) do
-  --       -- modify \env' -> env' {earlyTerminationReasons = env'.earlyTerminationReasons <> ["failed required goal:" <+> pPrint failedGoal]}
-
-  --       return ()
-
-  -- gets earlyTerminationReasons >>= \case
-  --   etrs | not (null etrs) -> do
-  --     tell
-  --       [ (Msg.mk 1 "branch early termination")
-  --           { Msg.contents =
-  --               [ hang "reasons:" 4 . bullets $ etrs
-  --               ]
-  --           }
-  --       ]
-  --   _ ->
   -- process next active goal
   extractNextActiveGoal >>= \case
     -- if there are no more active goals, then done and terminate this branch successfully

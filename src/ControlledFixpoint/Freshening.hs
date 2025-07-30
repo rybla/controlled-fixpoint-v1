@@ -32,16 +32,16 @@ freshenHyp (GoalHyp goal) = GoalHyp <$> freshenGoal goal
 -- | Only freshens the goal's `freshIndex`.
 freshenGoalIndex :: Goal a c v -> M c v (Goal a c v)
 freshenGoalIndex goal = do
-  freshGoalIndex' <- do
+  goalIndex' <- do
     env <- get
     modify \env' -> env' {freshCounter_goals = env'.freshCounter_goals + 1}
     return (Just env.freshCounter_goals)
-  return goal {freshGoalIndex = freshGoalIndex'}
+  return goal {goalIndex = goalIndex'}
 
--- | Only freshens the goal's `freshIndex` if the `freshGoalIndex` is `Nothing`.
+-- | Only freshens the goal's `freshIndex` if the `goalIndex` is `Nothing`.
 freshenGoalIndex_init :: Goal a c v -> M c v (Goal a c v)
 freshenGoalIndex_init goal = do
-  case goal.freshGoalIndex of
+  case goal.goalIndex of
     Nothing -> freshenGoalIndex goal
     Just _ -> return goal
 

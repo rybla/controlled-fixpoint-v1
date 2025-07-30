@@ -70,18 +70,20 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
 -- Goal
 --------------------------------------------------------------------------------
 
+type GoalIndex = Maybe Int
+
 -- | A `Goal` is an `Atom` along with any other goal-relevant options and metadata.
 data Goal a c v = Goal
   { atom :: Atom a c v,
     opts :: Set GoalOpt,
-    freshGoalIndex :: Maybe Int
+    goalIndex :: GoalIndex
   }
   deriving (Show, Eq, Ord)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Goal a c v) where
   pPrint goal =
     hsep
-      [ goal.freshGoalIndex & maybe mempty (brackets . ("G#" <>) . pPrint),
+      [ goal.goalIndex & maybe mempty (brackets . ("G#" <>) . pPrint),
         pPrint goal.atom,
         if null goal.opts then mempty else braces . commas . fmap pPrint . Set.toList $ goal.opts
       ]
@@ -97,7 +99,7 @@ isRequiredGoal :: Goal a c v -> Bool
 isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.opts
 
 mkGoal :: Atom a c v -> Goal a c v
-mkGoal atom = Goal {atom, opts = Set.empty, freshGoalIndex = Nothing}
+mkGoal atom = Goal {atom, opts = Set.empty, goalIndex = Nothing}
 
 --------------------------------------------------------------------------------
 -- Atom

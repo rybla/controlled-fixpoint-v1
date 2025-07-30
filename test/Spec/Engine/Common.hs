@@ -14,7 +14,7 @@ import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-import ControlledFixpoint.Html (renderEnv, renderHtml)
+import ControlledFixpoint.Html (renderEnv, renderHtml, renderTrace)
 import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
@@ -94,9 +94,8 @@ mkTest_Engine_visualization testName fileName cfg = goldenVsString testName ("ht
       & runWriterT
 
   let content = case err_or_envs of
-        Left _err -> ""
-        Right (Left (_err, env), _) -> renderEnv cfg env
-        Right (Right envs, _) -> vcat . fmap (renderEnv cfg) $ envs
+        Left _err -> "<div>catastrophic error</div>"
+        Right (_, tr) -> renderTrace cfg tr
 
   return . fromString . render . renderHtml $ content
 
