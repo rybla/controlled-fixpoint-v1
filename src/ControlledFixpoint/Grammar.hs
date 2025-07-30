@@ -26,7 +26,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.String (IsString (fromString))
 import GHC.Generics (Generic)
-import Text.PrettyPrint (braces, comma, hang, hcat, hsep, nest, parens, punctuate, text, vcat, (<+>))
+import Text.PrettyPrint (braces, brackets, comma, hang, hcat, hsep, nest, parens, punctuate, text, vcat, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 
@@ -81,7 +81,7 @@ data Goal a c v = Goal
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Goal a c v) where
   pPrint goal =
     hsep
-      [ goal.freshGoalIndex & maybe mempty \i -> "G#" <> pPrint i,
+      [ goal.freshGoalIndex & maybe mempty (brackets . ("G#" <>) . pPrint),
         pPrint goal.atom,
         if null goal.opts then mempty else braces . commas . fmap pPrint . Set.toList $ goal.opts
       ]
