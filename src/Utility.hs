@@ -8,6 +8,7 @@ module Utility where
 
 import Control.Lens (FunctorWithIndex (imap))
 import Control.Monad (foldM)
+import Data.Function ((&))
 import Data.Kind (Type)
 import Data.Traversable (for)
 import Text.PrettyPrint (Doc, comma, hcat, nest, punctuate, text, vcat, (<+>))
@@ -57,7 +58,8 @@ foldMapM :: (Foldable t, Monad m, Monoid b) => (a -> m b) -> t a -> m b
 foldMapM f = foldM (\m a -> (m <>) <$> f a) mempty
 
 bullets :: [Doc] -> Doc
-bullets = vcat . fmap (("-" <+>) . nest 2)
+bullets [] = "[empty]"
+bullets ds = ds & vcat . fmap (("-" <+>) . nest 4)
 
 commas :: [Doc] -> Doc
 commas = hcat . punctuate comma
