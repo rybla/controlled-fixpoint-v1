@@ -328,12 +328,7 @@ loop = do
                 { Msg.contents = ["goal =" <+> pPrint goal]
                 }
             ]
-          modify \env ->
-            env
-              { suspendedGoals = case ctx.config.strategy of
-                  BreadthFirstStrategy -> env.suspendedGoals <> [goal]
-                  DepthFirstStrategy -> [goal] <> env.suspendedGoals
-              }
+          modify \env -> env {suspendedGoals = env.suspendedGoals <> [goal]}
         else do
           tryRules goal
 
