@@ -97,10 +97,23 @@ renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pP
 
 renderStepsGraph :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc
 renderStepsGraph cfg ss =
-  let graph_fromConclusionGoalIndex :: Map Int (Either (Goal a c v) [Step a c v])
+  let getGoalIndex :: Goal a c v -> Int
+      getGoalIndex g = g.freshGoalIndex & fromMaybe (-1)
+
+      graph_fromConclusionGoalIndex :: Map Int (Either (Goal a c v) [Step a c v])
       graph_fromConclusionGoalIndex =
         ss
-          & (`foldl` Map.empty)
+          & ( `foldl`
+                ( cfg.goals
+                    & fmap
+                      ( \g ->
+                          ( g & getGoalIndex,
+                            Left g
+                          )
+                      )
+                    & Map.fromList
+                )
+            )
             ( \m s ->
                 flip
                   ( foldl \m' g ->
@@ -110,7 +123,7 @@ renderStepsGraph cfg ss =
                             Nothing -> Just (Left g)
                             x -> x
                         )
-                        (g.freshGoalIndex & fromMaybe (-1))
+                        (g & getGoalIndex)
                         m'
                   )
                   s.subgoals
@@ -120,7 +133,7 @@ renderStepsGraph cfg ss =
                         Left _ -> Just (Right [s])
                         Right ss' -> Just (Right (ss' ++ [s]))
                     )
-                    (s.goal.freshGoalIndex & fromMaybe (-1))
+                    (s.goal & getGoalIndex)
                     m
             )
       -- start from config goals
@@ -144,7 +157,7 @@ renderStepsGraph cfg ss =
                 ss' <&> \s ->
                   div "Step" $
                     [ div "rule" [renderRuleName s.rule.name],
-                      div "subgoals" . fmap (go . (\g -> g.freshGoalIndex & fromMaybe (-1))) $ s0.subgoals
+                      div "subgoals" . fmap (go . getGoalIndex) $ s0.subgoals
                     ]
             ]
    in div "StepsGraph" . fmap go . (\gs -> [0 .. length gs]) $ cfg.goals
