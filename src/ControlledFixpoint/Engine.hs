@@ -26,11 +26,10 @@ import qualified ControlledFixpoint.Common.Msg as Msg
 import qualified ControlledFixpoint.Freshening as Freshening
 import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
-import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import ListT (ListT, cons, toList)
-import Text.PrettyPrint (Doc, braces, comma, hang, hsep, punctuate, render, text, (<+>))
+import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 import Prelude hiding (init)
@@ -74,6 +73,7 @@ instance (Show a, Show c, Show v) => Show (Config a c v) where
               "rules =" <+> text (show cfg.rules),
               "goals =" <+> text (show cfg.goals),
               "shouldSuspend =" <+> text "<function>",
+              "exprAliases =" <+> text "<function>",
               "strategy =" <+> text (show cfg.strategy)
             ]
               & punctuate comma
@@ -138,8 +138,7 @@ data Env a c v = Env
     suspendedGoals :: [Goal a c v],
     failedGoals :: [Goal a c v],
     sigma :: Subst c v,
-    stepsRev :: [Step a c v],
-    earlyTerminationReasons :: [Doc]
+    stepsRev :: [Step a c v]
   }
   deriving (Show, Eq)
 
@@ -222,8 +221,7 @@ mkEnv cfg =
       freshCounter_vars = 0,
       freshCounter_goals = 0,
       stepsRev = [],
-      sigma = emptySubst,
-      earlyTerminationReasons = []
+      sigma = emptySubst
     }
 
 -- | To run the solver, you must use either `runConfig` or `runEnv`.
@@ -279,65 +277,67 @@ loop = do
     -- update gas
     lift . lift $ modify decrementGas
 
-  -- check for failed required goals
-  do
-    env <- get
-    env.failedGoals & traverse_ \failedGoal ->
-      when (failedGoal & isRequiredGoal) do
-        modify \env' -> env' {earlyTerminationReasons = env'.earlyTerminationReasons <> ["failed required goal:" <+> pPrint failedGoal]}
+  -- -- check for failed required goals
+  -- do
+  --   env <- get
+  --   env.failedGoals & traverse_ \failedGoal ->
+  --     when (failedGoal & isRequiredGoal) do
+  --       -- modify \env' -> env' {earlyTerminationReasons = env'.earlyTerminationReasons <> ["failed required goal:" <+> pPrint failedGoal]}
 
-  gets earlyTerminationReasons >>= \case
-    etrs | not (null etrs) -> do
+  --       return ()
+
+  -- gets earlyTerminationReasons >>= \case
+  --   etrs | not (null etrs) -> do
+  --     tell
+  --       [ (Msg.mk 1 "branch early termination")
+  --           { Msg.contents =
+  --               [ hang "reasons:" 4 . bullets $ etrs
+  --               ]
+  --           }
+  --       ]
+  --   _ ->
+  -- process next active goal
+  extractNextActiveGoal >>= \case
+    -- if there are no more active goals, then done and terminate this branch successfully
+    Nothing -> do
+      env <- get
       tell
-        [ (Msg.mk 1 "branch early termination")
+        [ (Msg.mk 1 "--------------------------------")
             { Msg.contents =
-                [ hang "reasons:" 4 . bullets $ etrs
+                [ "status =" <+> "no more active goals",
+                  "env =" <+> pPrint env
                 ]
             }
         ]
-    _ ->
-      -- process next active goal
-      extractNextActiveGoal >>= \case
-        -- if there are no more active goals, then done and terminate this branch successfully
-        Nothing -> do
-          env <- get
+    Just goal -> do
+      do
+        env <- get
+        tell
+          [ (Msg.mk 1 "--------------------------------")
+              { Msg.contents =
+                  [ "status =" <+> "processing goal:" <+> pPrint goal,
+                    "env =" <+> pPrint env
+                  ]
+              }
+          ]
+
+      if ctx.config.shouldSuspend goal.atom
+        then do
           tell
-            [ (Msg.mk 1 "--------------------------------")
-                { Msg.contents =
-                    [ "status =" <+> "no more active goals",
-                      "env =" <+> pPrint env
-                    ]
+            [ (Msg.mk 1 "suspending goal")
+                { Msg.contents = ["goal =" <+> pPrint goal]
                 }
             ]
-        Just goal -> do
-          do
-            env <- get
-            tell
-              [ (Msg.mk 1 "--------------------------------")
-                  { Msg.contents =
-                      [ "status =" <+> "processing goal:" <+> pPrint goal,
-                        "env =" <+> pPrint env
-                      ]
-                  }
-              ]
+          modify \env ->
+            env
+              { suspendedGoals = case ctx.config.strategy of
+                  BreadthFirstStrategy -> env.suspendedGoals <> [goal]
+                  DepthFirstStrategy -> [goal] <> env.suspendedGoals
+              }
+        else do
+          tryRules goal
 
-          if ctx.config.shouldSuspend goal.atom
-            then do
-              tell
-                [ (Msg.mk 1 "suspending goal")
-                    { Msg.contents = ["goal =" <+> pPrint goal]
-                    }
-                ]
-              modify \env ->
-                env
-                  { suspendedGoals = case ctx.config.strategy of
-                      BreadthFirstStrategy -> env.suspendedGoals <> [goal]
-                      DepthFirstStrategy -> [goal] <> env.suspendedGoals
-                  }
-            else do
-              tryRules goal
-
-          loop
+      loop
 
 tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> T a c v m ()
 tryRules goal = do
@@ -368,13 +368,25 @@ tryRules goal = do
       do
         env <- get
         tell
-          [ (Msg.mk 1 "no rules could be applied to the goal")
+          [ (Msg.mk 1 "failed goal since no rules can apply to it")
               { Msg.contents =
                   [ "goal =" <+> pPrint goal,
                     "env =" <+> pPrint env
                   ]
               }
           ]
+
+      when (isRequiredGoal goal) do
+        env <- get
+        tell
+          [ (Msg.mk 1 "pruning branch since faild a required goal")
+              { Msg.contents =
+                  [ "goal =" <+> pPrint goal,
+                    "env =" <+> pPrint env
+                  ]
+              }
+          ]
+        reject
 
       modify \env -> env {failedGoals = env.failedGoals <> [goal]}
     else

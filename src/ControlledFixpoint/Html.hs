@@ -65,8 +65,7 @@ renderEnv cfg env =
         [ div "activeGoals" . pure . renderList . fmap renderGoal $ env.activeGoals,
           div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
           div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
-          div "sigma" . pure . renderSubst $ env.sigma,
-          div "earlyTerminationReasons" . pure . renderList $ env.earlyTerminationReasons
+          div "sigma" . pure . renderSubst $ env.sigma
         ],
       div "main" $
         [div "steps" . pure . renderStepsGraph cfg . reverse $ env.stepsRev]
