@@ -371,6 +371,8 @@ tryRules goal = do
               }
           ]
 
+      modify \env -> env {failedGoals = env.failedGoals <> [goal]}
+
       when (isRequiredGoal goal) do
         env <- get
         tell
@@ -382,8 +384,6 @@ tryRules goal = do
               }
           ]
         reject
-
-      modify \env -> env {failedGoals = env.failedGoals <> [goal]}
     else
       fromBranches branches
 
