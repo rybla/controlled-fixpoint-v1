@@ -64,8 +64,8 @@ renderEnv cfg env =
       div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
       div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
       div "sigma" . pure . renderSubst $ env.sigma,
-      div "steps" . pure . renderSteps cfg . reverse $ env.stepsRev,
-      div "earlyTerminationReasons" . pure . renderList $ env.earlyTerminationReasons
+      div "earlyTerminationReasons" . pure . renderList $ env.earlyTerminationReasons,
+      div "steps" . pure . renderStepsGraph cfg . reverse $ env.stepsRev
     ]
 
 renderGoal :: (Pretty v, Pretty c, Pretty a) => Goal a c v -> Doc
@@ -95,35 +95,59 @@ renderVar :: (Pretty v) => Var v -> Doc
 renderVar (Var v Nothing) = div "Var" [pPrintEscaped v]
 renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pPrintEscaped i]]
 
-renderSteps :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc
-renderSteps cfg ss =
-  let graph_fromConclusionGoalIndex :: Map Int [Step a c v]
+renderStepsGraph :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc
+renderStepsGraph cfg ss =
+  let graph_fromConclusionGoalIndex :: Map Int (Either (Goal a c v) [Step a c v])
       graph_fromConclusionGoalIndex =
         ss
           & (`foldl` Map.empty)
-            ( flip \step ->
-                Map.alter
-                  (maybe (Just [step]) (Just . (step :)))
-                  (step.goal.freshGoalIndex & fromMaybe (-1))
+            ( \m s ->
+                flip
+                  ( foldl \m' g ->
+                      Map.alter
+                        ( \case
+                            -- initialize
+                            Nothing -> Just (Left g)
+                            x -> x
+                        )
+                        (g.freshGoalIndex & fromMaybe (-1))
+                        m'
+                  )
+                  s.subgoals
+                  $ Map.alter
+                    ( maybe (Just (Right [s])) \case
+                        -- replace
+                        Left _ -> Just (Right [s])
+                        Right ss' -> Just (Right (ss' ++ [s]))
+                    )
+                    (s.goal.freshGoalIndex & fromMaybe (-1))
+                    m
             )
       -- start from config goals
       go :: Int -> Doc
       go i = case graph_fromConclusionGoalIndex Map.!? i of
         Nothing -> div "Invalid" ["unknown goal index:" <+> pPrintEscaped i]
-        Just [] -> error "impossible"
-        Just ss'@(s0 : _) ->
+        Just (Left g) ->
+          div
+            "StepNode"
+            [ div "goal" [renderGoal g],
+              div "separator" [],
+              div "substeps" [div "dead-end-message" ["dead end"]]
+            ]
+        Just (Right []) -> error "impossible"
+        Just (Right ss'@(s0 : _)) ->
           div
             "StepNode"
             [ div "goal" [renderGoal s0.goal],
               div "separator" [],
-              div "steps" $
+              div "substeps" $
                 ss' <&> \s ->
                   div "Step" $
                     [ div "rule" [renderRuleName s.rule.name],
                       div "subgoals" . fmap (go . (\g -> g.freshGoalIndex & fromMaybe (-1))) $ s0.subgoals
                     ]
             ]
-   in div "Steps" . fmap go . (\gs -> [0 .. length gs]) $ cfg.goals
+   in div "StepsGraph" . fmap go . (\gs -> [0 .. length gs]) $ cfg.goals
 
 renderRuleName :: RuleName -> Doc
 renderRuleName = div "RuleName" . pure . pPrintEscaped

@@ -14,46 +14,43 @@
        makes it simple to tweak the entire theme.
 
   2. GENERAL BODY & LAYOUT STYLES:
-     - The 'body' is styled with a dark graphite background and the primary font.
-     - The main container, '.Env', uses a CSS Grid layout to organize the primary
-       sections of the page ('activeGoals', 'sigma', 'steps', etc.) into a
-       responsive two-column layout.
+     - The 'body' is configured to fill the entire viewport height and prevent
+       global scrolling.
+     - The main container, '.Env', uses a CSS Grid to create a two-column layout.
+       The left column acts as a fixed-width sidebar, while the right column
+       is the main, flexible content area.
 
-  3. "GLASS" PANEL STYLES:
-     - The core of the design. Classes like '.activeGoals', '.suspendedGoals',
-       '.failedGoals', '.sigma', and '.steps' are styled to look like panes of
-       frosted glass.
-     - This effect is achieved using a semi-transparent background color, a
-       'backdrop-filter' for the blur, a subtle border, and a 'box-shadow' to
-       lift the panels off the background.
+  3. LAYOUT PLACEMENT & SCROLLING:
+     - All direct children of '.Env' are explicitly placed onto the grid using
+       the 'grid-area' property.
+     - The '.steps' panel is placed in the main content column and is made
+       vertically scrollable, so long execution trees can be viewed without
+       moving the other panels.
+     - The other panels stack vertically in the sidebar column. Because the main
+       page does not scroll, they remain in a fixed position relative to the
+       scrolling '.steps' content.
+
+  4. "GLASS" PANEL STYLES:
+     - The core of the design. All panels are styled to look like panes of
+       frosted glass using semi-transparent backgrounds, a backdrop-filter,
+       subtle borders, and a box-shadow.
      - A '::before' pseudo-element is used on these panels to create a title
        label (e.g., "ACTIVE GOALS"), which is derived from the class name.
 
-  4. HIERARCHICAL & NESTED STYLES:
-     - The stylesheet follows the nested structure of the HTML.
-     - '.StepNode' represents a node in the proof tree and is given a distinct
-       style with a left border to show its connection to its children.
-     - Indentation and visual hierarchy are created using padding and margins,
-       especially for nested '.steps' and '.subgoals'.
-
-  5. TYPOGRAPHIC & ELEMENT STYLES:
+  5. HIERARCHICAL & ELEMENT STYLES:
+     - The stylesheet follows the nested structure of the HTML to create a
+       clear visual hierarchy.
      - Specific elements like '.Var', '.ConName', '.RuleName', and '.AtomName' are
-       styled with a monospaced font ('Roboto Mono') and unique colors to make
-       them stand out, similar to syntax highlighting in a code editor.
-     - Small indices like '.VarFreshIndex' and '.freshGoalIndex' are styled to
-       appear like subtle superscripts.
-     - The 'separator' class is styled as a horizontal line to visually divide
-       sections within a node.
+       styled with a monospaced font and unique colors, similar to syntax
+       highlighting.
 
   --- AESTHETIC CHOICES ---
 
   - Color Palette: A dark, low-contrast graphite background with highlights of
-    cyan and magenta for a futuristic, high-tech feel.
+    cyan, magenta, green, and orange for a futuristic, high-tech feel.
   - Spacing: Generous padding and margins are used throughout to ensure the
     layout is clean, uncluttered, and readable.
-  - Borders & Shadows: Soft, rounded corners ('border-radius') are used on all
-    panels. Box shadows are used to create depth and the "chiseled" or inset
-    effect on certain items.
+  - Borders & Shadows: Soft, rounded corners and box shadows create depth.
 */
 
 /* 1. FONT IMPORTS & ROOT VARIABLES */
@@ -88,19 +85,57 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
   padding: 40px;
-  min-height: 100vh;
 }
 
 .Env {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: 350px 1fr; /* Fixed sidebar and flexible main area */
+  grid-template-rows: repeat(5, auto); /* Create 5 rows for sidebar items */
   gap: 30px;
   width: 100%;
   max-width: 2000px;
   margin: 0 auto;
 }
 
-/* 3. "GLASS" PANEL STYLES */
+/* 3. LAYOUT PLACEMENT & SCROLLING */
+.activeGoals {
+  grid-area: 1 / 1 / 2 / 2;
+}
+.suspendedGoals {
+  grid-area: 2 / 1 / 3 / 2;
+}
+.failedGoals {
+  grid-area: 3 / 1 / 4 / 2;
+}
+.sigma {
+  grid-area: 4 / 1 / 5 / 2;
+}
+.earlyTerminationReasons {
+  grid-area: 5 / 1 / 6 / 2;
+}
+
+.steps {
+  grid-area: 1 / 2 / 6 / 3; /* Span all 5 rows in the second column */
+  overflow-y: auto; /* Enable vertical scrolling for this panel only */
+}
+
+/* Custom Scrollbar for Steps Panel */
+.steps::-webkit-scrollbar {
+  width: 10px;
+}
+.steps::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 10px 0;
+}
+.steps::-webkit-scrollbar-thumb {
+  background-color: var(--color-panel-border);
+  border-radius: 20px;
+}
+.steps::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-secondary);
+}
+
+/* 4. "GLASS" PANEL STYLES */
 .activeGoals,
 .suspendedGoals,
 .failedGoals,
@@ -121,7 +156,7 @@ body {
 .suspendedGoals::before,
 .failedGoals::before,
 .sigma::before,
-.steps:not(.subgoals .steps)::before, /* Target only top-level steps */
+.steps::before,
 .earlyTerminationReasons::before {
   font-family: var(--font-mono);
   font-weight: 500;
@@ -146,7 +181,7 @@ body {
 .sigma::before {
   content: "Substitution (σ)";
 }
-.steps:not(.subgoals .steps)::before {
+.steps::before {
   content: "Execution Steps";
 }
 .earlyTerminationReasons::before {
@@ -161,7 +196,7 @@ body {
   gap: 16px;
 }
 
-/* 4. HIERARCHICAL & NESTED STYLES */
+/* 5. HIERARCHICAL & ELEMENT STYLES */
 .StepNode {
   border-left: 2px solid var(--color-panel-border);
   padding-left: 20px;
@@ -192,7 +227,6 @@ body {
   padding-top: 12px;
 }
 
-/* 5. TYPOGRAPHIC & ELEMENT STYLES */
 .SubstItem {
   display: flex;
   align-items: center;
@@ -258,14 +292,12 @@ body {
   margin: 8px 0;
 }
 
-/* Empty elements, hide them if they have no content */
 .opts:empty,
 .subgoals:empty,
 .List:empty {
   display: none;
 }
 
-/* Add a message for empty lists instead of hiding them */
 .List:empty::after {
   content: "None";
   font-family: var(--font-mono);
