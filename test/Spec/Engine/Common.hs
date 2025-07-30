@@ -6,6 +6,7 @@
 
 module Spec.Engine.Common where
 
+import Control.Category ((>>>))
 import Control.Monad (when)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Writer (WriterT (runWriterT))
@@ -88,13 +89,14 @@ mkTest_Engine_visualization :: forall a c v. (Pretty a, Eq a, Show a, Pretty c, 
 mkTest_Engine_visualization testName fileName cfg = goldenVsString testName ("html" </> fileName) do
   (err_or_envs, _msgs) <-
     Engine.runConfig cfg
+      & runWriterT
       & runExceptT
       & runWriterT
 
   let content = case err_or_envs of
         Left _err -> ""
-        Right (Left (_err, env)) -> renderEnv cfg env
-        Right (Right envs) -> vcat . fmap (renderEnv cfg) $ envs
+        Right (Left (_err, env), _) -> renderEnv cfg env
+        Right (Right envs, _) -> vcat . fmap (renderEnv cfg) $ envs
 
   return . fromString . render . renderHtml $ content
 
@@ -102,6 +104,7 @@ mkTest_Engine :: forall a c v. (Pretty a, Eq a, Show a, Pretty c, Pretty v, Ord 
 mkTest_Engine testName cfg result_expected = testCase (render (text testName <+> brackets (pPrint result_expected))) do
   (err_or_envs, msgs) <-
     Engine.runConfig cfg
+      & (runWriterT >>> fmap fst)
       & runExceptT
       & runWriterT
 

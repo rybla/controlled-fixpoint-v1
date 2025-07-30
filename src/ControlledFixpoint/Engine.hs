@@ -18,7 +18,7 @@ import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
 import Control.Monad.State (MonadState (..), StateT (..), evalStateT, execStateT, gets, modify, runState, runStateT)
 import Control.Monad.Trans.Class (MonadTrans (lift))
-import Control.Monad.Writer (MonadWriter)
+import Control.Monad.Writer (MonadWriter, WriterT)
 import qualified Control.Monad.Writer as Writer
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Common.Msg (Msg)
@@ -28,6 +28,8 @@ import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
 import Data.Function ((&))
 import Data.Functor ((<&>))
+import Data.Map (Map)
+import qualified Data.Map as Map
 import ListT (ListT, cons, toList)
 import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
@@ -86,7 +88,9 @@ type T a c v m =
         ( ListT
             ( (StateT Gas) -- gas is shared among branches, rather than each branch getting it's own copy like Env
                 ( (ExceptT (Error, Env a c v))
-                    ( Common.T m
+                    ( (WriterT (Trace a c v))
+                        ( Common.T m
+                        )
                     )
                 )
             )
@@ -94,13 +98,15 @@ type T a c v m =
     )
 
 liftT :: (Monad m) => Common.T m x -> T a c v m x
-liftT = lift . lift . lift . lift . lift
+liftT = lift . lift . lift . lift . lift . lift
 
 type T' a c v m =
   (ReaderT (Ctx a c v))
     ( (StateT (Env a c v))
         ( (ExceptT (Error, Env a c v))
-            ( Common.T m
+            ( (WriterT (Trace a c v))
+                ( Common.T m
+                )
             )
         )
     )
@@ -117,6 +123,30 @@ runT' m = do
 data Error
   = OutOfGas
   deriving (Eq, Show)
+
+data Trace a c v = Trace
+  { traceGoals :: Map (Maybe Int) (Goal a c v),
+    traceSteps :: Map Int [Step a c v]
+  }
+  deriving (Eq, Show)
+
+instance Semigroup (Trace a c v) where
+  t1 <> t2 =
+    Trace
+      { -- t1 takes precedence
+        traceGoals = Map.unionWith const t1.traceGoals t2.traceGoals,
+        traceSteps = t1.traceSteps <> t2.traceSteps
+      }
+
+instance Monoid (Trace a c v) where
+  mempty = Trace {traceGoals = Map.empty, traceSteps = Map.empty}
+
+initialTrace :: Trace a c v
+initialTrace =
+  Trace
+    { traceGoals = Map.empty,
+      traceSteps = Map.empty
+    }
 
 -- | Engine context
 data Ctx a c v = Ctx
@@ -225,14 +255,21 @@ mkEnv cfg =
     }
 
 -- | To run the solver, you must use either `runConfig` or `runEnv`.
-runConfig :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
+runConfig ::
+  (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) =>
+  Config a c v ->
+  WriterT (Trace a c v) (Common.T m) (Either (Error, Env a c v) [Env a c v])
 runConfig cfg = do
-  Writer.tell [Msg.mk 0 "Engine.run"]
+  lift $ Writer.tell [Msg.mk 0 "Engine.run"]
   let env0 = mkEnv cfg
   runEnv cfg env0
 
 -- | To run the solver, you must use either `runConfig` or `runEnv`.
-runEnv :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => Config a c v -> Env a c v -> Common.T m (Either (Error, Env a c v) [Env a c v])
+runEnv ::
+  (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) =>
+  Config a c v ->
+  Env a c v ->
+  WriterT (Trace a c v) (Common.T m) (Either (Error, Env a c v) [Env a c v])
 runEnv cfg env0 = do
   err_or_branches :: Either (Error, Env a c v) [Env a c v] <-
     start
@@ -301,7 +338,7 @@ loop = do
     -- if there are no more active goals, then done and terminate this branch successfully
     Nothing -> do
       env <- get
-      tell
+      tell $
         [ (Msg.mk 1 "--------------------------------")
             { Msg.contents =
                 [ "status =" <+> "no more active goals",
@@ -406,7 +443,7 @@ tryRule goal rule = do
         }
     ]
   (err_or_goal', env_uni') <-
-    lift . lift . lift . lift $
+    lift . lift . lift . lift . lift . lift $
       ( do
           atom <- Unification.unifyAtom goal.atom rule.conc
           -- NOTE: it seems odd that this is required, since I _thought_ that in the implementation of unification it incrementally applies the substitution as it is computed (viz `Unification.setVarM`)
@@ -420,7 +457,6 @@ tryRule goal rule = do
           )
         & runExceptT
         & (`runStateT` Unification.emptyEnv)
-        & lift
 
   let sigma_uni :: Subst c v
       sigma_uni = env_uni' ^. Unification.sigma
@@ -567,5 +603,15 @@ extractNextActiveGoal = do
       modify \env -> env {activeGoals = activeGoals'}
       return $ Just goal
 
-tell :: (MonadWriter [Msg] m, MonadTrans t1, MonadTrans t2, MonadTrans t3) => [Msg] -> t1 (t2 (t3 m)) ()
-tell = lift . lift . lift . Writer.tell
+tell ::
+  ( MonadWriter [Msg] m,
+    MonadTrans t1,
+    MonadTrans t2,
+    MonadTrans t3,
+    MonadTrans t4,
+    MonadTrans t5,
+    MonadTrans t6
+  ) =>
+  [Msg] ->
+  t1 (t2 (t3 (t4 (t5 (t6 m))))) ()
+tell = lift . lift . lift . lift . lift . lift . Writer.tell
