@@ -7,6 +7,7 @@
 
 module ControlledFixpoint.Html (renderConfig, renderEnv, renderHtml) where
 
+import Control.Lens (imap)
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
@@ -105,12 +106,7 @@ renderStepsGraph cfg ss =
         ss
           & ( `foldl`
                 ( cfg.goals
-                    & fmap
-                      ( \g ->
-                          ( g & getGoalIndex,
-                            Left g
-                          )
-                      )
+                    & imap (\i g -> (i, Left g))
                     & Map.fromList
                 )
             )
