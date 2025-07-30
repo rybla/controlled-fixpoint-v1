@@ -227,7 +227,7 @@ unRuleName (RuleName s) = s
 
 instance IsString RuleName where fromString = RuleName
 
-instance Pretty RuleName where pPrint (RuleName x) = text (show x)
+instance Pretty RuleName where pPrint (RuleName x) = text x
 
 --------------------------------------------------------------------------------
 -- Functions
