@@ -61,12 +61,15 @@ renderConfig cfg =
 renderEnv :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Env a c v -> Doc
 renderEnv cfg env =
   div "Env" $
-    [ div "activeGoals" . pure . renderList . fmap renderGoal $ env.activeGoals,
-      div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
-      div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
-      div "sigma" . pure . renderSubst $ env.sigma,
-      div "earlyTerminationReasons" . pure . renderList $ env.earlyTerminationReasons,
-      div "steps" . pure . renderStepsGraph cfg . reverse $ env.stepsRev
+    [ div "sidebar" $
+        [ div "activeGoals" . pure . renderList . fmap renderGoal $ env.activeGoals,
+          div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
+          div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
+          div "sigma" . pure . renderSubst $ env.sigma,
+          div "earlyTerminationReasons" . pure . renderList $ env.earlyTerminationReasons
+        ],
+      div "main" $
+        [div "steps" . pure . renderStepsGraph cfg . reverse $ env.stepsRev]
     ]
 
 renderGoal :: (Pretty v, Pretty c, Pretty a) => Goal a c v -> Doc
