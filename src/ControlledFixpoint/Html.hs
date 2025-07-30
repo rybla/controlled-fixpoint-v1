@@ -160,7 +160,7 @@ renderStepsGraph cfg ss =
                       div "subgoals" . fmap (go . getGoalIndex) $ s0.subgoals
                     ]
             ]
-   in div "StepsGraph" . fmap go . (\gs -> [0 .. length gs]) $ cfg.goals
+   in div "StepsGraph" . fmap go . (\gs -> [0 .. length gs - 1]) $ cfg.goals
 
 renderRuleName :: RuleName -> Doc
 renderRuleName = div "RuleName" . pure . pPrintEscaped
