@@ -9,7 +9,6 @@
 
 module ControlledFixpoint.Html where
 
-import Control.Lens (imap)
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
@@ -19,7 +18,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Text.PrettyPrint (Doc, doubleQuotes, nest, text, vcat, (<+>), (<>))
 import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
-import Utility (comps, foldl')
+import Utility (comps)
 import Prelude hiding (div, (<>))
 
 el :: String -> String -> [Doc] -> Doc
