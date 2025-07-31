@@ -58,7 +58,12 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
     renderTraceNode :: GoalIndex -> Doc
     renderTraceNode gi =
       case tr.traceSteps Map.!? gi of
-        Nothing -> div "invalid" ["unknown goal index:" <+> pPrintEscaped gi]
+        Nothing ->
+          case tr.traceGoals Map.!? gi of
+            Nothing -> div "invalid" ["unknown goal index:" <+> pPrintEscaped gi]
+            Just g ->
+              div "TraceNode" $
+                [div "failed" [renderGoal g]]
         Just steps ->
           div "TraceNode" $
             steps <&> \step ->
@@ -66,7 +71,9 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                 [ div "goal" [renderGoal step.goal],
                   div "rule" [renderRuleName step.rule.name],
                   div "sigma" [renderSubst step.sigma],
-                  div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
+                  if null step.subgoals
+                    then div "solved" ["solved"]
+                    else div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
                 ]
 
 renderConfig :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Doc
