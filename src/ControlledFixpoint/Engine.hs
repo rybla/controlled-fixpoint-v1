@@ -148,13 +148,6 @@ instance Monoid (Trace a c v) where
         traceSteps = Map.empty
       }
 
-emptyTrace :: Trace a c v
-emptyTrace =
-  Trace
-    { traceGoals = Map.empty,
-      traceSteps = Map.empty
-    }
-
 -- | Engine context
 data Ctx a c v = Ctx
   { config :: Config a c v
@@ -598,8 +591,9 @@ tell_traceStep ::
   t1 (t2 (t3 m)) ()
 tell_traceStep gi step =
   lift . lift . lift . Writer.tell $
-    emptyTrace
-      { traceSteps = Map.singleton gi [step]
+    Trace
+      { traceSteps = Map.singleton gi [step],
+        traceGoals = Map.fromList [(g.goalIndex, g) | g <- step.subgoals]
       }
 
 tell_traceGoals ::
@@ -608,6 +602,7 @@ tell_traceGoals ::
   t1 (t2 (t3 m)) ()
 tell_traceGoals goals =
   lift . lift . lift . Writer.tell $
-    emptyTrace
-      { traceGoals = Map.fromList [(g.goalIndex, g) | g <- goals]
+    Trace
+      { traceSteps = Map.empty,
+        traceGoals = Map.fromList [(g.goalIndex, g) | g <- goals]
       }
