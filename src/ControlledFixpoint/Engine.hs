@@ -138,7 +138,7 @@ instance Semigroup (Trace a c v) where
     Trace
       { -- t1 takes precedence
         traceGoals = Map.unionWith const t1.traceGoals t2.traceGoals,
-        traceSteps = t1.traceSteps <> t2.traceSteps
+        traceSteps = Map.unionWith (<>) t1.traceSteps t2.traceSteps
       }
 
 instance Monoid (Trace a c v) where
@@ -578,17 +578,10 @@ extractNextActiveGoal = do
       modify \env -> env {activeGoals = activeGoals'}
       return $ Just goal
 
-tellMsgs ::
-  (MonadTrans t1, MonadTrans t2, MonadTrans t3, MonadTrans t4, MonadTrans t5, MonadTrans t6, MonadWriter [Msg] m) =>
-  [Msg] ->
-  t1 (t2 (t3 (t4 (t5 (t6 m))))) ()
+tellMsgs :: (Monad m) => [Msg] -> T a c v m ()
 tellMsgs = lift . lift . lift . lift . lift . lift . Writer.tell
 
-tell_traceStep ::
-  (MonadTrans t1, MonadTrans t2, MonadTrans t3, MonadWriter (Trace a c v) m) =>
-  GoalIndex ->
-  Step a c v ->
-  t1 (t2 (t3 m)) ()
+tell_traceStep :: (Monad m) => GoalIndex -> Step a c v -> T a c v m ()
 tell_traceStep gi step =
   lift . lift . lift . Writer.tell $
     Trace
@@ -596,10 +589,7 @@ tell_traceStep gi step =
         traceGoals = Map.fromList [(g.goalIndex, g) | g <- step.subgoals]
       }
 
-tell_traceGoals ::
-  (MonadTrans t1, MonadTrans t2, MonadTrans t3, MonadWriter (Trace a c v) m) =>
-  [Goal a c v] ->
-  t1 (t2 (t3 m)) ()
+tell_traceGoals :: (Monad m) => [Goal a c v] -> T a c v m ()
 tell_traceGoals goals =
   lift . lift . lift . Writer.tell $
     Trace
