@@ -6,4 +6,4 @@ rules =
    rule R2
      --------------------------------
      "B" "?goal"]
-goals = ["A" "goal#0", "A" "goal#1"]
+goals = [[X] "A" "goal#0", [X] "A" "goal#1"]

@@ -35,9 +35,9 @@ tests =
               VarExpr _ :~ VarExpr _ -> True
               _ -> False,
             goals =
-              [ mkGoal $ "y" :~ "x",
-                mkGoal $ A :~ "y",
-                mkGoal $ "x" :~ B
+              [ mkGoal 0 $ "y" :~ "x",
+                mkGoal 1 $ A :~ "y",
+                mkGoal 2 $ "x" :~ B
               ]
           }
         EngineSuccess,
@@ -49,13 +49,13 @@ tests =
             rules =
               [ Rule
                   { name = "R1",
-                    hyps = [GoalHyp . mkGoal $ A :~ S "x"],
+                    hyps = [GoalHyp . mkHypGoal $ A :~ S "x"],
                     conc = A :~ "x"
                   }
               ],
             exprAliases = [],
             shouldSuspend = const False,
-            goals = [mkGoal $ A :~ B]
+            goals = [mkGoal 0 $ A :~ B]
           }
         (EngineError OutOfGas),
       unrolling_tests
@@ -68,7 +68,7 @@ unrolling_tests =
     [ mkTest_Engine
         "avoid nonterminating branch"
         cfg
-          { goals = [mkGoal $ P "x" "y", mkGoal $ Q "y" B],
+          { goals = [mkGoal 0  $ P "x" "y", mkGoal 1 $ Q "y" B],
             shouldSuspend = \case
               P (VarExpr _) (VarExpr _) -> True
               _ -> False
@@ -77,7 +77,7 @@ unrolling_tests =
       mkTest_Engine
         "exhaust terminating branch"
         cfg
-          { goals = [mkGoal $ P "x" "y", mkGoal $ Q "y" B]
+          { goals = [mkGoal 0  $ P "x" "y", mkGoal 1  $ Q "y" B]
           }
         (EngineError OutOfGas)
     ]
@@ -97,7 +97,7 @@ unrolling_tests =
     rules1 =
       [ Rule
           { name = "R1",
-            hyps = [GoalHyp . mkGoal $ P (S "x") A],
+            hyps = [GoalHyp . mkHypGoal $ P (S "x") A],
             conc = P "x" A
           },
         Rule

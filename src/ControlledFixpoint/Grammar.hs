@@ -64,13 +64,16 @@ data Hyp a c v
   deriving (Show, Eq, Ord)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
-  pPrint (GoalHyp goal) = pPrint goal
+  pPrint (GoalHyp g) =
+    hsep
+      [ g.goalIndex & maybe mempty (("G#" <>) . pPrint),
+        pPrint g.atom,
+        if null g.opts then mempty else braces . commas . fmap pPrint . Set.toList $ g.opts
+      ]
 
 --------------------------------------------------------------------------------
 -- Goal
 --------------------------------------------------------------------------------
-
-type GoalIndex = Maybe Int
 
 -- | A `Goal` is an `Atom` along with any other goal-relevant options and metadata.
 data Goal a c v = Goal
@@ -81,12 +84,14 @@ data Goal a c v = Goal
   deriving (Show, Eq, Ord)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Goal a c v) where
-  pPrint goal =
+  pPrint g =
     hsep
-      [ goal.goalIndex & maybe mempty (brackets . ("G#" <>) . pPrint),
-        pPrint goal.atom,
-        if null goal.opts then mempty else braces . commas . fmap pPrint . Set.toList $ goal.opts
+      [ g.goalIndex & maybe (brackets "X") (brackets . ("G#" <>) . pPrint),
+        pPrint g.atom,
+        if null g.opts then mempty else braces . commas . fmap pPrint . Set.toList $ g.opts
       ]
+
+type GoalIndex = Maybe Int
 
 data GoalOpt
   = RequiredGoalOpt
@@ -98,8 +103,11 @@ instance Pretty GoalOpt where
 isRequiredGoal :: Goal a c v -> Bool
 isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.opts
 
-mkGoal :: Atom a c v -> Goal a c v
-mkGoal atom = Goal {atom, opts = Set.empty, goalIndex = Nothing}
+mkGoal :: Int -> Atom a c v -> Goal a c v
+mkGoal i atom = Goal {atom, goalIndex = Just i, opts = Set.empty}
+
+mkHypGoal :: Atom a c v -> Goal a c v
+mkHypGoal atom = Goal {atom, goalIndex = Nothing, opts = Set.empty}
 
 --------------------------------------------------------------------------------
 -- Atom
@@ -258,7 +266,7 @@ setVar x e =
       . Map.insert x e
 
 substHyp :: (Ord v) => Subst c v -> Hyp a c v -> Hyp a c v
-substHyp sigma (GoalHyp goal) = GoalHyp (substGoal sigma goal)
+substHyp sigma (GoalHyp g) = GoalHyp (substGoal sigma g)
 
 substGoal :: (Ord v) => Subst c v -> Goal a c v -> Goal a c v
 substGoal sigma goal = goal {atom = substAtom sigma goal.atom}

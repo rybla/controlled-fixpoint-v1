@@ -34,14 +34,14 @@ tests =
               [ Rule
                   { name = "Rule1",
                     hyps =
-                      [ GoalHyp (mkGoal (Atom Q [])) {opts = Set.fromList [RequiredGoalOpt]},
-                        GoalHyp (mkGoal (Atom P []))
+                      [ GoalHyp (mkHypGoal (Atom Q [])) {opts = Set.fromList [RequiredGoalOpt]},
+                        GoalHyp (mkHypGoal (Atom P []))
                       ],
                     conc = Atom P []
                   }
               ],
             goals =
-              [ mkGoal $ Atom P []
+              [ mkGoal 0 $ Atom P []
               ],
             shouldSuspend = const False,
             exprAliases = [],

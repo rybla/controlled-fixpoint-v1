@@ -24,7 +24,7 @@ ex1_tests =
     [ mkTest_Engine
         "preserve alias"
         cfg
-          { goals = [mkGoal $ P (Swap (Tuple A B))],
+          { goals = [mkGoal 0 $ P (Swap (Tuple A B))],
             rules =
               [ Rule
                   { name = "R1",
@@ -40,7 +40,7 @@ ex1_tests =
       mkTest_Engine
         "unfold alias"
         cfg
-          { goals = [mkGoal $ P (Swap (Tuple A B))],
+          { goals = [mkGoal 0 $ P (Swap (Tuple A B))],
             rules =
               [ Rule
                   { name = "R1",

@@ -1,79 +1,58 @@
 /*
-  STYLE.CSS - CHISELED GRAPHITE GLASS THEME
+  STYLE.CSS for OR-TRACER
 
-  This stylesheet is designed to give the provided HTML structure a modern,
-  aesthetic feel based on a "chiseled graphite glass" concept.
+  This stylesheet implements a "chiseled graphite glass" design for the
+  provided HTML structure. It focuses on a modern, high-contrast, and
+  readable layout.
 
-  --- ORGANIZATION ---
-
-  1. FONT IMPORTS & ROOT VARIABLES:
-     - Imports the 'Inter' and 'Roboto Mono' fonts from Google Fonts for a clean,
-       modern typographic style.
-     - CSS custom properties (variables) are defined in ':root' for easy
-       management of the color scheme, fonts, and other global styles. This
-       makes it simple to tweak the entire theme.
-
-  2. GENERAL BODY & LAYOUT STYLES:
-     - The 'body' is configured to fill the entire viewport height and prevent
-       global scrolling.
-     - The main container, '.Env', uses a CSS Grid to create a two-column layout.
-       The left column acts as a fixed-width sidebar, while the right column
-       is the main, flexible content area.
-
-  3. LAYOUT PLACEMENT & SCROLLING:
-     - All direct children of '.Env' are explicitly placed onto the grid using
-       the 'grid-area' property.
-     - The '.steps' panel is placed in the main content column and is made
-       vertically scrollable, so long execution trees can be viewed without
-       moving the other panels.
-     - The other panels stack vertically in the sidebar column. Because the main
-       page does not scroll, they remain in a fixed position relative to the
-       scrolling '.steps' content.
-
-  4. "GLASS" PANEL STYLES:
-     - The core of the design. All panels are styled to look like panes of
-       frosted glass using semi-transparent backgrounds, a backdrop-filter,
-       subtle borders, and a box-shadow.
-     - A '::before' pseudo-element is used on these panels to create a title
-       label (e.g., "ACTIVE GOALS"), which is derived from the class name.
-
-  5. HIERARCHICAL & ELEMENT STYLES:
-     - The stylesheet follows the nested structure of the HTML to create a
-       clear visual hierarchy.
-     - Specific elements like '.Var', '.ConName', '.RuleName', and '.AtomName' are
-       styled with a monospaced font and unique colors, similar to syntax
-       highlighting.
-
-  --- AESTHETIC CHOICES ---
-
-  - Color Palette: A dark, low-contrast graphite background with highlights of
-    cyan, magenta, green, and orange for a futuristic, high-tech feel.
-  - Spacing: Generous padding and margins are used throughout to ensure the
-    layout is clean, uncluttered, and readable.
-  - Borders & Shadows: Soft, rounded corners and box shadows create depth.
+  ORGANIZATION:
+  1.  ROOT & FONT: Imports the 'Inter' font and defines root variables for
+      the color scheme and layout properties.
+  2.  GENERAL BODY & LAYOUT: Sets up the main flexbox layout with a fixed-width
+      sidebar on the left and a main content area on the right.
+  3.  PANEL STYLING: Defines the base "glass" style for all major panels
+      (e.g., `.sidebar > div`, `.steps`) using backdrop-filter for a blurry
+      glass effect and box-shadows for a "chiseled" or inset appearance.
+  4.  SIDEBAR: Styles the specific panels in the sidebar (`.activeGoals`,
+      `.sigma`, etc.) and uses `::before` pseudo-elements to add titles since
+      they are not in the HTML.
+  5.  MAIN CONTENT & STEPS: Styles the execution graph. It uses pseudo-elements
+      on `.StepNode` and `.substeps` to create the visual tree-like connecting
+      lines.
+  6.  CORE COMPONENT STYLING:
+      -   `Con` & `Var` Blocks: This is a key feature. These elements are styled
+          to look like they fit together. This is achieved by having them in a
+          flex container and only applying border-radius to the very first and
+          very last element in a sequence, creating a continuous, rounded block.
+      -   `Atom`, `Goal`, `Rule`: These are styled as distinct informational units
+          with clear typography and spacing.
+      -   `SubstItem`: Styled as a key-value pair for readability.
+  7.  UTILITY & MISC: Styles for smaller elements like separators, indices,
+      and messages (`.dead-end-message`).
 */
 
-/* 1. FONT IMPORTS & ROOT VARIABLES */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap");
+/* 1. ROOT & FONT */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --font-primary: "Inter", sans-serif;
-  --font-mono: "Roboto Mono", monospace;
-
-  --color-bg: #1a1d24;
-  --color-panel-bg: rgba(44, 48, 58, 0.5);
-  --color-panel-border: rgba(255, 255, 255, 0.15);
-  --color-text-primary: #d0d8e8;
-  --color-text-secondary: #8a93a5;
-  --color-accent-cyan: #22d3ee;
-  --color-accent-magenta: #f0abfc;
-  --color-accent-green: #a3e635;
-  --color-accent-orange: #fb923c;
-
+  --font-family: 'Inter', sans-serif;
+  --bg-color: #f0f2f5;
+  --panel-bg: rgba(255, 255, 255, 0.6);
+  --panel-border-color: rgba(0, 0, 0, 0.1);
+  --shadow-color: rgba(0, 0, 0, 0.05);
+  --text-color: #1c1e21;
+  --text-color-light: #606770;
+  --accent-color: #0866ff;
+  --var-bg: #e7f3ff;
+  --con-bg: #e9ecef;
+  --rule-bg: #dbeafe;
+  --error-color: #dc3545;
+  --panel-padding: 1.5rem;
   --border-radius: 12px;
+  --block-radius: 8px;
 }
 
-/* 2. GENERAL BODY & LAYOUT STYLES */
+/* 2. GENERAL BODY & LAYOUT */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -81,226 +60,282 @@
 }
 
 body {
-  font-family: var(--font-primary);
-  background-color: var(--color-bg);
-  color: var(--color-text-primary);
-  padding: 40px;
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.6;
+  font-size: 14px;
+  padding: 20px;
 }
 
 .Env {
-  display: grid;
-  grid-template-columns: 350px 1fr; /* Fixed sidebar and flexible main area */
-  grid-template-rows: repeat(5, auto); /* Create 5 rows for sidebar items */
-  gap: 30px;
-  width: 100%;
-  max-width: 2000px;
-  margin: 0 auto;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
 }
 
-/* 3. LAYOUT PLACEMENT & SCROLLING */
-.activeGoals {
-  grid-area: 1 / 1 / 2 / 2;
-}
-.suspendedGoals {
-  grid-area: 2 / 1 / 3 / 2;
-}
-.failedGoals {
-  grid-area: 3 / 1 / 4 / 2;
-}
-.sigma {
-  grid-area: 4 / 1 / 5 / 2;
-}
-.earlyTerminationReasons {
-  grid-area: 5 / 1 / 6 / 2;
+.sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 20px;
 }
 
+.main {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+/* 3. PANEL STYLING */
+.sidebar > div,
 .steps {
-  grid-area: 1 / 2 / 6 / 3; /* Span all 5 rows in the second column */
-  overflow-y: auto; /* Enable vertical scrolling for this panel only */
-}
-
-/* Custom Scrollbar for Steps Panel */
-.steps::-webkit-scrollbar {
-  width: 10px;
-}
-.steps::-webkit-scrollbar-track {
-  background: transparent;
-  margin: 10px 0;
-}
-.steps::-webkit-scrollbar-thumb {
-  background-color: var(--color-panel-border);
-  border-radius: 20px;
-}
-.steps::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-text-secondary);
-}
-
-/* 4. "GLASS" PANEL STYLES */
-.activeGoals,
-.suspendedGoals,
-.failedGoals,
-.sigma,
-.steps,
-.earlyTerminationReasons {
-  background-color: var(--color-panel-bg);
-  border: 1px solid var(--color-panel-border);
+  background-color: var(--panel-bg);
   border-radius: var(--border-radius);
-  padding: 40px 24px 24px 24px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--panel-border-color);
+  box-shadow: 0 4px 12px var(--shadow-color), inset 0 0 0 1px rgba(255,255,255,0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: var(--panel-padding);
   position: relative;
-  overflow: hidden;
 }
 
-.activeGoals::before,
-.suspendedGoals::before,
-.failedGoals::before,
-.sigma::before,
-.steps::before,
-.earlyTerminationReasons::before {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--color-text-secondary);
-  position: absolute;
-  top: 16px;
-  left: 24px;
+.sidebar > div::before {
+  content: attr(class);
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--panel-border-color);
+  text-transform: capitalize;
+  color: var(--accent-color);
 }
 
-.activeGoals::before {
-  content: "Active Goals";
-}
-.suspendedGoals::before {
-  content: "Suspended Goals";
-}
-.failedGoals::before {
-  content: "Failed Goals";
-}
-.sigma::before {
-  content: "Substitution (σ)";
-}
-.steps::before {
-  content: "Execution Steps";
-}
-.earlyTerminationReasons::before {
-  content: "Termination Reasons";
-}
+.activeGoals::before { content: 'Active Goals'; }
+.suspendedGoals::before { content: 'Suspended Goals'; }
+.failedGoals::before { content: 'Failed Goals'; }
+.sigma::before { content: 'Substitution'; }
 
-.List,
-.Subst,
-.Steps {
+/* 4. SIDEBAR SPECIFICS */
+.List {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
-/* 5. HIERARCHICAL & ELEMENT STYLES */
-.StepNode {
-  border-left: 2px solid var(--color-panel-border);
-  padding-left: 20px;
+.Subst {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.Step {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: calc(var(--border-radius) / 2);
-  padding: 12px;
-}
-
-.subgoals {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-left: 20px;
-  border-left: 2px dashed rgba(255, 255, 255, 0.1);
-  margin-top: 12px;
-}
-
-.subgoals .StepNode {
-  padding-top: 12px;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
 .SubstItem {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 8px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* 5. MAIN CONTENT & STEPS */
+.steps {
+  padding: var(--panel-padding);
+}
+
+.StepsGraph {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.StepNode {
+  background-color: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--panel-border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.substeps {
+  padding: 15px;
+  position: relative;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.subgoals {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+  padding-left: 25px;
+  position: relative;
+}
+
+.subgoals::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #d0d0d0;
+}
+
+.subgoals > .StepNode {
+  position: relative;
+}
+
+.subgoals > .StepNode::before {
+  content: '';
+  position: absolute;
+  left: -15px;
+  top: 28px;
+  width: 15px;
+  height: 1px;
+  background-color: #d0d0d0;
+}
+
+.separator {
+  height: 1px;
+  background-color: var(--panel-border-color);
+  margin: 0;
+}
+
+.dead-end-message {
+  color: var(--error-color);
+  font-weight: 500;
+  padding: 10px;
+  text-align: center;
+  background-color: rgba(220, 53, 69, 0.05);
+  border-radius: var(--block-radius);
+}
+
+/* 6. CORE COMPONENT STYLING */
+.goal {
+  padding: 15px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.4));
 }
 
 .Goal {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: var(--font-mono);
+  align-items: flex-start;
+  gap: 10px;
 }
 
-.Var,
-.Con,
-.Atom,
-.rule {
-  display: flex;
+.freshGoalIndex {
+  font-weight: 600;
+  color: var(--accent-color);
+  background-color: rgba(8, 102, 255, 0.1);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.atom {
+  flex-grow: 1;
+}
+
+.Atom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.AtomName {
+  font-weight: 600;
+  color: var(--text-color);
+  margin-right: 6px;
+}
+
+.Con, .Var {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .Var {
-  color: var(--color-accent-cyan);
-}
-.ConName {
-  color: var(--color-accent-orange);
-}
-.AtomName {
-  color: var(--color-accent-green);
-}
-.RuleName {
-  color: var(--color-accent-magenta);
-}
-
-.VarFreshIndex,
-.goalIndex {
-  font-size: 0.7rem;
-  color: var(--color-text-secondary);
-  background-color: rgba(255, 255, 255, 0.05);
-  padding: 2px 5px;
-  border-radius: 4px;
-  position: relative;
-  top: -2px;
+  background-color: var(--var-bg);
+  color: #004085;
   font-weight: 500;
 }
 
-.separator {
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--color-panel-border),
-    transparent
-  );
-  margin: 8px 0;
+.Con {
+  background-color: var(--con-bg);
+  color: var(--text-color-light);
 }
 
-.opts:empty,
-.subgoals:empty,
-.List:empty {
-  display: none;
+.Atom > .Con, .Atom > .Var {
+  border-radius: var(--block-radius);
 }
 
-.List:empty::after {
-  content: "None";
-  font-family: var(--font-mono);
-  color: var(--color-text-secondary);
-  font-style: italic;
+.Con .Con, .Con .Var,
+.SubstItem > .Con, .SubstItem > .Var,
+.Goal .Con, .Goal .Var {
+  border-radius: 0;
+}
+
+.Con > :first-child,
+.SubstItem > :nth-child(3) > :first-child {
+  border-top-left-radius: var(--block-radius);
+  border-bottom-left-radius: var(--block-radius);
+}
+
+.Con > :last-child,
+.SubstItem > :nth-child(3) > :last-child {
+  border-top-right-radius: var(--block-radius);
+  border-bottom-right-radius: var(--block-radius);
+}
+
+.ConName {
+  font-weight: 500;
+  color: #383d41;
+}
+
+.VarFreshIndex {
+  font-size: 0.8em;
+  opacity: 0.7;
+  margin-left: 2px;
+  display: inline-block;
+  transform: translateY(2px);
+}
+
+.rule {
+  margin-bottom: 10px;
+}
+
+.RuleName {
+  display: inline-block;
+  background-color: var(--rule-bg);
+  color: var(--accent-color);
+  padding: 3px 10px;
+  border-radius: 15px;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.opts {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.GoalOpt {
+  background-color: #fff0c2;
+  color: #664d03;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.8em;
+  font-weight: 500;
 }

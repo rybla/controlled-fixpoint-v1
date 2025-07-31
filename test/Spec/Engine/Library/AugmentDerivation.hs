@@ -49,7 +49,7 @@ tests =
               return . fromString . prettyShow $
                 [ Rule
                     { name = "R1",
-                      hyps = [GoalHyp . mkGoal $ P1],
+                      hyps = [GoalHyp . mkHypGoal $ P1],
                       conc = Q
                     }
                 ]
@@ -63,9 +63,9 @@ tests =
                 [ Rule
                     { name = "R1",
                       hyps =
-                        [ GoalHyp . mkGoal $ P1,
-                          GoalHyp . mkGoal $ P2,
-                          GoalHyp . mkGoal $ P3
+                        [ GoalHyp . mkHypGoal $ P1,
+                          GoalHyp . mkHypGoal $ P2,
+                          GoalHyp . mkHypGoal $ P3
                         ],
                       conc = Q
                     }
@@ -80,9 +80,9 @@ tests =
                 [ Rule
                     { name = "R1",
                       hyps =
-                        [ GoalHyp . mkGoal $ B,
-                          GoalHyp . mkGoal $ P1,
-                          GoalHyp . mkGoal $ P2
+                        [ GoalHyp . mkHypGoal $ B,
+                          GoalHyp . mkHypGoal $ P1,
+                          GoalHyp . mkHypGoal $ P2
                         ],
                       conc = Q
                     }
@@ -129,13 +129,13 @@ tests =
                         Rule
                           { name = "T_Sn",
                             hyps =
-                              [ GoalHyp . mkGoal $ T "n",
-                                GoalHyp . mkGoal $ T "n"
+                              [ GoalHyp . mkHypGoal $ T "n",
+                                GoalHyp . mkHypGoal $ T "n"
                               ],
                             conc = T (S "n")
                           }
                       ],
-                    goals = [mkGoal $ T (S (S (S (S Z))))],
+                    goals = [mkGoal 0 $ T (S (S (S (S Z))))],
                     exprAliases = [],
                     shouldSuspend = const False,
                     strategy = DepthFirstStrategy

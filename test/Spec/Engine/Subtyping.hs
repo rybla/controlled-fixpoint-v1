@@ -41,7 +41,7 @@ mkTest a b =
           strategy = DepthFirstStrategy,
           rules = rulesSubtyping,
           exprAliases = [],
-          goals = [mkGoal $ a :<: b],
+          goals = [mkGoal 0 $ a :<: b],
           shouldSuspend = \case
             VarExpr _ :<: VarExpr _ -> True
             _ -> False
@@ -73,8 +73,8 @@ rulesSubtyping =
     Rule
       { name = "a' <: a , b <: b'  ⊢  a → b <: a' → b'",
         hyps =
-          [ GoalHyp . mkGoal $ a' :<: a,
-            GoalHyp . mkGoal $ b :<: b'
+          [ GoalHyp . mkHypGoal $ a' :<: a,
+            GoalHyp . mkHypGoal $ b :<: b'
           ],
         conc = (a `arr` b) :<: (a' `arr` b')
       }

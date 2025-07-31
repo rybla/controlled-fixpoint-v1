@@ -50,7 +50,7 @@ tests_v1 =
        in mkTest_Engine
             (render $ prettyExpr (s :<: t))
             ( Engine.Config
-                { goals = [mkGoal $ Valid (s :<: t) (VarExpr pf)],
+                { goals = [mkGoal 0 $ Valid (s :<: t) (VarExpr pf)],
                   rules = rules_v1,
                   initialGas = FiniteGas 50,
                   strategy = DepthFirstStrategy,
@@ -70,32 +70,32 @@ tests_v1 =
           [ Rule
               { name = "subArrow",
                 hyps =
-                  [ GoalHyp . mkGoal $ Valid (a' :<: a) a'_subtype_a,
-                    GoalHyp . mkGoal $ Valid (b :<: b') b_subtype_b'
+                  [ GoalHyp . mkHypGoal $ Valid (a' :<: a) a'_subtype_a,
+                    GoalHyp . mkHypGoal $ Valid (b :<: b') b_subtype_b'
                   ],
                 conc = Valid ((a :-> b) :<: (a' :-> b')) (subArrow a'_subtype_a b_subtype_b')
               },
             Rule
               { name = "subFunctor",
                 hyps =
-                  [ GoalHyp . mkGoal $ Valid (Functor f) functor_f,
-                    GoalHyp . mkGoal $ Valid (a :<: a') a_subtype_a'
+                  [ GoalHyp . mkHypGoal $ Valid (Functor f) functor_f,
+                    GoalHyp . mkHypGoal $ Valid (a :<: a') a_subtype_a'
                   ],
                 conc = Valid (f :@ a :<: f :@ a') (subFunctor functor_f a_subtype_a')
               },
             Rule
               { name = "fmap",
                 hyps =
-                  [ GoalHyp . mkGoal $ Valid (Functor f) functor_f,
-                    GoalHyp . mkGoal $ Valid (a :-> b :<: a' :-> b') a_arrow_a'_subtype_b_arrow_b'
+                  [ GoalHyp . mkHypGoal $ Valid (Functor f) functor_f,
+                    GoalHyp . mkHypGoal $ Valid (a :-> b :<: a' :-> b') a_arrow_a'_subtype_b_arrow_b'
                   ],
                 conc = Valid (a :-> b :<: f :@ a' :-> f :@ b') (fmap functor_f a_arrow_a'_subtype_b_arrow_b')
               },
             Rule
               { name = "pure",
                 hyps =
-                  [ GoalHyp . mkGoal $ Valid (Functor f) functor_f,
-                    GoalHyp . mkGoal $ Valid (a :<: a') a_subtype_a'
+                  [ GoalHyp . mkHypGoal $ Valid (Functor f) functor_f,
+                    GoalHyp . mkHypGoal $ Valid (a :<: a') a_subtype_a'
                   ],
                 conc = Valid (a :<: f :@ a') (pure functor_f a_subtype_a')
               }

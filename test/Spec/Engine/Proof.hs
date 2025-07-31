@@ -78,7 +78,7 @@ tests_Norm_v1 =
       mkTest_Engine
         testName
         Engine.Config
-          { goals = [mkGoal $ Valid (in_ :⇓ "?out") "?{in ⇓ out}"],
+          { goals = [mkGoal 0 $ Valid (in_ :⇓ "?out") "?{in ⇓ out}"],
             strategy = DepthFirstStrategy,
             rules = rules_v1,
             exprAliases = [],
@@ -101,7 +101,7 @@ tests_Norm_v1 =
             (a, a', pf_a_norm_a') = ("?a", "?a'", "?{a ⇓ a'}")
          in Rule
               { name = RuleName ruleName,
-                hyps = [GoalHyp . mkGoal $ Valid (a :⇓ a') pf_a_norm_a'],
+                hyps = [GoalHyp . mkHypGoal $ Valid (a :⇓ a') pf_a_norm_a'],
                 conc = Valid (S a :⇓ S a') $ ruleName :% [pf_a_norm_a']
               },
         let ruleName = "+Z⇓"
@@ -109,8 +109,8 @@ tests_Norm_v1 =
          in Rule
               { name = RuleName ruleName,
                 hyps =
-                  [ GoalHyp . mkGoal $ Valid (a :⇓ a') pf_a_norm_a',
-                    GoalHyp . mkGoal $ Valid (b :⇓ Z) pf_b_norm_Z
+                  [ GoalHyp . mkHypGoal $ Valid (a :⇓ a') pf_a_norm_a',
+                    GoalHyp . mkHypGoal $ Valid (b :⇓ Z) pf_b_norm_Z
                   ],
                 conc = Valid (a + b :⇓ a') $ ruleName :% [pf_a_norm_a', pf_b_norm_Z]
               },
@@ -119,9 +119,9 @@ tests_Norm_v1 =
          in Rule
               { name = RuleName ruleName,
                 hyps =
-                  [ GoalHyp . mkGoal $ Valid (a :⇓ a') pf_a_norm_a',
-                    GoalHyp . mkGoal $ Valid (b :⇓ S b') pf_b_norm_Sb',
-                    GoalHyp . mkGoal $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
+                  [ GoalHyp . mkHypGoal $ Valid (a :⇓ a') pf_a_norm_a',
+                    GoalHyp . mkHypGoal $ Valid (b :⇓ S b') pf_b_norm_Sb',
+                    GoalHyp . mkHypGoal $ Valid (a' + b' :⇓ c) pf_a'_plus_b'_norm_c
                   ],
                 conc = Valid (a + b :⇓ S c) $ ruleName :% [pf_a_norm_a', pf_b_norm_Sb', pf_a'_plus_b'_norm_c]
               }

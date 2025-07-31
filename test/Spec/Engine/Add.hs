@@ -33,7 +33,7 @@ mkTest a b c =
           strategy = DepthFirstStrategy,
           rules = rulesAdd,
           exprAliases = [],
-          goals = [mkGoal $ fromIntegral a :+ fromIntegral b :== fromIntegral c],
+          goals = [mkGoal 0 $ fromIntegral a :+ fromIntegral b :== fromIntegral c],
           shouldSuspend = const False
         }
     )
@@ -48,7 +48,7 @@ rulesAdd =
     Rule
       { name = "S+",
         hyps =
-          [GoalHyp . mkGoal $ x :+ y :== z],
+          [GoalHyp . mkHypGoal $ x :+ y :== z],
         conc =
           S x :+ y :== S z
       }

@@ -30,6 +30,7 @@ import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import ListT (ListT, cons, toList)
 import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
@@ -39,6 +40,8 @@ import Prelude hiding (init)
 --------------------------------------------------------------------------------
 -- types
 --------------------------------------------------------------------------------
+
+-- TODO: use a ConfigBuilder here so that goals get assigned indices appropriately
 
 -- | Engine configuration
 --
@@ -145,8 +148,8 @@ instance Monoid (Trace a c v) where
         traceSteps = Map.empty
       }
 
-initialTrace :: Trace a c v
-initialTrace =
+emptyTrace :: Trace a c v
+emptyTrace =
   Trace
     { traceGoals = Map.empty,
       traceSteps = Map.empty
@@ -253,7 +256,7 @@ mkEnv cfg =
       suspendedGoals = mempty,
       failedGoals = mempty,
       freshCounter_vars = 0,
-      freshCounter_goals = 0,
+      freshCounter_goals = (cfg.goals & fmap (fromMaybe (-1) . goalIndex) & maximum) + 1,
       stepsRev = [],
       sigma = emptySubst
     }
@@ -289,20 +292,12 @@ runEnv cfg env0 = do
 
 start :: (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
 start = do
-  init
+  -- initialize trace
+  tell_traceGoals =<< gets activeGoals
+  tell_traceGoals =<< gets suspendedGoals
+  tell_traceGoals =<< gets failedGoals
+  -- enter loop
   loop
-
-init :: (Monad m) => T a c v m ()
-init = do
-  activeGoals' <- gets activeGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex_init)
-  suspendedGoals' <- gets suspendedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex_init)
-  failedGoals' <- gets failedGoals >>= traverse (runFreshening . Freshening.freshenGoalIndex_init)
-  modify \env ->
-    env
-      { activeGoals = activeGoals',
-        suspendedGoals = suspendedGoals',
-        failedGoals = failedGoals'
-      }
 
 loop :: forall a c v m. (Monad m, Ord v, Eq c, Pretty a, Pretty c, Pretty v, Eq a, Show a, Show c, Show v) => T a c v m ()
 loop = do
@@ -323,7 +318,7 @@ loop = do
     -- if there are no more active goals, then done and terminate this branch successfully
     Nothing -> do
       env <- get
-      tell $
+      tellMsgs $
         [ (Msg.mk 1 "--------------------------------")
             { Msg.contents =
                 [ "status =" <+> "no more active goals",
@@ -334,7 +329,7 @@ loop = do
     Just goal -> do
       do
         env <- get
-        tell
+        tellMsgs
           [ (Msg.mk 1 "--------------------------------")
               { Msg.contents =
                   [ "status =" <+> "processing goal:" <+> pPrint goal,
@@ -345,7 +340,7 @@ loop = do
 
       if ctx.config.shouldSuspend goal.atom
         then do
-          tell
+          tellMsgs
             [ (Msg.mk 1 "suspending goal")
                 { Msg.contents = ["goal =" <+> pPrint goal]
                 }
@@ -384,7 +379,7 @@ tryRules goal = do
     then do
       do
         env <- get
-        tell
+        tellMsgs
           [ (Msg.mk 1 "failed goal since no rules can apply to it")
               { Msg.contents =
                   [ "goal =" <+> pPrint goal,
@@ -397,7 +392,7 @@ tryRules goal = do
 
       when (isRequiredGoal goal) do
         env <- get
-        tell
+        tellMsgs
           [ (Msg.mk 1 "pruning branch since faild a required goal")
               { Msg.contents =
                   [ "goal =" <+> pPrint goal,
@@ -418,7 +413,7 @@ tryRules goal = do
 tryRule :: forall m a c v. (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> Rule a c v -> T a c v m Bool
 tryRule goal rule = do
   ctx <- ask
-  tell
+  tellMsgs
     [ (Msg.mk 3 "attempting to unify goal with rule's conclusion")
         { Msg.contents =
             [ "rule =" <+> pPrint rule.name,
@@ -447,7 +442,7 @@ tryRule goal rule = do
       sigma_uni = env_uni' ^. Unification.sigma
   case err_or_goal' of
     Left err -> do
-      tell
+      tellMsgs
         [ (Msg.mk 2 "failed to unify goal with rule's conclusion")
             { Msg.contents =
                 [ "rule =" <+> pPrint rule.name,
@@ -459,7 +454,7 @@ tryRule goal rule = do
         ]
       return False
     Right goal' -> do
-      tell
+      tellMsgs
         [ (Msg.mk 1 "successfully unified goal with rule's conclusion")
             { Msg.contents =
                 [ "rule =" <+> pPrint rule.name,
@@ -478,7 +473,7 @@ tryRule goal rule = do
               return [subgoal']
 
       unless (null subgoals) do
-        tell
+        tellMsgs
           [ (Msg.mk 1 "new subgoals")
               { Msg.contents = subgoals <&> pPrint
               }
@@ -488,7 +483,7 @@ tryRule goal rule = do
 
       do
         env <- get
-        tell
+        tellMsgs
           [ (Msg.mk 1 "new sigma")
               { Msg.contents =
                   [ "old sigma =" <+> pPrint env.sigma,
@@ -524,7 +519,7 @@ tryRule goal rule = do
                     return (activeGoals_resumed, suspendedGoal_old : suspendedGoals_new)
                   else do
                     -- if the suspended goal was refined by the substitution, then resume it
-                    tell
+                    tellMsgs
                       [ (Msg.mk 2 "resume goal")
                           { Msg.contents = [pPrint suspendedGoal_curr]
                           }
@@ -539,9 +534,11 @@ tryRule goal rule = do
           }
 
       -- record step
-      modify \env -> env {stepsRev = Step {goal, rule, sigma = sigma_uni, subgoals} : env.stepsRev}
+      let step = Step {goal, rule, sigma = sigma_uni, subgoals}
+      modify \env -> env {stepsRev = step : env.stepsRev}
+      tell_traceStep goal.goalIndex step
 
-      tell
+      tellMsgs
         [ (Msg.mk 1 "successfully applied rule")
             { Msg.contents =
                 ["rule =" <+> pPrint rule.name]
@@ -588,15 +585,29 @@ extractNextActiveGoal = do
       modify \env -> env {activeGoals = activeGoals'}
       return $ Just goal
 
-tell ::
-  ( MonadWriter [Msg] m,
-    MonadTrans t1,
-    MonadTrans t2,
-    MonadTrans t3,
-    MonadTrans t4,
-    MonadTrans t5,
-    MonadTrans t6
-  ) =>
+tellMsgs ::
+  (MonadTrans t1, MonadTrans t2, MonadTrans t3, MonadTrans t4, MonadTrans t5, MonadTrans t6, MonadWriter [Msg] m) =>
   [Msg] ->
   t1 (t2 (t3 (t4 (t5 (t6 m))))) ()
-tell = lift . lift . lift . lift . lift . lift . Writer.tell
+tellMsgs = lift . lift . lift . lift . lift . lift . Writer.tell
+
+tell_traceStep ::
+  (MonadTrans t1, MonadTrans t2, MonadTrans t3, MonadWriter (Trace a c v) m) =>
+  GoalIndex ->
+  Step a c v ->
+  t1 (t2 (t3 m)) ()
+tell_traceStep gi step =
+  lift . lift . lift . Writer.tell $
+    emptyTrace
+      { traceSteps = Map.singleton gi [step]
+      }
+
+tell_traceGoals ::
+  (MonadTrans t1, MonadTrans t2, MonadTrans t3, MonadWriter (Trace a c v) m) =>
+  [Goal a c v] ->
+  t1 (t2 (t3 m)) ()
+tell_traceGoals goals =
+  lift . lift . lift . Writer.tell $
+    emptyTrace
+      { traceGoals = Map.fromList [(g.goalIndex, g) | g <- goals]
+      }

@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Redundant $" #-}
+{-# HLINT ignore "Avoid lambda using `infix`" #-}
 
 module ControlledFixpoint.Html where
 
@@ -14,10 +16,10 @@ import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Text.PrettyPrint (Doc, doubleQuotes, nest, text, vcat, (<+>), (<>))
 import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
+import Utility (comps, foldl')
 import Prelude hiding (div, (<>))
 
 el :: String -> String -> [Doc] -> Doc
@@ -91,10 +93,13 @@ renderEnv cfg env =
 renderGoal :: (Pretty v, Pretty c, Pretty a) => Goal a c v -> Doc
 renderGoal g =
   div "Goal" $
-    [ div "goalIndex" . pure . pPrintEscaped . fromMaybe (-1) $ g.goalIndex,
+    [ div "goalIndex" . pure . renderGoalIndex $ g.goalIndex,
       div "atom" . pure . renderAtom $ g.atom,
       div "opts" . fmap renderGoalOpt . Set.toList $ g.opts
     ]
+
+renderGoalIndex :: GoalIndex -> Doc
+renderGoalIndex = maybe mempty \i -> div "GoalIndex" [pPrintEscaped i]
 
 renderGoalOpt :: GoalOpt -> Doc
 renderGoalOpt = div "GoalOpt" . pure . pPrintEscaped
@@ -117,65 +122,56 @@ renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pP
 
 renderStepsGraph :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc
 renderStepsGraph cfg ss =
-  let getGoalIndex :: Goal a c v -> Int
-      getGoalIndex g = g.goalIndex & fromMaybe (-1)
-
-      graph_fromConclusionGoalIndex :: Map Int (Either (Goal a c v) [Step a c v])
-      graph_fromConclusionGoalIndex =
+  let graph_fromConcGoalIndex :: Map GoalIndex (Either (Goal a c v) [Step a c v])
+      graph_fromConcGoalIndex =
         ss
-          & ( `foldl`
-                ( cfg.goals
-                    & imap (\i g -> (i, Left g))
-                    & Map.fromList
-                )
+          & (\f -> foldl f Map.empty)
+            ( flip \s ->
+                comps
+                  [ Map.alter
+                      ( -- append Right step to whatever is there (overriding a Left goal)
+                        \case
+                          Nothing -> Just (Right [s])
+                          Just (Left _) -> Just (Right [s])
+                          Just (Right ss') -> Just (Right (ss' ++ [s]))
+                      )
+                      s.goal.goalIndex,
+                    (\f y -> foldl f y s.subgoals)
+                      ( flip \g ->
+                          Map.alter
+                            ( -- insert Left goal if nothing for that goal index is there already
+                              \case
+                                Nothing -> Just (Left g)
+                                x -> x
+                            )
+                            g.goalIndex
+                      )
+                  ]
             )
-            ( \m s ->
-                flip
-                  ( foldl \m' g ->
-                      Map.alter
-                        ( \case
-                            -- initialize
-                            Nothing -> Just (Left g)
-                            x -> x
-                        )
-                        (g & getGoalIndex)
-                        m'
-                  )
-                  s.subgoals
-                  $ Map.alter
-                    ( maybe (Just (Right [s])) \case
-                        -- replace
-                        Left _ -> Just (Right [s])
-                        Right ss' -> Just (Right (ss' ++ [s]))
-                    )
-                    (s.goal & getGoalIndex)
-                    m
-            )
+
       -- start from config goals
-      go :: Int -> Doc
-      go i = case graph_fromConclusionGoalIndex Map.!? i of
+      go :: GoalIndex -> Doc
+      go i = case graph_fromConcGoalIndex Map.!? i of
         Nothing -> div "Invalid" ["unknown goal index:" <+> pPrintEscaped i]
         Just (Left g) ->
-          div
-            "StepNode"
+          div "StepNode" $
             [ div "goal" [renderGoal g],
               div "separator" [],
               div "substeps" [div "dead-end-message" ["dead end"]]
             ]
         Just (Right []) -> error "impossible"
         Just (Right ss'@(s0 : _)) ->
-          div
-            "StepNode"
+          div "StepNode" $
             [ div "goal" [renderGoal s0.goal],
               div "separator" [],
               div "substeps" $
                 ss' <&> \s ->
                   div "Step" $
                     [ div "rule" [renderRuleName s.rule.name],
-                      div "subgoals" . fmap (go . getGoalIndex) $ s0.subgoals
+                      div "subgoals" . fmap (go . goalIndex) $ s0.subgoals
                     ]
             ]
-   in div "StepsGraph" . fmap go . (\gs -> [0 .. length gs - 1]) $ cfg.goals
+   in div "StepsGraph" . fmap (go . goalIndex) $ cfg.goals
 
 renderRuleName :: RuleName -> Doc
 renderRuleName = div "RuleName" . pure . pPrintEscaped

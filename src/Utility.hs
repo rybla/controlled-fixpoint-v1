@@ -6,6 +6,7 @@
 
 module Utility where
 
+import Control.Category ((>>>))
 import Control.Lens (FunctorWithIndex (imap))
 import Control.Monad (foldM)
 import Data.Function ((&))
@@ -116,3 +117,9 @@ subscriptNumber i = "_" <> show i
 
 ticks :: Doc -> Doc
 ticks x = text "`" <> x <> text "`"
+
+foldl' :: (Foldable t) => b -> (b -> a -> b) -> t a -> b
+foldl' x f = foldl f x
+
+comps :: (Foldable f) => f (a -> a) -> a -> a
+comps = foldl (>>>) id
