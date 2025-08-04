@@ -39,7 +39,7 @@ data Rule a c v = Rule
   { name :: RuleName,
     hyps :: [Hyp a c v],
     conc :: Atom a c v,
-    opts :: Set RuleOpt
+    ruleOpts :: Set RuleOpt
   }
   deriving (Show, Eq, Ord)
 
@@ -60,7 +60,7 @@ mkRule name hyps conc =
     { name,
       hyps,
       conc,
-      opts = Set.empty
+      ruleOpts = Set.empty
     }
 
 data RuleOpt = CutRuleOpt
@@ -84,7 +84,7 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
     hsep
       [ g.goalIndex & maybe mempty (("G#" <>) . pPrint),
         pPrint g.atom,
-        if null g.opts then mempty else braces . commas . fmap pPrint . Set.toList $ g.opts
+        if null g.goalOpts then mempty else braces . commas . fmap pPrint . Set.toList $ g.goalOpts
       ]
 
 --------------------------------------------------------------------------------
@@ -94,7 +94,7 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
 -- | A `Goal` is an `Atom` along with any other goal-relevant options and metadata.
 data Goal a c v = Goal
   { atom :: Atom a c v,
-    opts :: Set GoalOpt,
+    goalOpts :: Set GoalOpt,
     goalIndex :: GoalIndex
   }
   deriving (Show, Eq, Ord)
@@ -104,7 +104,7 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Goal a c v) where
     hsep
       [ g.goalIndex & maybe (brackets "X") (brackets . ("G#" <>) . pPrint),
         pPrint g.atom,
-        if null g.opts then mempty else braces . commas . fmap pPrint . Set.toList $ g.opts
+        if null g.goalOpts then mempty else braces . commas . fmap pPrint . Set.toList $ g.goalOpts
       ]
 
 type GoalIndex = Maybe Int
@@ -117,14 +117,14 @@ instance Pretty GoalOpt where
   pPrint RequiredGoalOpt = "required"
 
 isRequiredGoal :: Goal a c v -> Bool
-isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.opts
+isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.goalOpts
 
 mkGoal :: Int -> Atom a c v -> Goal a c v
 mkGoal i atom =
   Goal
     { atom,
       goalIndex = Just i,
-      opts = Set.empty
+      goalOpts = Set.empty
     }
 
 mkHypGoal :: Atom a c v -> Goal a c v
@@ -132,7 +132,7 @@ mkHypGoal atom =
   Goal
     { atom,
       goalIndex = Nothing,
-      opts = Set.empty
+      goalOpts = Set.empty
     }
 
 --------------------------------------------------------------------------------

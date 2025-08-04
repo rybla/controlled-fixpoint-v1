@@ -5,6 +5,7 @@ module Main (main) where
 
 import qualified Spec.Engine.Add
 import qualified Spec.Engine.ApplicativeFunctorSubtyping
+import qualified Spec.Engine.CutRule
 import qualified Spec.Engine.ExprAlias
 import qualified Spec.Engine.Library.AugmentDerivation
 import qualified Spec.Engine.Library.AugmentGoalTrace
@@ -26,7 +27,8 @@ tests :: TestTree
 tests =
   testGroup
     "tests"
-    [ Spec.Engine.Add.tests,
+    [ Spec.Unification.tests,
+      Spec.Engine.Add.tests,
       Spec.Engine.Subtyping.tests,
       Spec.Engine.SuspendAndResume.tests,
       Spec.Engine.SolutionsCount.tests,
@@ -36,5 +38,5 @@ tests =
       Spec.Engine.Library.AugmentGoalTrace.tests,
       Spec.Engine.ExprAlias.tests,
       Spec.Engine.PruneAtRequiredGoalFailure.tests,
-      Spec.Unification.tests
+      Spec.Engine.CutRule.tests
     ]

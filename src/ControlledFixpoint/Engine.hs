@@ -5,7 +5,6 @@
 {-# HLINT ignore "Redundant $" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 {-# HLINT ignore "Evaluate" #-}
-{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -397,7 +396,7 @@ tryRules goal = do
     else do
       let cutBranches =
             branches & filterMap \(rule, env) ->
-              if CutRuleOpt `Set.member` rule.opts
+              if CutRuleOpt `Set.member` rule.ruleOpts
                 then Just ((), env)
                 else Nothing
       case null cutBranches of

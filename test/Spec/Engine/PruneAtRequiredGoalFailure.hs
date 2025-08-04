@@ -32,7 +32,7 @@ tests =
           { initialGas = Engine.FiniteGas 5,
             rules =
               [ (mkRule "Rule1")
-                  [ GoalHyp (mkHypGoal (Atom Q [])) {opts = Set.fromList [RequiredGoalOpt]},
+                  [ GoalHyp (mkHypGoal (Atom Q [])) {goalOpts = Set.fromList [RequiredGoalOpt]},
                     GoalHyp (mkHypGoal (Atom P []))
                   ]
                   (Atom P [])

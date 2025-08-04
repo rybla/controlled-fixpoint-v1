@@ -70,7 +70,7 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                 [ div "goal" [renderGoal step.goal],
                   div "rule" [renderRuleName step.rule.name],
                   div "sigma" [renderSubst step.sigma],
-                  div "options" $ renderRuleOpt <$> Set.toList step.rule.opts,
+                  div "options" $ renderRuleOpt <$> Set.toList step.rule.ruleOpts,
                   if null step.subgoals
                     then div "solved" ["solved"]
                     else div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
@@ -105,7 +105,7 @@ renderGoal g =
   div "Goal" $
     [ div "goalIndex" . pure . renderGoalIndex $ g.goalIndex,
       div "atom" . pure . renderAtom $ g.atom,
-      div "options" . fmap renderGoalOpt . Set.toList $ g.opts
+      div "options" . fmap renderGoalOpt . Set.toList $ g.goalOpts
     ]
 
 renderGoalIndex :: GoalIndex -> Doc

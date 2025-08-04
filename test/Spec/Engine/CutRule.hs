@@ -1,0 +1,57 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+
+module Spec.Engine.CutRule where
+
+import ControlledFixpoint.Engine
+import ControlledFixpoint.Grammar
+import Data.Function ((&))
+import qualified Data.Set as Set
+import Spec.Engine.Common
+import Test.Tasty (TestTree, testGroup)
+
+tests :: TestTree
+tests =
+  testGroup
+    "CutRule"
+    [ mkTest_Engine
+        "cut_lacking"
+        ( (defaultConfig @String @String @String)
+            { initialGas = FiniteGas 50,
+              rules =
+                [ mkRule
+                    "R1"
+                    []
+                    (Atom "P" []),
+                  mkRule
+                    "R2"
+                    [Atom "P" [] & GoalHyp . mkHypGoal]
+                    (Atom "P" [])
+                ],
+              goals = [Atom "P" [] & mkGoal 0]
+            }
+        )
+        (EngineError OutOfGas),
+      mkTest_Engine
+        "cut"
+        ( (defaultConfig @String @String @String)
+            { initialGas = FiniteGas 50,
+              rules =
+                [ ( mkRule
+                      "R1"
+                      []
+                      (Atom "P" [])
+                  )
+                    { ruleOpts = Set.fromList [CutRuleOpt]
+                    },
+                  mkRule
+                    "R2"
+                    [Atom "P" [] & GoalHyp . mkHypGoal]
+                    (Atom "P" [])
+                ],
+              goals = [Atom "P" [] & mkGoal 0]
+            }
+        )
+        EngineSuccess
+    ]
