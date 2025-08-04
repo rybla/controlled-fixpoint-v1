@@ -40,18 +40,12 @@ mkTest a b c =
 
 rulesAdd :: [Rule A C V]
 rulesAdd =
-  [ Rule
-      { name = "0+",
-        hyps = [],
-        conc = 0 + x :== x
-      },
-    Rule
-      { name = "S+",
-        hyps =
-          [GoalHyp . mkHypGoal $ x :+ y :== z],
-        conc =
-          S x :+ y :== S z
-      }
+  [ (mkRule "0+")
+      []
+      (0 + x :== x),
+    (mkRule "S+")
+      [GoalHyp . mkHypGoal $ x :+ y :== z]
+      (S x :+ y :== S z)
   ]
   where
     (x, z, y) = ("x", "y", "z")

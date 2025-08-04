@@ -19,16 +19,12 @@ tests =
           { initialGas = FiniteGas 50,
             strategy = DepthFirstStrategy,
             rules =
-              [ Rule
-                  { name = "R1",
-                    hyps = [],
-                    conc = A :~ B
-                  },
-                Rule
-                  { name = "R1",
-                    hyps = [],
-                    conc = B :~ A
-                  }
+              [ (mkRule "R1")
+                  []
+                  (A :~ B),
+                (mkRule "R1")
+                  []
+                  (B :~ A)
               ],
             exprAliases = [],
             shouldSuspend = \case
@@ -47,11 +43,9 @@ tests =
           { initialGas = FiniteGas 10,
             strategy = DepthFirstStrategy,
             rules =
-              [ Rule
-                  { name = "R1",
-                    hyps = [GoalHyp . mkHypGoal $ A :~ S "x"],
-                    conc = A :~ "x"
-                  }
+              [ (mkRule "R1")
+                  [GoalHyp . mkHypGoal $ A :~ S "x"]
+                  (A :~ "x")
               ],
             exprAliases = [],
             shouldSuspend = const False,
@@ -68,7 +62,7 @@ unrolling_tests =
     [ mkTest_Engine
         "avoid nonterminating branch"
         cfg
-          { goals = [mkGoal 0  $ P "x" "y", mkGoal 1 $ Q "y" B],
+          { goals = [mkGoal 0 $ P "x" "y", mkGoal 1 $ Q "y" B],
             shouldSuspend = \case
               P (VarExpr _) (VarExpr _) -> True
               _ -> False
@@ -77,7 +71,7 @@ unrolling_tests =
       mkTest_Engine
         "exhaust terminating branch"
         cfg
-          { goals = [mkGoal 0  $ P "x" "y", mkGoal 1  $ Q "y" B]
+          { goals = [mkGoal 0 $ P "x" "y", mkGoal 1 $ Q "y" B]
           }
         (EngineError OutOfGas)
     ]
@@ -95,21 +89,15 @@ unrolling_tests =
 
     rules1 :: [Rule A C V]
     rules1 =
-      [ Rule
-          { name = "R1",
-            hyps = [GoalHyp . mkHypGoal $ P (S "x") A],
-            conc = P "x" A
-          },
-        Rule
-          { name = "R2",
-            hyps = [],
-            conc = P B B
-          },
-        Rule
-          { name = "R3",
-            hyps = [],
-            conc = Q B B
-          }
+      [ (mkRule "R1")
+          [GoalHyp . mkHypGoal $ P (S "x") A]
+          (P "x" A),
+        (mkRule "R2")
+          []
+          (P B B),
+        (mkRule "R3")
+          []
+          (Q B B)
       ]
 
 pattern Valid :: Expr C V -> Atom A C V

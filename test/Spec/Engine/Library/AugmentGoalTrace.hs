@@ -51,8 +51,8 @@ tests =
             Engine.Config
               { initialGas = FiniteGas 50,
                 rules =
-                  [ Rule {name = "R1", hyps = [GoalHyp . mkHypGoal $ B], conc = A},
-                    Rule {name = "R2", hyps = [], conc = B}
+                  [ mkRule "R1" [GoalHyp . mkHypGoal $ B] A,
+                    mkRule "R2" [] B
                   ],
                 goals =
                   [mkGoal 0 A],
@@ -66,8 +66,8 @@ tests =
             Engine.Config
               { initialGas = FiniteGas 50,
                 rules =
-                  [ Rule {name = "R1", hyps = [GoalHyp . mkHypGoal $ B], conc = A},
-                    Rule {name = "R2", hyps = [], conc = B}
+                  [ mkRule "R1" [GoalHyp . mkHypGoal $ B] A,
+                    mkRule "R2" [] B
                   ],
                 goals =
                   [mkHypGoal A, mkHypGoal A],

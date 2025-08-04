@@ -50,34 +50,23 @@ mkTest a b =
 
 rulesSubtyping :: [Rule A C V]
 rulesSubtyping =
-  [ Rule
-      { name = "bool <: bool",
-        hyps = [],
-        conc = bool :<: bool
-      },
-    Rule
-      { name = "int <: int",
-        hyps = [],
-        conc = int :<: int
-      },
-    Rule
-      { name = "nat <: nat",
-        hyps = [],
-        conc = nat :<: nat
-      },
-    Rule
-      { name = "nat <: int",
-        hyps = [],
-        conc = nat :<: int
-      },
-    Rule
-      { name = "a' <: a , b <: b'  ⊢  a → b <: a' → b'",
-        hyps =
-          [ GoalHyp . mkHypGoal $ a' :<: a,
-            GoalHyp . mkHypGoal $ b :<: b'
-          ],
-        conc = (a `arr` b) :<: (a' `arr` b')
-      }
+  [ (mkRule "bool <: bool")
+      []
+      (bool :<: bool),
+    (mkRule "int <: int")
+      []
+      (int :<: int),
+    (mkRule "nat <: nat")
+      []
+      (nat :<: nat),
+    (mkRule "nat <: int")
+      []
+      (nat :<: int),
+    (mkRule "a' <: a , b <: b'  ⊢  a → b <: a' → b'")
+      [ GoalHyp . mkHypGoal $ a' :<: a,
+        GoalHyp . mkHypGoal $ b :<: b'
+      ]
+      ((a `arr` b) :<: (a' `arr` b'))
   ]
   where
     (a, a', b, b') = ("a", "a'", "b", "b'")

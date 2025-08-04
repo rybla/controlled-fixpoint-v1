@@ -70,10 +70,14 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                 [ div "goal" [renderGoal step.goal],
                   div "rule" [renderRuleName step.rule.name],
                   div "sigma" [renderSubst step.sigma],
+                  div "options" $ renderRuleOpt <$> Set.toList step.rule.opts,
                   if null step.subgoals
                     then div "solved" ["solved"]
                     else div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
                 ]
+
+renderRuleOpt :: RuleOpt -> Doc
+renderRuleOpt = div "RuleOpt" . pure . pPrintEscaped
 
 renderConfig :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Doc
 renderConfig cfg =
@@ -101,7 +105,7 @@ renderGoal g =
   div "Goal" $
     [ div "goalIndex" . pure . renderGoalIndex $ g.goalIndex,
       div "atom" . pure . renderAtom $ g.atom,
-      div "opts" . fmap renderGoalOpt . Set.toList $ g.opts
+      div "options" . fmap renderGoalOpt . Set.toList $ g.opts
     ]
 
 renderGoalIndex :: GoalIndex -> Doc

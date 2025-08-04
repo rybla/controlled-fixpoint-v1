@@ -26,11 +26,9 @@ ex1_tests =
         cfg
           { goals = [mkGoal 0 $ P (Swap (Tuple A B))],
             rules =
-              [ Rule
-                  { name = "R1",
-                    conc = P "x",
-                    hyps = []
-                  }
+              [ (mkRule "R1")
+                  []
+                  (P "x")
               ]
           }
         ( EngineSuccessWithSubst . Subst . Map.fromList $
@@ -42,11 +40,9 @@ ex1_tests =
         cfg
           { goals = [mkGoal 0 $ P (Swap (Tuple A B))],
             rules =
-              [ Rule
-                  { name = "R1",
-                    conc = P (Tuple "x" "y"),
-                    hyps = []
-                  }
+              [ (mkRule "R1")
+                  []
+                  (P (Tuple "x" "y"))
               ]
           }
         ( EngineSuccessWithSubst . Subst . Map.fromList $

@@ -38,7 +38,8 @@ import Utility
 data Rule a c v = Rule
   { name :: RuleName,
     hyps :: [Hyp a c v],
-    conc :: Atom a c v
+    conc :: Atom a c v,
+    opts :: Set RuleOpt
   }
   deriving (Show, Eq, Ord)
 
@@ -52,6 +53,21 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Rule a c v) where
             pPrint rule.conc
           ]
       ]
+
+mkRule :: RuleName -> [Hyp a c v] -> Atom a c v -> Rule a c v
+mkRule name hyps conc =
+  Rule
+    { name,
+      hyps,
+      conc,
+      opts = Set.empty
+    }
+
+data RuleOpt = CutRuleOpt
+  deriving (Show, Eq, Ord)
+
+instance Pretty RuleOpt where
+  pPrint CutRuleOpt = "cut"
 
 -- | Hypothesis.
 --
@@ -98,16 +114,26 @@ data GoalOpt
   deriving (Show, Eq, Ord, Enum, Bounded)
 
 instance Pretty GoalOpt where
-  pPrint RequiredGoalOpt = text "required"
+  pPrint RequiredGoalOpt = "required"
 
 isRequiredGoal :: Goal a c v -> Bool
 isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.opts
 
 mkGoal :: Int -> Atom a c v -> Goal a c v
-mkGoal i atom = Goal {atom, goalIndex = Just i, opts = Set.empty}
+mkGoal i atom =
+  Goal
+    { atom,
+      goalIndex = Just i,
+      opts = Set.empty
+    }
 
 mkHypGoal :: Atom a c v -> Goal a c v
-mkHypGoal atom = Goal {atom, goalIndex = Nothing, opts = Set.empty}
+mkHypGoal atom =
+  Goal
+    { atom,
+      goalIndex = Nothing,
+      opts = Set.empty
+    }
 
 --------------------------------------------------------------------------------
 -- Atom

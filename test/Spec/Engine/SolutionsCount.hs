@@ -19,16 +19,12 @@ tests =
             { initialGas = FiniteGas 50,
               strategy = DepthFirstStrategy,
               rules =
-                [ Rule
-                    { name = "P 1",
-                      hyps = [],
-                      conc = Atom "P" [ConExpr (Con "1" [])]
-                    },
-                  Rule
-                    { name = "P 2",
-                      hyps = [],
-                      conc = Atom "P" [ConExpr (Con "2" [])]
-                    }
+                [ (mkRule "P 1")
+                    []
+                    (Atom "P" [ConExpr (Con "1" [])]),
+                  (mkRule "P 2")
+                    []
+                    (Atom "P" [ConExpr (Con "2" [])])
                 ],
               exprAliases = [],
               shouldSuspend = const False,

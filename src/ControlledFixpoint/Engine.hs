@@ -2,23 +2,24 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
 {-# HLINT ignore "Redundant $" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 {-# HLINT ignore "Evaluate" #-}
+{-# LANGUAGE TupleSections #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use if" #-}
 
 module ControlledFixpoint.Engine where
 
-import Control.Category ((>>>))
 import Control.Lens ((^.))
 import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
 import Control.Monad.State (MonadState (..), StateT (..), evalStateT, execStateT, gets, modify, runState, runStateT)
 import Control.Monad.Trans.Class (MonadTrans (lift))
-import Control.Monad.Writer (MonadWriter, WriterT)
+import Control.Monad.Writer (WriterT)
 import qualified Control.Monad.Writer as Writer
 import qualified ControlledFixpoint.Common as Common
 import ControlledFixpoint.Common.Msg (Msg)
@@ -31,6 +32,7 @@ import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import qualified Data.Set as Set
 import ListT (ListT, cons, toList)
 import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, render, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
@@ -41,7 +43,7 @@ import Prelude hiding (init)
 -- types
 --------------------------------------------------------------------------------
 
--- TODO: use a ConfigBuilder here so that goals get assigned indices appropriately
+-- TODO maybe use a ConfigBuilder here so that goals get assigned indices appropriately
 
 -- | Engine configuration
 --
@@ -354,18 +356,16 @@ tryRules goal = do
   branches <- do
     env <- get
     rules
-      & mapM
-        ( tryRule goal
-            >>> (`runReaderT` ctx)
-            >>> (`runStateT` env)
-            >>> (lift . lift)
-        )
-      & fmap
-        ( filterMap
-            \(success, env') ->
-              if success
-                then Just ((), env')
-                else Nothing
+      & filterMapM
+        ( \rule ->
+            rule
+              & tryRule goal
+              & (`runReaderT` ctx)
+              & (`runStateT` env)
+              & (lift . lift)
+              & fmap \(success, env') -> case success of
+                False -> Nothing
+                True -> Just (rule, env')
         )
 
   if null branches
@@ -394,13 +394,16 @@ tryRules goal = do
               }
           ]
         reject
-    else
-      fromBranches branches
-
--- TODO: somehow, goal fresh indices are getting really high all the sudden in
--- some places, so that must mean that failed rule applications are still
--- modifying the environment and incrementing the fresh counter, but i can't
--- find where that's happening
+    else do
+      let cutBranches =
+            branches & filterMap \(rule, env) ->
+              if CutRuleOpt `Set.member` rule.opts
+                then Just ((), env)
+                else Nothing
+      case null cutBranches of
+        -- if any cut rules were successful, then prune all branches that used non-cut rules
+        False -> fromBranches cutBranches
+        True -> fromBranches (branches <&> \(_, env) -> ((), env))
 
 -- | Returns a `Bool` indicating whether or not applying the rule was successful.
 tryRule :: forall m a c v. (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> Rule a c v -> T a c v m Bool

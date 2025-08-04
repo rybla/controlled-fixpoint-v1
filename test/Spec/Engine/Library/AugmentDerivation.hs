@@ -33,11 +33,9 @@ tests =
             (goldenDirpath </> "rules" </> "0_hypotheses" <.> "golden")
             do
               return . fromString . prettyShow $
-                [ Rule
-                    { name = "R1",
-                      hyps = [],
-                      conc = Q
-                    } ::
+                [ (mkRule "R1")
+                    []
+                    Q ::
                     Rule A C V
                 ]
                   <&> augmentDerivation_Rule
@@ -47,11 +45,9 @@ tests =
             (goldenDirpath </> "rules" </> "1_hypothesis" <.> "golden")
             do
               return . fromString . prettyShow $
-                [ Rule
-                    { name = "R1",
-                      hyps = [GoalHyp . mkHypGoal $ P1],
-                      conc = Q
-                    }
+                [ (mkRule "R1")
+                    [GoalHyp . mkHypGoal $ P1]
+                    Q
                 ]
                   <&> augmentDerivation_Rule
                     AugmentDerivation.Config {isDerivation = \a -> Just ("?" <> coerce a)},
@@ -60,15 +56,12 @@ tests =
             (goldenDirpath </> "rules" </> "3_hypotheses" <.> "golden")
             do
               return . fromString . prettyShow $
-                [ Rule
-                    { name = "R1",
-                      hyps =
-                        [ GoalHyp . mkHypGoal $ P1,
-                          GoalHyp . mkHypGoal $ P2,
-                          GoalHyp . mkHypGoal $ P3
-                        ],
-                      conc = Q
-                    }
+                [ (mkRule "R1")
+                    [ GoalHyp . mkHypGoal $ P1,
+                      GoalHyp . mkHypGoal $ P2,
+                      GoalHyp . mkHypGoal $ P3
+                    ]
+                    Q
                 ]
                   <&> augmentDerivation_Rule
                     AugmentDerivation.Config {isDerivation = \a -> Just ("?" <> coerce a)},
@@ -77,15 +70,12 @@ tests =
             (goldenDirpath </> "rules" </> "3_hypotheses_2_derivations" <.> "golden")
             do
               return . fromString . prettyShow $
-                [ Rule
-                    { name = "R1",
-                      hyps =
-                        [ GoalHyp . mkHypGoal $ B,
-                          GoalHyp . mkHypGoal $ P1,
-                          GoalHyp . mkHypGoal $ P2
-                        ],
-                      conc = Q
-                    }
+                [ (mkRule "R1")
+                    [ GoalHyp . mkHypGoal $ B,
+                      GoalHyp . mkHypGoal $ P1,
+                      GoalHyp . mkHypGoal $ P2
+                    ]
+                    Q
                 ]
                   <&> augmentDerivation_Rule
                     AugmentDerivation.Config
@@ -121,19 +111,14 @@ tests =
                 Engine.Config
                   { initialGas = FiniteGas 50,
                     rules =
-                      [ Rule
-                          { name = "T_Z",
-                            hyps = [],
-                            conc = T Z
-                          },
-                        Rule
-                          { name = "T_Sn",
-                            hyps =
-                              [ GoalHyp . mkHypGoal $ T "n",
-                                GoalHyp . mkHypGoal $ T "n"
-                              ],
-                            conc = T (S "n")
-                          }
+                      [ (mkRule "T_Z")
+                          []
+                          (T Z),
+                        (mkRule "T_Sn")
+                          [ GoalHyp . mkHypGoal $ T "n",
+                            GoalHyp . mkHypGoal $ T "n"
+                          ]
+                          (T (S "n"))
                       ],
                     goals = [mkGoal 0 $ T (S (S (S (S Z))))],
                     exprAliases = [],

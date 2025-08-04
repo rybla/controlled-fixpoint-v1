@@ -14,7 +14,7 @@ import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
 import ControlledFixpoint.Engine as Engine
 import ControlledFixpoint.Grammar
-import ControlledFixpoint.Html (renderEnv, renderHtml, renderTrace)
+import ControlledFixpoint.Html (renderHtml, renderTrace)
 import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))

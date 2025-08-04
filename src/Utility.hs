@@ -8,7 +8,7 @@ module Utility where
 
 import Control.Category ((>>>))
 import Control.Lens (FunctorWithIndex (imap))
-import Control.Monad (foldM)
+import Control.Monad (foldM, (>=>))
 import Data.Function ((&))
 import Data.Kind (Type)
 import Data.Traversable (for)
@@ -45,15 +45,10 @@ infixr 4 <&>>=
 infixl 1 <&@>
 
 filterMap :: (a -> Maybe b) -> [a] -> [b]
--- filterMap f = go []
---   where
---     go acc [] = reverse acc
---     go acc (x : xs) = case f x of
---       Nothing -> go acc xs
---       Just y -> go (y : acc) xs
-filterMap f = foldMap \x -> case f x of
-  Nothing -> []
-  Just y -> [y]
+filterMap f = foldMap (f >>> maybe mempty pure)
+
+filterMapM :: (Monad m) => (a -> m (Maybe b)) -> [a] -> m [b]
+filterMapM f = foldMapM (f >=> return . maybe mempty pure)
 
 foldMapM :: (Foldable t, Monad m, Monoid b) => (a -> m b) -> t a -> m b
 foldMapM f = foldM (\m a -> (m <>) <$> f a) mempty

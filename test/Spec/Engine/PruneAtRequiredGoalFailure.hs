@@ -31,14 +31,11 @@ tests =
         Engine.Config
           { initialGas = Engine.FiniteGas 5,
             rules =
-              [ Rule
-                  { name = "Rule1",
-                    hyps =
-                      [ GoalHyp (mkHypGoal (Atom Q [])) {opts = Set.fromList [RequiredGoalOpt]},
-                        GoalHyp (mkHypGoal (Atom P []))
-                      ],
-                    conc = Atom P []
-                  }
+              [ (mkRule "Rule1")
+                  [ GoalHyp (mkHypGoal (Atom Q [])) {opts = Set.fromList [RequiredGoalOpt]},
+                    GoalHyp (mkHypGoal (Atom P []))
+                  ]
+                  (Atom P [])
               ],
             goals =
               [ mkGoal 0 $ Atom P []
