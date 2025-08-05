@@ -96,20 +96,17 @@ unifyExpr e1 (VarExpr x2) = do
   normExpr e1
 unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
   ctx <- ask
-  if c1 /= c2
-    then do
-      -- if expressions are not directly directly comparable, then try applying
-      -- the `ExprAlias`s to them (try `e1` first, then `e2`)
-      case ctx.exprAliases `applyExprAlias` e1 of
-        Nothing -> case ctx.exprAliases `applyExprAlias` e2 of
-          Nothing -> throwError $ ExprsError e1 e2
-          Just e2' -> unifyExpr e1 e2'
-        Just e1' -> unifyExpr e2 e1'
-    else do
-      when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
-      let c = c1
-      es <- zipWithM unifyExpr es1 es2
-      pure $ c :% es
+  -- before normally unifying expressions, try applying an ExprAlias
+  case ctx.exprAliases `applyExprAlias` e1 of
+    Just e1' -> unifyExpr e2 e1'
+    Nothing -> case ctx.exprAliases `applyExprAlias` e2 of
+      Just e2' -> unifyExpr e1 e2'
+      Nothing | c1 == c2 -> do
+        when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
+        let c = c1 -- = c2
+        es <- zipWithM unifyExpr es1 es2
+        pure $ c :% es
+      _ -> throwError $ ExprsError e1 e2
 
 normExpr :: (Monad m, Ord v) => Expr c v -> T a c v m (Expr c v)
 normExpr = liftA2 substExpr (gets (^. sigma)) . return
