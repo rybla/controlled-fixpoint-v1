@@ -332,7 +332,8 @@ loop = do
               }
           ]
 
-      if ctx.config.shouldSuspend goal.atom
+      goalAtom_norm <- normAtom goal.atom
+      if ctx.config.shouldSuspend goalAtom_norm
         then do
           tellMsgs
             [ (Msg.mk 1 "suspending goal")
@@ -598,3 +599,15 @@ tell_traceGoals goals =
       { traceSteps = Map.empty,
         traceGoals = Map.fromList [(g.goalIndex, g) | g <- goals]
       }
+
+normAtom :: (Monad m) => Atom a c v -> T a c v m (Atom a c v)
+normAtom (Atom a es) = Atom a <$> traverse normExpr es
+
+normExpr :: (Monad m) => Expr c v -> T a c v m (Expr c v)
+normExpr e = do
+  ctx <- ask
+  case ctx.config.exprAliases `applyExprAlias` e of
+    Just e' -> normExpr e'
+    Nothing -> case e of
+      VarExpr x -> return $ VarExpr x
+      ConExpr (Con c es) -> ConExpr . Con c <$> (normExpr `traverse` es)

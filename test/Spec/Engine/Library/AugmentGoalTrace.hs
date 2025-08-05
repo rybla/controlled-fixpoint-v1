@@ -14,7 +14,6 @@ import qualified Spec.Engine.Common as Common
 import System.FilePath ((<.>), (</>))
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Golden (goldenVsString)
-import Test.Tasty.HUnit (testCase)
 import Text.PrettyPrint (hang, render, vcat)
 import Text.PrettyPrint.HughesPJClass (Pretty (..))
 
