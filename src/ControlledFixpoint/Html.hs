@@ -56,24 +56,34 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
   where
     renderTraceNode :: GoalIndex -> Doc
     renderTraceNode gi =
-      case tr.traceSteps Map.!? gi of
-        Nothing ->
-          case tr.traceGoals Map.!? gi of
+      let g = case tr.traceGoals Map.!? gi of
             Nothing -> div "invalid" ["unknown goal index:" <+> pPrintEscaped gi]
-            Just g ->
+            Just g' -> div "goal" [renderGoal g']
+       in case tr.traceSteps Map.!? gi of
+            Nothing ->
               div "TraceNode" $
-                [div "failed" [renderGoal g]]
-        Just steps ->
-          div "TraceNode" $
-            steps <&> \step ->
-              div "TraceStep" $
-                [ div "goal" [renderGoal step.goal],
-                  div "rule" [renderRuleName step.rule.name],
-                  div "sigma" [renderSubst step.sigma],
-                  div "options" $ renderRuleOpt <$> Set.toList step.rule.ruleOpts,
-                  if null step.subgoals
-                    then div "solved" ["solved"]
-                    else div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
+                [ div "status failed" $
+                    [ div "message" ["failed"],
+                      g
+                    ]
+                ]
+            Just steps ->
+              div "TraceNode" $
+                [ div "status processing" $
+                    [ div "message" ["processing"],
+                      g
+                    ],
+                  div "steps" $
+                    steps <&> \step ->
+                      div "TraceStep" $
+                        [ div "goal" [renderGoal step.goal],
+                          div "rule" [renderRuleName step.rule.name],
+                          div "sigma" [renderSubst step.sigma],
+                          div "options" $ renderRuleOpt <$> Set.toList step.rule.ruleOpts,
+                          if null step.subgoals
+                            then div "solved" ["solved"]
+                            else div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
+                        ]
                 ]
 
 renderRuleOpt :: RuleOpt -> Doc
