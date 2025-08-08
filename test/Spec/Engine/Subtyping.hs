@@ -43,7 +43,7 @@ mkTest a b =
           exprAliases = [],
           goals = [mkGoal 0 $ a :<: b],
           shouldSuspend = \case
-            VarExpr _ :<: VarExpr _ -> True
+            Goal {atom = VarExpr _ :<: VarExpr _} -> True
             _ -> False
         }
     )

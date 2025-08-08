@@ -2,11 +2,12 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
 {-# HLINT ignore "Redundant $" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 {-# HLINT ignore "Evaluate" #-}
-{-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Use if" #-}
 
@@ -28,12 +29,13 @@ import ControlledFixpoint.Grammar
 import qualified ControlledFixpoint.Unification as Unification
 import Data.Function ((&))
 import Data.Functor ((<&>))
+import qualified Data.List.Safe as List
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import ListT (ListT, cons, toList)
-import Text.PrettyPrint (braces, comma, hang, hsep, punctuate, render, text, (<+>))
+import Text.PrettyPrint (hang, text, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
 import Utility
 import Prelude hiding (init)
@@ -54,7 +56,7 @@ data Config a c v = Config
   { initialGas :: Gas,
     rules :: [Rule a c v],
     goals :: [Goal a c v],
-    shouldSuspend :: Atom a c v -> Bool,
+    shouldSuspend :: Goal a c v -> Bool,
     exprAliases :: [ExprAlias c v],
     strategy :: Strategy
   }
@@ -70,21 +72,16 @@ defaultConfig =
       strategy = DepthFirstStrategy
     }
 
-instance (Show a, Show c, Show v) => Show (Config a c v) where
-  show cfg =
-    render $
-      "Config"
-        <+> braces
-          ( [ "initialGas =" <+> text (show cfg.initialGas),
-              "rules =" <+> text (show cfg.rules),
-              "goals =" <+> text (show cfg.goals),
-              "shouldSuspend =" <+> text "<function>",
-              "exprAliases =" <+> text "<function>",
-              "strategy =" <+> text (show cfg.strategy)
-            ]
-              & punctuate comma
-              & hsep
-          )
+instance (Pretty a, Pretty c, Pretty v) => Pretty (Config a c v) where
+  pPrint cfg =
+    hang "engine config" 4 . bullets $
+      [ "initialGas =" <+> pPrint cfg.initialGas,
+        "rules =" <+> pPrint cfg.rules,
+        "goals =" <+> pPrint cfg.goals,
+        "shouldSuspend =" <+> text "<function>",
+        "exprAliases =" <+> text "<function>",
+        "strategy =" <+> pPrint cfg.strategy
+      ]
 
 type T a c v m =
   (ReaderT (Ctx a c v))
@@ -132,7 +129,6 @@ data Trace a c v = Trace
   { traceGoals :: Map GoalIndex (Goal a c v),
     traceSteps :: Map GoalIndex [Step a c v]
   }
-  deriving (Eq, Show)
 
 instance Semigroup (Trace a c v) where
   t1 <> t2 =
@@ -171,7 +167,6 @@ data Env a c v = Env
     sigma :: Subst c v,
     stepsRev :: [Step a c v]
   }
-  deriving (Show, Eq)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Env a c v) where
   pPrint env =
@@ -221,13 +216,13 @@ decrementGas :: Gas -> Gas
 decrementGas (FiniteGas n) = FiniteGas (n - 1)
 decrementGas InfiniteGas = InfiniteGas
 
+-- TODO: another variant of step for suspending
 data Step a c v = Step
   { goal :: Goal a c v,
     rule :: Rule a c v,
     sigma :: Subst c v,
     subgoals :: [Goal a c v]
   }
-  deriving (Show, Eq)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Step a c v) where
   pPrint step =
@@ -332,8 +327,8 @@ loop = do
               }
           ]
 
-      goalAtom_norm <- normAtom goal.atom
-      if ctx.config.shouldSuspend goalAtom_norm
+      goal' <- normGoal goal
+      if ctx.config.shouldSuspend goal'
         then do
           tellMsgs
             [ (Msg.mk 1 "suspending goal")
@@ -350,10 +345,18 @@ tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a
 tryRules goal = do
   ctx <- ask
 
-  -- freshen rules
-  rules <- ctx.config.rules <&>>= runFreshening . Freshening.freshenRule
+  rules <-
+    ctx.config.rules
+      -- freshen rules
+      <&>>= (runFreshening . Freshening.freshenRule)
+      -- apply constrained ruleset option if present
+      <&> ( case goal.goalOpts.constrainedRulesetGoalOpt of
+              Nothing -> id
+              Just ruleNames -> List.filter \rule -> rule.name `Set.member` ruleNames
+          )
 
-  branches <- do
+  -- TODO: if `goal.goalOpts.constrainedRulesetGoalOpt == Just ruleNames` then need to only try it on those rules
+  branches :: [(Rule a c v, Env a c v)] <- do
     env <- get
     rules
       & filterMapM
@@ -363,9 +366,9 @@ tryRules goal = do
               & (`runReaderT` ctx)
               & (`runStateT` env)
               & (lift . lift)
-              & fmap \(success, env') -> case success of
-                False -> Nothing
-                True -> Just (rule, env')
+              & fmap \case
+                (False, _) -> Nothing
+                (True, env') -> Just (rule, env')
         )
 
   if null branches
@@ -383,7 +386,7 @@ tryRules goal = do
 
       modify \env -> env {failedGoals = env.failedGoals <> [goal]}
 
-      when (isRequiredGoal goal) do
+      when goal.goalOpts.requiredGoalOpt do
         env <- get
         tellMsgs
           [ (Msg.mk 1 "pruning branch since faild a required goal")
@@ -397,7 +400,7 @@ tryRules goal = do
     else do
       let cutBranches =
             branches & filterMap \(rule, env) ->
-              if CutRuleOpt `Set.member` rule.ruleOpts
+              if rule.ruleOpts.cutRuleOpt
                 then Just ((), env)
                 else Nothing
       case null cutBranches of
@@ -418,6 +421,9 @@ tryRule goal rule = do
             ]
         }
     ]
+
+  env_beforeUnification <- get
+
   (err_or_goal', env_uni') <-
     lift . lift . lift . lift . lift . lift $
       ( do
@@ -461,87 +467,107 @@ tryRule goal rule = do
             }
         ]
 
-      subgoals <-
-        fmap concat $
-          rule.hyps <&>>= \case
-            GoalHyp subgoal -> do
-              let subgoal' = subgoal & substGoal sigma_uni
-              return [subgoal']
-
-      unless (null subgoals) do
-        tellMsgs
-          [ (Msg.mk 1 "new subgoals")
-              { Msg.contents = subgoals <&> pPrint
+      case rule.ruleOpts.suspendRuleOpt of
+        Just f | f goal -> do
+          -- reset env to before unification with rule's head
+          -- suspend this goal and constrain the set of rules that can apply to it to just this rule
+          modify \env ->
+            env_beforeUnification
+              { suspendedGoals =
+                  env.suspendedGoals
+                    <> [goal {goalOpts = goal.goalOpts {constrainedRulesetGoalOpt = Just (Set.fromList [rule.name])}}]
               }
-          ]
+          tellMsgs
+            [ (Msg.mk 1 "suspended goal for just this rule")
+                { Msg.contents =
+                    [ "rule =" <+> pPrint rule.name,
+                      "goal =" <+> pPrint goal
+                    ]
+                }
+            ]
+          return True
+        _ -> do
+          subgoals <-
+            fmap concat $
+              rule.hyps <&>>= \case
+                GoalHyp subgoal -> do
+                  let subgoal' = subgoal & substGoal sigma_uni
+                  return [subgoal']
 
-      suspendedGoals_old <- gets suspendedGoals
+          unless (null subgoals) do
+            tellMsgs
+              [ (Msg.mk 1 "new subgoals")
+                  { Msg.contents = subgoals <&> pPrint
+                  }
+              ]
 
-      do
-        env <- get
-        tellMsgs
-          [ (Msg.mk 1 "new sigma")
-              { Msg.contents =
-                  [ "old sigma =" <+> pPrint env.sigma,
-                    "new sigma =" <+> pPrint (env.sigma & composeSubst_unsafe sigma_uni)
-                  ]
-              }
-          ]
+          suspendedGoals_old <- gets suspendedGoals
 
-      modify \env ->
-        env
-          { suspendedGoals =
-              substGoal sigma_uni
-                <$> env.suspendedGoals,
-            activeGoals =
-              substGoal sigma_uni
-                <$> case ctx.config.strategy of
-                  BreadthFirstStrategy -> env.activeGoals <> subgoals
-                  DepthFirstStrategy -> subgoals <> env.activeGoals,
-            sigma =
-              composeSubst_unsafe sigma_uni $
-                env.sigma
-          }
-
-      -- for each suspended goal that was refined by sigma_uni, make it active again
-      suspendedGoals_curr <- gets suspendedGoals
-      (activeGoals_resumed, suspendedGoals_new) <-
-        zip suspendedGoals_old suspendedGoals_curr
-          & foldM
-            ( \(activeGoals_resumed, suspendedGoals_new) (suspendedGoal_old, suspendedGoal_curr) ->
-                if suspendedGoal_old == suspendedGoal_curr
-                  then
-                    -- if the suspended goal was NOT refined by the substitution, then leave it suspended
-                    return (activeGoals_resumed, suspendedGoal_old : suspendedGoals_new)
-                  else do
-                    -- if the suspended goal was refined by the substitution, then resume it
-                    tellMsgs
-                      [ (Msg.mk 2 "resume goal")
-                          { Msg.contents = [pPrint suspendedGoal_curr]
-                          }
+          do
+            env <- get
+            tellMsgs
+              [ (Msg.mk 1 "new sigma")
+                  { Msg.contents =
+                      [ "old sigma =" <+> pPrint env.sigma,
+                        "new sigma =" <+> pPrint (env.sigma & composeSubst_unsafe sigma_uni)
                       ]
-                    return (suspendedGoal_curr : activeGoals_resumed, suspendedGoals_new)
-            )
-            ([], [])
-      modify \env ->
-        env
-          { activeGoals = activeGoals_resumed <> env.activeGoals,
-            suspendedGoals = suspendedGoals_new
-          }
+                  }
+              ]
 
-      -- record step
-      let step = Step {goal, rule, sigma = sigma_uni, subgoals}
-      modify \env -> env {stepsRev = step : env.stepsRev}
-      tell_traceStep goal.goalIndex step
+          modify \env ->
+            env
+              { suspendedGoals =
+                  substGoal sigma_uni
+                    <$> env.suspendedGoals,
+                activeGoals =
+                  substGoal sigma_uni
+                    <$> case ctx.config.strategy of
+                      BreadthFirstStrategy -> env.activeGoals <> subgoals
+                      DepthFirstStrategy -> subgoals <> env.activeGoals,
+                sigma =
+                  composeSubst_unsafe sigma_uni $
+                    env.sigma
+              }
 
-      tellMsgs
-        [ (Msg.mk 1 "successfully applied rule")
-            { Msg.contents =
-                ["rule =" <+> pPrint rule.name]
-            }
-        ]
+          -- for each suspended goal that was refined by sigma_uni, make it active again
+          suspendedGoals_curr <- gets suspendedGoals
+          (activeGoals_resumed, suspendedGoals_new) <-
+            zip suspendedGoals_old suspendedGoals_curr
+              & foldM
+                ( \(activeGoals_resumed, suspendedGoals_new) (suspendedGoal_old, suspendedGoal_curr) ->
+                    if suspendedGoal_old == suspendedGoal_curr
+                      then
+                        -- if the suspended goal was NOT refined by the substitution, then leave it suspended
+                        return (activeGoals_resumed, suspendedGoal_old : suspendedGoals_new)
+                      else do
+                        -- if the suspended goal was refined by the substitution, then resume it
+                        tellMsgs
+                          [ (Msg.mk 2 "resume goal")
+                              { Msg.contents = [pPrint suspendedGoal_curr]
+                              }
+                          ]
+                        return (suspendedGoal_curr : activeGoals_resumed, suspendedGoals_new)
+                )
+                ([], [])
+          modify \env ->
+            env
+              { activeGoals = activeGoals_resumed <> env.activeGoals,
+                suspendedGoals = suspendedGoals_new
+              }
 
-      return True
+          -- record step
+          let step = Step {goal, rule, sigma = sigma_uni, subgoals}
+          modify \env -> env {stepsRev = step : env.stepsRev}
+          tell_traceStep goal.goalIndex step
+
+          tellMsgs
+            [ (Msg.mk 1 "successfully applied rule")
+                { Msg.contents =
+                    ["rule =" <+> pPrint rule.name]
+                }
+            ]
+
+          return True
 
 runFreshening :: (Monad m) => Freshening.M c v x -> T a c v m x
 runFreshening m = do
@@ -599,6 +625,11 @@ tell_traceGoals goals =
       { traceSteps = Map.empty,
         traceGoals = Map.fromList [(g.goalIndex, g) | g <- goals]
       }
+
+normGoal :: (Monad m) => Goal a c v -> T a c v m (Goal a c v)
+normGoal goal = do
+  atom <- normAtom goal.atom
+  return goal {atom}
 
 normAtom :: (Monad m) => Atom a c v -> T a c v m (Atom a c v)
 normAtom (Atom a es) = Atom a <$> traverse normExpr es

@@ -83,7 +83,7 @@ tests_Norm_v1 =
             rules = rules_v1,
             exprAliases = [],
             shouldSuspend = \case
-              Valid (VarExpr _ :⇓ VarExpr _) _ -> True
+              Goal {atom = Valid (VarExpr _ :⇓ VarExpr _) _} -> True
               _ -> False,
             initialGas = FiniteGas 50
           }

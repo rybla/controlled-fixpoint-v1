@@ -28,7 +28,7 @@ tests =
               ],
             exprAliases = [],
             shouldSuspend = \case
-              VarExpr _ :~ VarExpr _ -> True
+              Goal{atom=VarExpr _ :~ VarExpr _} -> True
               _ -> False,
             goals =
               [ mkGoal 0 $ "y" :~ "x",
@@ -64,7 +64,7 @@ unrolling_tests =
         cfg
           { goals = [mkGoal 0 $ P "x" "y", mkGoal 1 $ Q "y" B],
             shouldSuspend = \case
-              P (VarExpr _) (VarExpr _) -> True
+              Goal{atom=P (VarExpr _) (VarExpr _)} -> True
               _ -> False
           }
         EngineSuccess,

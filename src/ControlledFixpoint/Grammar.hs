@@ -8,6 +8,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Use newtype instead of data" #-}
+{-# HLINT ignore "Use ++" #-}
 
 module ControlledFixpoint.Grammar where
 
@@ -22,6 +23,7 @@ import Data.Functor ((<&>))
 import qualified Data.List.Safe as List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (isJust)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.String (IsString (fromString))
@@ -39,9 +41,8 @@ data Rule a c v = Rule
   { name :: RuleName,
     hyps :: [Hyp a c v],
     conc :: Atom a c v,
-    ruleOpts :: Set RuleOpt
+    ruleOpts :: RuleOpts a c v
   }
-  deriving (Show, Eq, Ord)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Rule a c v) where
   pPrint rule =
@@ -60,14 +61,27 @@ mkRule name hyps conc =
     { name,
       hyps,
       conc,
-      ruleOpts = Set.empty
+      ruleOpts = defaultRuleOpts
     }
 
-data RuleOpt = CutRuleOpt
-  deriving (Show, Eq, Ord)
+data RuleOpts a c v = RuleOpts
+  { cutRuleOpt :: Bool,
+    suspendRuleOpt :: Maybe (Goal a c v -> Bool)
+  }
 
-instance Pretty RuleOpt where
-  pPrint CutRuleOpt = "cut"
+instance Pretty (RuleOpts a c v) where
+  pPrint ruleOpts =
+    hang "rule options" 4 . bullets . concat $
+      [ ["cut" | ruleOpts.cutRuleOpt],
+        ["suspend <function>" | isJust ruleOpts.suspendRuleOpt]
+      ]
+
+defaultRuleOpts :: RuleOpts a c v
+defaultRuleOpts =
+  RuleOpts
+    { cutRuleOpt = False,
+      suspendRuleOpt = Nothing
+    }
 
 -- | Hypothesis.
 --
@@ -77,14 +91,14 @@ instance Pretty RuleOpt where
 -- checked by executing a `Bool`-valued function.)
 data Hyp a c v
   = GoalHyp (Goal a c v)
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
   pPrint (GoalHyp g) =
     hsep
       [ g.goalIndex & maybe mempty (("G#" <>) . pPrint),
         pPrint g.atom,
-        if null g.goalOpts then mempty else braces . commas . fmap pPrint . Set.toList $ g.goalOpts
+        pPrint g.goalOpts
       ]
 
 --------------------------------------------------------------------------------
@@ -94,37 +108,47 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Hyp a c v) where
 -- | A `Goal` is an `Atom` along with any other goal-relevant options and metadata.
 data Goal a c v = Goal
   { atom :: Atom a c v,
-    goalOpts :: Set GoalOpt,
+    goalOpts :: GoalOpts,
     goalIndex :: GoalIndex
   }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Goal a c v) where
   pPrint g =
     hsep
       [ g.goalIndex & maybe (brackets "X") (brackets . ("G#" <>) . pPrint),
         pPrint g.atom,
-        if null g.goalOpts then mempty else braces . commas . fmap pPrint . Set.toList $ g.goalOpts
+        pPrint g.goalOpts
       ]
 
 type GoalIndex = Maybe Int
 
-data GoalOpt
-  = RequiredGoalOpt
-  deriving (Show, Eq, Ord, Enum, Bounded)
+data GoalOpts = GoalOpts
+  { requiredGoalOpt :: Bool,
+    constrainedRulesetGoalOpt :: Maybe (Set RuleName)
+  }
+  deriving (Show, Eq)
 
-instance Pretty GoalOpt where
-  pPrint RequiredGoalOpt = "required"
+instance Pretty GoalOpts where
+  pPrint opts =
+    braces . commas . concat $
+      [ ["required" | opts.requiredGoalOpt],
+        ["constrained ruleset:" <+> pPrint rns | rns <- foldMap (List.singleton . Set.toList) opts.constrainedRulesetGoalOpt]
+      ]
 
-isRequiredGoal :: Goal a c v -> Bool
-isRequiredGoal goal = RequiredGoalOpt `Set.member` goal.goalOpts
+defaultGoalOpts :: GoalOpts
+defaultGoalOpts =
+  GoalOpts
+    { requiredGoalOpt = False,
+      constrainedRulesetGoalOpt = Nothing
+    }
 
 mkGoal :: Int -> Atom a c v -> Goal a c v
 mkGoal i atom =
   Goal
     { atom,
       goalIndex = Just i,
-      goalOpts = Set.empty
+      goalOpts = defaultGoalOpts
     }
 
 mkHypGoal :: Atom a c v -> Goal a c v
@@ -132,7 +156,7 @@ mkHypGoal atom =
   Goal
     { atom,
       goalIndex = Nothing,
-      goalOpts = Set.empty
+      goalOpts = defaultGoalOpts
     }
 
 --------------------------------------------------------------------------------

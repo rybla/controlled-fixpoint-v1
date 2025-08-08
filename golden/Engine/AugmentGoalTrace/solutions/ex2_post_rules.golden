@@ -1,9 +1,9 @@
 rules =
   [rule R1
-     "B" "?goal"
+     "B" "?goal" {}
      --------------------------------
      "A" "?goal",
    rule R2
      --------------------------------
      "B" "?goal"]
-goals = [[X] "A" "goal#0", [X] "A" "goal#1"]
+goals = [[X] "A" "goal#0" {}, [X] "A" "goal#1" {}]

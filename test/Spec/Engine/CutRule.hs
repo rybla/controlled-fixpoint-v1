@@ -7,7 +7,6 @@ module Spec.Engine.CutRule where
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
-import qualified Data.Set as Set
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
 
@@ -43,7 +42,7 @@ tests =
                       []
                       (Atom "P" [])
                   )
-                    { ruleOpts = Set.fromList [CutRuleOpt]
+                    { ruleOpts = defaultRuleOpts {cutRuleOpt = True}
                     },
                   mkRule
                     "R2"

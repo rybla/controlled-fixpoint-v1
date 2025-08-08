@@ -56,8 +56,8 @@ tests_v1 =
                   strategy = DepthFirstStrategy,
                   exprAliases = [],
                   shouldSuspend = \case
-                    Valid (Functor (VarExpr _)) _ -> True
-                    Valid (VarExpr _ :<: VarExpr _) _ -> True
+                    Goal {atom = Valid (Functor (VarExpr _)) _} -> True
+                    Goal {atom = Valid (VarExpr _ :<: VarExpr _) _} -> True
                     _ -> False
                 }
             )

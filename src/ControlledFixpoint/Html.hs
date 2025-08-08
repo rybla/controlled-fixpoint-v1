@@ -15,7 +15,6 @@ import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 import Text.PrettyPrint (Doc, doubleQuotes, nest, text, vcat, (<+>), (<>))
 import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
 import Utility (comps)
@@ -79,15 +78,15 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                         [ div "goal" [renderGoal step.goal],
                           div "rule" [renderRuleName step.rule.name],
                           div "sigma" [renderSubst step.sigma],
-                          div "options" $ renderRuleOpt <$> Set.toList step.rule.ruleOpts,
+                          div "options" [renderRuleOpts step.rule.ruleOpts],
                           if null step.subgoals
                             then div "solved" ["solved"]
                             else div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
                         ]
                 ]
 
-renderRuleOpt :: RuleOpt -> Doc
-renderRuleOpt = div "RuleOpt" . pure . pPrintEscaped
+renderRuleOpts :: RuleOpts a c v -> Doc
+renderRuleOpts = div "RuleOpts" . pure . pPrintEscaped
 
 renderConfig :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Doc
 renderConfig cfg =
@@ -115,14 +114,14 @@ renderGoal g =
   div "Goal" $
     [ div "goalIndex" . pure . renderGoalIndex $ g.goalIndex,
       div "atom" . pure . renderAtom $ g.atom,
-      div "options" . fmap renderGoalOpt . Set.toList $ g.goalOpts
+      div "options" [renderGoalOpts g.goalOpts]
     ]
 
 renderGoalIndex :: GoalIndex -> Doc
 renderGoalIndex = maybe mempty \i -> div "GoalIndex" [pPrintEscaped i]
 
-renderGoalOpt :: GoalOpt -> Doc
-renderGoalOpt = div "GoalOpt" . pure . pPrintEscaped
+renderGoalOpts :: GoalOpts -> Doc
+renderGoalOpts = div "GoalOpts" . pure . pPrintEscaped
 
 renderSubst :: (Pretty c, Pretty v) => Subst c v -> Doc
 renderSubst =

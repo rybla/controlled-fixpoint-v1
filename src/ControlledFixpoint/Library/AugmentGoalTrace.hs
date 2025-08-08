@@ -31,13 +31,13 @@ augmentGoalTrace cfg cfg_engine =
     { Engine.rules = cfg_engine.rules & fmap (augmentGoalTrace_Rule cfg),
       Engine.goals = cfg_engine.goals & imap (augmentGoalTrace_Goal cfg),
       Engine.shouldSuspend = \case
-        Atom a es -> case List.init es of
+        g@(Goal {atom = Atom a es}) -> case List.init es of
           Nothing ->
             error . render . vcat $
               [ "BUG: in the `shouldSuspend` function created by `augmentGoalTrace`, an atom does not have at least one argument, which should have been inserted already since the last argument of an atom encodes the goal trace",
                 bullets ["atom =" <+> pPrint a]
               ]
-          Just es' -> cfg_engine.shouldSuspend (Atom a es')
+          Just es' -> cfg_engine.shouldSuspend g {atom = Atom a es'}
     }
 
 augmentGoalTrace_Goal :: (IsString v) => Config -> Int -> Goal c v a -> Goal c v a

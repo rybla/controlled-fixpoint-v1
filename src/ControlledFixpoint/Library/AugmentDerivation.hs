@@ -44,13 +44,13 @@ augmentDerivation cfg cfg_engine =
     { Engine.rules = cfg_engine.rules <&> augmentDerivation_Rule cfg,
       Engine.goals = cfg_engine.goals & imap (augmentDerivation_Goal cfg),
       Engine.shouldSuspend = \case
-        a@(Atom n es) | Just _ <- cfg.isDerivation n -> case List.init es of
+        g@(Goal {atom = a@(Atom n es)}) | Just _ <- cfg.isDerivation n -> case List.init es of
           Nothing ->
             error . render . vcat $
               [ "BUG: in the `shouldSuspend` function created by `augmentDerivation`, a derivation atom does not have at least one argument, which should have been inserted already since the last argument of a derivation atom encodes the derivation itself",
                 bullets ["atom =" <+> pPrint a]
               ]
-          Just es' -> cfg_engine.shouldSuspend (Atom n es')
+          Just es' -> cfg_engine.shouldSuspend g {atom = Atom n es'}
         a -> cfg_engine.shouldSuspend a
     }
 
