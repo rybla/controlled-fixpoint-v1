@@ -1,4 +1,4 @@
-module Spec.Common where
+module Spec.Common (goldenDirpath) where
 
 goldenDirpath :: FilePath
 goldenDirpath = "golden"

@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
-{-# OPTIONS_GHC -Wno-missing-export-lists #-}
 
-module Spec.Engine.CutRule where
+module Spec.Engine.CutRule (tests) where
 
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
