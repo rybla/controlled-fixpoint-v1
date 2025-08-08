@@ -71,9 +71,9 @@ data RuleOpts a c v = RuleOpts
 
 instance Pretty (RuleOpts a c v) where
   pPrint ruleOpts =
-    hang "rule options" 4 . bullets . concat $
+    braces . commas . concat $
       [ ["cut" | ruleOpts.cutRuleOpt],
-        ["suspend <function>" | isJust ruleOpts.suspendRuleOpt]
+        ["suspend" | isJust ruleOpts.suspendRuleOpt]
       ]
 
 defaultRuleOpts :: RuleOpts a c v
