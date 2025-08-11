@@ -107,7 +107,7 @@ unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
                 ]
             }
         ]
-      unifyExpr e2 e1'
+      unifyExpr e1' e2
     Nothing -> case ctx.exprAliases `applyExprAlias` e2 of
       Just e2' -> do
         tell
