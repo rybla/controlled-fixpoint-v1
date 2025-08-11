@@ -1,10 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Use newtype instead of data" #-}
+{-# HLINT ignore "Redundant $" #-}
 
 module ControlledFixpoint.Unification where
 
@@ -23,7 +27,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Text.PrettyPrint (hang, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
-import Utility (bullets, fixpointEqM, (<&>>=), (=<<$>))
+import Utility (bullets, fixpointEqM, (=<<$>))
 
 --------------------------------------------------------------------------------
 -- Types
@@ -110,37 +114,29 @@ unifyExpr' (VarExpr x1) e2 = do
 unifyExpr' e1 (VarExpr x2) = do
   setVarM x2 e1
   return e1
-unifyExpr' e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
+unifyExpr' e1@(ConExpr (Con _ _)) e2@(ConExpr (Con _ _)) = do
+  e1' <- normHeadAliasesInExpr e1
+  e2' <- normHeadAliasesInExpr e2
+  case (e1', e2') of
+    (VarExpr x1, _) -> do
+      setVarM x1 e2'
+      return e2'
+    (_, VarExpr x2) -> do
+      setVarM x2 e1'
+      return e1'
+    (c1 :% es1, c2 :% es2) | c1 == c2 -> do
+      when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
+      let c = c1 -- = c2
+      es <- zipWithM unifyExpr es1 es2
+      pure $ c :% es
+    _ -> throwError $ ExprsError e1 e2
+
+normHeadAliasesInExpr :: forall a c v m. (Monad m) => Expr c v -> T a c v m (Expr c v)
+normHeadAliasesInExpr e = do
   ctx <- ask
-  -- before normally unifying expressions, try applying an ExprAlias
-  case ctx.exprAliases `applyExprAlias` e1 of
-    Just e1' -> do
-      tell
-        [ (Msg.mk 3 "unfolded alias")
-            { Msg.contents =
-                [ "before :" <+> pPrint e1,
-                  "after  :" <+> pPrint e1'
-                ]
-            }
-        ]
-      unifyExpr e1' e2
-    Nothing -> case ctx.exprAliases `applyExprAlias` e2 of
-      Just e2' -> do
-        tell
-          [ (Msg.mk 3 "unfolded alias")
-              { Msg.contents =
-                  [ "before :" <+> pPrint e2,
-                    "after  :" <+> pPrint e2'
-                  ]
-              }
-          ]
-        unifyExpr e1 e2'
-      Nothing | c1 == c2 -> do
-        when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
-        let c = c1 -- = c2
-        es <- zipWithM unifyExpr es1 es2
-        pure $ c :% es
-      _ -> throwError $ ExprsError e1 e2
+  case ctx.exprAliases `applyExprAlias` e of
+    Nothing -> return e
+    Just e' -> normHeadAliasesInExpr e'
 
 normExpr :: (Monad m, Ord v) => Expr c v -> T a c v m (Expr c v)
 normExpr = liftA2 substExpr (gets (^. sigma)) . return
