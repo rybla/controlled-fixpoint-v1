@@ -170,7 +170,7 @@ normEnv = do
 
 setVarM :: (Monad m, Ord v, Eq c, Pretty v, Pretty c) => Var v -> Expr c v -> T a c v m ()
 setVarM x e = do
-  tell [Msg.mk 4 $ "[setVarM] setVarM" <+> pPrint x <+> pPrint e]
+  tell [Msg.mk 4 $ "setVarM" <+> pPrint x <+> pPrint e]
   -- if 'x' occurs in 'e', then is a cyclic substitution, which is inconsistent
   when (Set.member x (varsExpr e)) do throwError $ ExprsError (VarExpr x) e
   e' <-
