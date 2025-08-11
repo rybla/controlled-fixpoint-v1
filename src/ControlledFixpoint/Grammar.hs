@@ -13,7 +13,6 @@
 module ControlledFixpoint.Grammar where
 
 import Control.Applicative ((<|>))
-import Control.Category ((>>>))
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
 import Control.Newtype.Generics (Newtype, over)
