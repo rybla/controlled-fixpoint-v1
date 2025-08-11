@@ -7,15 +7,21 @@
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Redundant $" #-}
 {-# HLINT ignore "Avoid lambda using `infix`" #-}
+{-# HLINT ignore "Use ++" #-}
 
 module ControlledFixpoint.Html where
 
+import Control.Monad (when)
+import Control.Monad.State (State, execState, get, modify)
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
+import Data.Foldable (traverse_)
 import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Text.PrettyPrint.HughesPJClass (Doc, Pretty, brackets, doubleQuotes, hcat, nest, prettyShow, render, text, vcat, (<+>), (<>))
 import Prelude hiding (div, (<>))
 
@@ -55,23 +61,61 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
     rulesMap :: Map RuleName (Rule a c v)
     rulesMap = cfg.rules <&> (\r -> (r.name, r)) & Map.fromList
 
+    possibleGoalIndices =
+      tr.traceGoals
+        & traverse_ (go . goalIndex)
+        & (`execState` Set.empty)
+      where
+        go :: GoalIndex -> State (Set GoalIndex) Bool
+        go gi = do
+          gis <- get
+          if gi `Set.member` gis
+            then return True
+            else do
+              case tr.traceSteps Map.!? gi of
+                Nothing -> return False
+                Just steps -> do
+                  -- if any of the steps lead to a solution, then this goal is possible to solve
+                  isPossible <-
+                    steps
+                      & traverse
+                        ( \case
+                            ApplyRuleStep {..} -> do
+                              subgoals
+                                & traverse (go . goalIndex)
+                                & fmap and
+                            SolveStep {} -> return True
+                            _ -> return False
+                        )
+                      & fmap or
+                  when isPossible do
+                    modify $ Set.insert gi
+                  return isPossible
+
     renderTraceNode :: GoalIndex -> Doc
     renderTraceNode gi =
       let g = case tr.traceGoals Map.!? gi of
-            Nothing -> div "invalid" ["unknown goal index:" <+> pPrintEscaped gi]
-            Just g' -> div "goal" [renderGoal g']
+            Nothing -> [div "invalid" ["unknown goal index:" <+> pPrintEscaped gi]]
+            Just g' ->
+              [ div "goal" [renderGoal g'],
+                if gi `Set.member` possibleGoalIndices
+                  then
+                    div "note possible" ["possible"]
+                  else
+                    div "note impossible" ["impossible"]
+              ]
        in case tr.traceSteps Map.!? gi of
             Nothing ->
               div "TraceNode" $
-                [ div "status failed" $
-                    [ div "message" ["failed"],
+                [ div "status failed" . concat $
+                    [ [div "message" ["failed"]],
                       g
                     ]
                 ]
             Just steps ->
               div "TraceNode" $
-                [ div "status processing" $
-                    [ div "message" ["processing"],
+                [ div "status processing" . concat $
+                    [ [div "message" ["processing"]],
                       g
                     ],
                   div "steps" $
