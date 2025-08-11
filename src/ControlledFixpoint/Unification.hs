@@ -125,18 +125,27 @@ unifyExpr' e1@(ConExpr (Con _ _)) e2@(ConExpr (Con _ _)) = do
       setVarM x2 e1'
       return e1'
     (c1 :% es1, c2 :% es2) | c1 == c2 -> do
-      when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
+      when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1' e2'
       let c = c1 -- = c2
       es <- zipWithM unifyExpr es1 es2
       pure $ c :% es
-    _ -> throwError $ ExprsError e1 e2
+    _ -> throwError $ ExprsError e1' e2'
 
-normHeadAliasesInExpr :: forall a c v m. (Monad m) => Expr c v -> T a c v m (Expr c v)
+normHeadAliasesInExpr :: forall a c v m. (Monad m, Pretty c, Pretty v) => Expr c v -> T a c v m (Expr c v)
 normHeadAliasesInExpr e = do
   ctx <- ask
   case ctx.exprAliases `applyExprAlias` e of
     Nothing -> return e
-    Just e' -> normHeadAliasesInExpr e'
+    Just e' -> do
+      tell
+        [ (Msg.mk 3 "unfolded alias")
+            { Msg.contents =
+                [ "before :" <+> pPrint e,
+                  "after  :" <+> pPrint e'
+                ]
+            }
+        ]
+      normHeadAliasesInExpr e'
 
 normExpr :: (Monad m, Ord v) => Expr c v -> T a c v m (Expr c v)
 normExpr = liftA2 substExpr (gets (^. sigma)) . return
