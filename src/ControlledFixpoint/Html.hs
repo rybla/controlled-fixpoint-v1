@@ -16,8 +16,7 @@ import Data.Function ((&))
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Text.PrettyPrint (Doc, doubleQuotes, nest, text, vcat, (<+>), (<>))
-import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow, render)
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty, brackets, doubleQuotes, hcat, nest, prettyShow, render, text, vcat, (<+>), (<>))
 import Prelude hiding (div, (<>))
 
 el :: String -> String -> [Doc] -> Doc
@@ -181,7 +180,7 @@ renderGoal g =
     ]
 
 renderGoalIndex :: GoalIndex -> Doc
-renderGoalIndex = maybe mempty \i -> div "GoalIndex" [pPrintEscaped i]
+renderGoalIndex = maybe mempty \i -> div "GoalIndex" [brackets . hcat $ ["G#", pPrintEscaped i]]
 
 renderGoalOpts :: GoalOpts -> Doc
 renderGoalOpts = div "GoalOpts" . pure . pPrintEscaped
