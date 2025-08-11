@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
@@ -11,13 +12,10 @@ module ControlledFixpoint.Html where
 
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
-import Data.Function ((&))
 import Data.Functor ((<&>))
-import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.PrettyPrint (Doc, doubleQuotes, nest, text, vcat, (<+>), (<>))
 import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
-import Utility (comps)
 import Prelude hiding (div, (<>))
 
 el :: String -> String -> [Doc] -> Doc
@@ -73,16 +71,27 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                       g
                     ],
                   div "steps" $
-                    steps <&> \step ->
-                      div "TraceStep" $
-                        [ div "goal" [renderGoal step.goal],
-                          div "rule" [renderRuleName step.rule.name],
-                          div "sigma" [renderSubst step.sigma],
-                          div "options" [renderRuleOpts step.rule.ruleOpts],
-                          if null step.subgoals
-                            then div "solved" ["solved"]
-                            else div "substeps" $ step.subgoals <&> renderTraceNode . goalIndex
-                        ]
+                    steps <&> \case
+                      SuccessStep {..} ->
+                        div "TraceStep success" $
+                          [ div "goal" [renderGoal goal],
+                            div "rule" [renderRuleName rule.name],
+                            div "sigma" [renderSubst sigma],
+                            div "options" [renderRuleOpts rule.ruleOpts],
+                            if null subgoals
+                              then div "solved" ["solved"]
+                              else div "substeps" $ subgoals <&> renderTraceNode . goalIndex
+                          ]
+                      FailureStep {..} ->
+                        div "TraceStep failure" $
+                          [ div "goal" [renderGoal goal],
+                            div "reason" ["failed goal because:" <+> failureReason]
+                          ]
+                      SuspendStep {..} ->
+                        div "TraceStep suspend" $
+                          [ div "goal" [renderGoal goal],
+                            div "reason" ["suspended goal because:" <+> suspendReason]
+                          ]
                 ]
 
 renderRuleOpts :: RuleOpts a c v -> Doc
@@ -96,18 +105,18 @@ renderConfig cfg =
       div "strategy" . pure . pPrintEscaped $ cfg.strategy
     ]
 
-renderEnv :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Env a c v -> Doc
-renderEnv cfg env =
-  div "Env" $
-    [ div "sidebar" $
-        [ div "activeGoals" . pure . renderList . fmap renderGoal $ env.activeGoals,
-          div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
-          div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
-          div "sigma" . pure . renderSubst $ env.sigma
-        ],
-      div "main" $
-        [div "steps" . pure . renderStepsGraph cfg . reverse $ env.stepsRev]
-    ]
+-- renderEnv :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Env a c v -> Doc
+-- renderEnv cfg env =
+--   div "Env" $
+--     [ div "sidebar" $
+--         [ div "activeGoals" . pure . renderList . fmap renderGoal $ env.activeGoals,
+--           div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
+--           div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
+--           div "sigma" . pure . renderSubst $ env.sigma
+--         ],
+--       div "main" $
+--         [div "steps" . pure . renderStepsGraph cfg . reverse $ env.stepsRev]
+--     ]
 
 renderGoal :: (Pretty v, Pretty c, Pretty a) => Goal a c v -> Doc
 renderGoal g =
@@ -139,58 +148,73 @@ renderVar :: (Pretty v) => Var v -> Doc
 renderVar (Var v Nothing) = div "Var" [pPrintEscaped v]
 renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pPrintEscaped i]]
 
-renderStepsGraph :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc
-renderStepsGraph cfg ss =
-  let graph_fromConcGoalIndex :: Map GoalIndex (Either (Goal a c v) [Step a c v])
-      graph_fromConcGoalIndex =
-        ss
-          & (\f -> foldl f Map.empty)
-            ( flip \s ->
-                comps
-                  [ Map.alter
-                      ( -- append Right step to whatever is there (overriding a Left goal)
-                        \case
-                          Nothing -> Just (Right [s])
-                          Just (Left _) -> Just (Right [s])
-                          Just (Right ss') -> Just (Right (ss' ++ [s]))
-                      )
-                      s.goal.goalIndex,
-                    (\f y -> foldl f y s.subgoals)
-                      ( flip \g ->
-                          Map.alter
-                            ( -- insert Left goal if nothing for that goal index is there already
-                              \case
-                                Nothing -> Just (Left g)
-                                x -> x
-                            )
-                            g.goalIndex
-                      )
-                  ]
-            )
+-- TODO: remove this cuz it's old
+-- renderStepsGraph :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc
+-- renderStepsGraph cfg ss =
+--   let graph_fromConcGoalIndex :: Map GoalIndex (Either (Goal a c v) [Step a c v])
+--       graph_fromConcGoalIndex =
+--         ss
+--           & (\f -> foldl f Map.empty)
+--             ( flip \s ->
+--                 comps
+--                   [ Map.alter
+--                       ( -- append Right step to whatever is there (overriding a Left goal)
+--                         \case
+--                           Nothing -> Just (Right [s])
+--                           Just (Left _) -> Just (Right [s])
+--                           Just (Right ss') -> Just (Right (ss' ++ [s]))
+--                       )
+--                       s.goal.goalIndex,
+--                     (\f y -> foldl f y s.subgoals)
+--                       ( flip \g ->
+--                           Map.alter
+--                             ( -- insert Left goal if nothing for that goal index is there already
+--                               \case
+--                                 Nothing -> Just (Left g)
+--                                 x -> x
+--                             )
+--                             g.goalIndex
+--                       )
+--                   ]
+--             )
 
-      -- start from config goals
-      go :: GoalIndex -> Doc
-      go i = case graph_fromConcGoalIndex Map.!? i of
-        Nothing -> div "Invalid" ["unknown goal index:" <+> pPrintEscaped i]
-        Just (Left g) ->
-          div "StepNode" $
-            [ div "goal" [renderGoal g],
-              div "separator" [],
-              div "substeps" [div "dead-end-message" ["dead end"]]
-            ]
-        Just (Right []) -> error "impossible"
-        Just (Right ss'@(s0 : _)) ->
-          div "StepNode" $
-            [ div "goal" [renderGoal s0.goal],
-              div "separator" [],
-              div "substeps" $
-                ss' <&> \s ->
-                  div "Step" $
-                    [ div "rule" [renderRuleName s.rule.name],
-                      div "subgoals" . fmap (go . goalIndex) $ s0.subgoals
-                    ]
-            ]
-   in div "StepsGraph" . fmap (go . goalIndex) $ cfg.goals
+--       -- start from config goals
+--       go :: GoalIndex -> Doc
+--       go i = case graph_fromConcGoalIndex Map.!? i of
+--         Nothing -> div "Invalid" ["unknown goal index:" <+> pPrintEscaped i]
+--         Just (Left g) ->
+--           div "StepNode" $
+--             [ div "goal" [renderGoal g],
+--               div "separator" [],
+--               -- Q: should this ever happen?
+--               div "substeps" [div "dead-end-message" ["dead end"]]
+--             ]
+--         Just (Right []) -> error "impossible: no step from a goal, yet it's still a Right"
+--         Just (Right ss'@(s0 : _)) ->
+--           div "StepNode" $
+--             [ div "goal" [renderGoal s0.goal],
+--               div "separator" [],
+--               div "substeps" $
+--                 ss' <&> \case
+--                   SuccessStep {..} ->
+--                     div "Step success" $
+--                       [ div "rule" [renderRuleName rule.name],
+--                         -- we use s0.subgoals here since we want to organize
+--                         -- children of this node by the subgoal that branch is
+--                         -- pursuing, and then in that branch it will explore all
+--                         -- the different steps from that subgoal
+--                         div "subgoals" . fmap (go . goalIndex) $ s0.subgoals
+--                       ]
+--                   FailureStep {..} ->
+--                     div "Step failure" $
+--                       [ div "message" ["failed goal because:" <+> failureReason]
+--                       ]
+--                   SuspendStep {..} ->
+--                     div "Step suspend" $
+--                       [ div "message" ["failed goal because:" <+> suspendReason]
+--                       ]
+--             ]
+--    in div "StepsGraph" . fmap (go . goalIndex) $ cfg.goals
 
 renderRuleName :: RuleName -> Doc
 renderRuleName = div "RuleName" . pure . pPrintEscaped

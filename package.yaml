@@ -41,6 +41,8 @@ dependencies:
   - newtype-generics
   - lens
   - listsafe
+  - singletons
+  - singletons-th
 
 ghc-options:
   - -Wall

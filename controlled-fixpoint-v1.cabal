@@ -59,6 +59,8 @@ library
     , newtype-generics
     , parallel
     , pretty
+    , singletons
+    , singletons-th
     , text
     , transformers
   default-language: Haskell2010
@@ -92,6 +94,8 @@ executable controlled-fixpoint-v1-exe
     , parallel
     , parseargs
     , pretty
+    , singletons
+    , singletons-th
     , text
     , transformers
   default-language: Haskell2010
@@ -142,6 +146,8 @@ test-suite controlled-fixpoint-v1-test
     , newtype-generics
     , parallel
     , pretty
+    , singletons
+    , singletons-th
     , tasty
     , tasty-golden
     , tasty-hunit

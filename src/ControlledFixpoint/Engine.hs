@@ -1,15 +1,17 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-missing-export-lists #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
 {-# HLINT ignore "Redundant $" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
 {-# HLINT ignore "Evaluate" #-}
-
 {-# HLINT ignore "Use if" #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
+{-# OPTIONS_GHC -Wno-partial-fields #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module ControlledFixpoint.Engine where
 
@@ -35,8 +37,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import ListT (ListT, cons, toList)
-import Text.PrettyPrint (hang, text, (<+>))
-import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty (pPrint), hang, hcat, text, (<+>))
 import Utility
 import Prelude hiding (init)
 
@@ -216,17 +217,26 @@ decrementGas :: Gas -> Gas
 decrementGas (FiniteGas n) = FiniteGas (n - 1)
 decrementGas InfiniteGas = InfiniteGas
 
--- TODO: another variant of step for suspending
-data Step a c v = Step
-  { goal :: Goal a c v,
-    rule :: Rule a c v,
-    sigma :: Subst c v,
-    subgoals :: [Goal a c v]
-  }
+data Step a c v
+  = SuccessStep
+      { goal :: Goal a c v,
+        rule :: Rule a c v,
+        sigma :: Subst c v,
+        subgoals :: [Goal a c v]
+      }
+  | FailureStep
+      { goal :: Goal a c v,
+        failureReason :: Doc
+      }
+  | SuspendStep
+      { goal :: Goal a c v,
+        suspendReason :: Doc
+      }
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Step a c v) where
-  pPrint step =
-    (pPrint step.rule.name <> ":") <+> pPrint step.goal <+> "<==" <+> pPrint step.subgoals <+> "with" <+> pPrint step.sigma
+  pPrint (SuccessStep {..}) = "apply" <+> hcat [pPrint rule.name, ":"] <+> pPrint goal <+> "<==" <+> pPrint subgoals <+> "with" <+> pPrint sigma
+  pPrint (FailureStep {..}) = "fail" <+> pPrint goal <+> "because" <+> failureReason
+  pPrint (SuspendStep {..}) = "suspend:" <+> pPrint goal <+> "because" <+> suspendReason
 
 --------------------------------------------------------------------------------
 -- functions
@@ -307,7 +317,7 @@ loop = do
     -- if there are no more active goals, then done and terminate this branch successfully
     Nothing -> do
       env <- get
-      tellMsgs $
+      tellMsgs
         [ (Msg.mk 1 "--------------------------------")
             { Msg.contents =
                 [ "status =" <+> "no more active goals",
@@ -336,8 +346,7 @@ loop = do
                 }
             ]
           modify \env -> env {suspendedGoals = env.suspendedGoals <> [goal]}
-        else do
-          tryRules goal
+        else tryRules goal
 
       loop
 
@@ -365,7 +374,7 @@ tryRules goal = do
               & tryRule goal
               & (`runReaderT` ctx)
               & (`runStateT` env)
-              & (lift . lift)
+              & lift . lift
               & fmap \case
                 (False, _) -> Nothing
                 (True, env') -> Just (rule, env')
@@ -373,10 +382,17 @@ tryRules goal = do
 
   if null branches
     then do
+      let step =
+            FailureStep
+              { goal = goal,
+                failureReason = "no rules apply to this goal"
+              }
+      tell_traceStep goal.goalIndex step
+
       do
         env <- get
         tellMsgs
-          [ (Msg.mk 1 "failed goal since no rules can apply to it")
+          [ (Msg.mk 1 $ "failed goal because:" <+> step.failureReason)
               { Msg.contents =
                   [ "goal =" <+> pPrint goal,
                     "env =" <+> pPrint env
@@ -525,8 +541,7 @@ tryRule goal rule = do
                       BreadthFirstStrategy -> env.activeGoals <> subgoals
                       DepthFirstStrategy -> subgoals <> env.activeGoals,
                 sigma =
-                  composeSubst_unsafe sigma_uni $
-                    env.sigma
+                  composeSubst_unsafe sigma_uni env.sigma
               }
 
           -- for each suspended goal that was refined by sigma_uni, make it active again
@@ -556,7 +571,7 @@ tryRule goal rule = do
               }
 
           -- record step
-          let step = Step {goal, rule, sigma = sigma_uni, subgoals}
+          let step = SuccessStep {goal, rule, sigma = sigma_uni, subgoals}
           modify \env -> env {stepsRev = step : env.stepsRev}
           tell_traceStep goal.goalIndex step
 
@@ -600,7 +615,7 @@ reject :: (Monad m) => T a c v m x
 reject = lift . lift $ mempty
 
 extractNextActiveGoal :: (Monad m) => T a c v m (Maybe (Goal a c v))
-extractNextActiveGoal = do
+extractNextActiveGoal =
   gets activeGoals >>= \case
     [] -> return Nothing
     goal : activeGoals' -> do
@@ -615,7 +630,14 @@ tell_traceStep gi step =
   lift . lift . lift . Writer.tell $
     Trace
       { traceSteps = Map.singleton gi [step],
-        traceGoals = Map.fromList [(g.goalIndex, g) | g <- step.subgoals]
+        traceGoals =
+          Map.fromList
+            [ (g.goalIndex, g)
+              | g <- case step of
+                  SuccessStep {..} -> subgoals
+                  FailureStep {} -> []
+                  SuspendStep {} -> []
+            ]
       }
 
 tell_traceGoals :: (Monad m) => [Goal a c v] -> T a c v m ()
