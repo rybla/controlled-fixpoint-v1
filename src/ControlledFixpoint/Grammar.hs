@@ -12,6 +12,7 @@
 
 module ControlledFixpoint.Grammar where
 
+import Control.Applicative ((<|>))
 import Control.Category ((>>>))
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
@@ -272,7 +273,7 @@ unExprAlias :: ExprAlias c v -> (Expr c v -> Maybe (Expr c v))
 unExprAlias (ExprAlias f) = f
 
 applyExprAlias :: [ExprAlias c v] -> Expr c v -> Maybe (Expr c v)
-applyExprAlias ds e = foldMap (maybe [] pure . (unExprAlias >>> ($ e))) ds & List.head
+applyExprAlias aliases e = foldr (\(ExprAlias f) -> (f e <|>)) Nothing aliases
 
 --------------------------------------------------------------------------------
 -- Names

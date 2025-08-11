@@ -176,5 +176,4 @@ setVarM x e = do
       Just e' -> do
         tell [Msg.mk 4 $ "[setVarM]" <+> pPrint x <+> "was already substituted, so must check: " <+> pPrint e <+> "~" <+> pPrint e']
         unifyExpr e e'
-  tell [Msg.mk 4 $ "[setVarM]" <+> pPrint x <+> ":=" <+> pPrint e']
   sigma %= setVar x e'
