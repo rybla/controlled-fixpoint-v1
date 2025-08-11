@@ -98,9 +98,27 @@ unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
   ctx <- ask
   -- before normally unifying expressions, try applying an ExprAlias
   case ctx.exprAliases `applyExprAlias` e1 of
-    Just e1' -> unifyExpr e2 e1'
+    Just e1' -> do
+      tell
+        [ (Msg.mk 3 "unfolded alias")
+            { Msg.contents =
+                [ "before :" <+> pPrint e1,
+                  "after  :" <+> pPrint e1'
+                ]
+            }
+        ]
+      unifyExpr e2 e1'
     Nothing -> case ctx.exprAliases `applyExprAlias` e2 of
-      Just e2' -> unifyExpr e1 e2'
+      Just e2' -> do
+        tell
+          [ (Msg.mk 3 "unfolded alias")
+              { Msg.contents =
+                  [ "before :" <+> pPrint e2,
+                    "after  :" <+> pPrint e2'
+                  ]
+              }
+          ]
+        unifyExpr e1 e2'
       Nothing | c1 == c2 -> do
         when ((es1 & length) /= (es2 & length)) do throwError $ ExprsError e1 e2
         let c = c1 -- = c2
