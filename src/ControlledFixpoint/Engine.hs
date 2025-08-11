@@ -218,25 +218,36 @@ decrementGas (FiniteGas n) = FiniteGas (n - 1)
 decrementGas InfiniteGas = InfiniteGas
 
 data Step a c v
-  = SuccessStep
+  = ApplyRuleStep
       { goal :: Goal a c v,
-        rule :: Rule a c v,
+        ruleName :: RuleName,
         sigma :: Subst c v,
         subgoals :: [Goal a c v]
       }
   | FailureStep
       { goal :: Goal a c v,
-        failureReason :: Doc
+        reason :: Doc
       }
   | SuspendStep
       { goal :: Goal a c v,
-        suspendReason :: Doc
+        reason :: Doc
+      }
+  | ResumeStep
+      { goal :: Goal a c v,
+        reason :: Doc
+      }
+  | SolveStep
+      { goal :: Goal a c v,
+        sigma :: Subst c v,
+        reason :: Doc
       }
 
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Step a c v) where
-  pPrint (SuccessStep {..}) = "apply" <+> hcat [pPrint rule.name, ":"] <+> pPrint goal <+> "<==" <+> pPrint subgoals <+> "with" <+> pPrint sigma
-  pPrint (FailureStep {..}) = "fail" <+> pPrint goal <+> "because" <+> failureReason
-  pPrint (SuspendStep {..}) = "suspend:" <+> pPrint goal <+> "because" <+> suspendReason
+  pPrint (ApplyRuleStep {..}) = "apply" <+> hcat [pPrint ruleName, ":"] <+> pPrint goal <+> "<==" <+> pPrint subgoals <+> "with" <+> pPrint sigma
+  pPrint (FailureStep {..}) = "fail" <+> pPrint goal <+> "because" <+> reason
+  pPrint (SuspendStep {..}) = "suspend" <+> pPrint goal <+> "because" <+> reason
+  pPrint (ResumeStep {..}) = "resume" <+> pPrint goal <+> "because" <+> reason
+  pPrint (SolveStep {..}) = "solve" <+> pPrint goal <+> "via" <+> pPrint sigma <+> "because" <+> reason
 
 --------------------------------------------------------------------------------
 -- functions
@@ -385,14 +396,14 @@ tryRules goal = do
       let step =
             FailureStep
               { goal = goal,
-                failureReason = "no rules apply to this goal"
+                reason = "no rules apply to this goal"
               }
-      tell_traceStep goal.goalIndex step
+      tell_traceStep step
 
       do
         env <- get
         tellMsgs
-          [ (Msg.mk 1 $ "failed goal because:" <+> step.failureReason)
+          [ (Msg.mk 1 $ "failed goal because:" <+> step.reason)
               { Msg.contents =
                   [ "goal =" <+> pPrint goal,
                     "env =" <+> pPrint env
@@ -555,7 +566,11 @@ tryRule goal rule = do
                         -- if the suspended goal was NOT refined by the substitution, then leave it suspended
                         return (activeGoals_resumed, suspendedGoal_old : suspendedGoals_new)
                       else do
-                        -- if the suspended goal was refined by the substitution, then resume it
+                        tell_traceStep
+                          ResumeStep
+                            { goal = suspendedGoal_curr,
+                              reason = "the suspended goal was refined by a new substitution"
+                            }
                         tellMsgs
                           [ (Msg.mk 2 "resume goal")
                               { Msg.contents = [pPrint suspendedGoal_curr]
@@ -571,9 +586,9 @@ tryRule goal rule = do
               }
 
           -- record step
-          let step = SuccessStep {goal, rule, sigma = sigma_uni, subgoals}
+          let step = ApplyRuleStep {goal, ruleName = rule.name, sigma = sigma_uni, subgoals}
           modify \env -> env {stepsRev = step : env.stepsRev}
-          tell_traceStep goal.goalIndex step
+          tell_traceStep step
 
           tellMsgs
             [ (Msg.mk 1 "successfully applied rule")
@@ -625,18 +640,20 @@ extractNextActiveGoal =
 tellMsgs :: (Monad m) => [Msg] -> T a c v m ()
 tellMsgs = lift . lift . lift . lift . lift . lift . Writer.tell
 
-tell_traceStep :: (Monad m) => GoalIndex -> Step a c v -> T a c v m ()
-tell_traceStep gi step =
+tell_traceStep :: (Monad m) => Step a c v -> T a c v m ()
+tell_traceStep step =
   lift . lift . lift . Writer.tell $
     Trace
-      { traceSteps = Map.singleton gi [step],
+      { traceSteps = Map.singleton step.goal.goalIndex [step],
         traceGoals =
           Map.fromList
             [ (g.goalIndex, g)
               | g <- case step of
-                  SuccessStep {..} -> subgoals
+                  ApplyRuleStep {..} -> subgoals
                   FailureStep {} -> []
                   SuspendStep {} -> []
+                  ResumeStep {} -> []
+                  SolveStep {} -> []
             ]
       }
 

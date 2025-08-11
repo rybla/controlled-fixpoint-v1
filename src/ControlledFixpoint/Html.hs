@@ -12,10 +12,12 @@ module ControlledFixpoint.Html where
 
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
+import Data.Function ((&))
 import Data.Functor ((<&>))
+import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.PrettyPrint (Doc, doubleQuotes, nest, text, vcat, (<+>), (<>))
-import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
+import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow, render)
 import Prelude hiding (div, (<>))
 
 el :: String -> String -> [Doc] -> Doc
@@ -51,6 +53,9 @@ renderHtml content =
 renderTrace :: forall a c v. (Pretty a, Pretty c, Pretty v) => Config a c v -> Trace a c v -> Doc
 renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalIndex
   where
+    rulesMap :: Map RuleName (Rule a c v)
+    rulesMap = cfg.rules <&> (\r -> (r.name, r)) & Map.fromList
+
     renderTraceNode :: GoalIndex -> Doc
     renderTraceNode gi =
       let g = case tr.traceGoals Map.!? gi of
@@ -72,25 +77,41 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                     ],
                   div "steps" $
                     steps <&> \case
-                      SuccessStep {..} ->
-                        div "TraceStep success" $
-                          [ div "goal" [renderGoal goal],
-                            div "rule" [renderRuleName rule.name],
-                            div "sigma" [renderSubst sigma],
-                            div "options" [renderRuleOpts rule.ruleOpts],
-                            if null subgoals
-                              then div "solved" ["solved"]
-                              else div "substeps" $ subgoals <&> renderTraceNode . goalIndex
-                          ]
+                      ApplyRuleStep {..} ->
+                        let rule = rulesMap Map.! ruleName
+                         in div "TraceStep applyRule" $
+                              [ div "label" ["apply rule"],
+                                div "goal" [renderGoal goal],
+                                div "rule" [renderRuleName ruleName],
+                                div "sigma" [renderSubst sigma],
+                                div "options" [renderRuleOpts rule.ruleOpts],
+                                if null subgoals
+                                  then div "solved" ["solved"]
+                                  else div "substeps" $ subgoals <&> renderTraceNode . goalIndex
+                              ]
                       FailureStep {..} ->
                         div "TraceStep failure" $
-                          [ div "goal" [renderGoal goal],
-                            div "reason" ["failed goal because:" <+> failureReason]
+                          [ div "label" ["failure"],
+                            div "goal" [renderGoal goal],
+                            div "reason" [escaped $ "failed goal because:" <+> reason]
                           ]
                       SuspendStep {..} ->
                         div "TraceStep suspend" $
-                          [ div "goal" [renderGoal goal],
-                            div "reason" ["suspended goal because:" <+> suspendReason]
+                          [ div "label" ["suspend"],
+                            div "goal" [renderGoal goal],
+                            div "reason" [escaped $ "suspended goal because:" <+> reason]
+                          ]
+                      ResumeStep {..} ->
+                        div "TraceStep resume" $
+                          [ div "label" ["resume"],
+                            div "goal" [renderGoal goal],
+                            div "reason" [escaped $ "suspended goal because:" <+> reason]
+                          ]
+                      SolveStep {..} ->
+                        div "TraceStep solve" $
+                          [ div "label" ["solve"],
+                            div "goal" [renderGoal goal],
+                            div "reason" [escaped $ "solved goal because:" <+> reason]
                           ]
                 ]
 
@@ -105,18 +126,51 @@ renderConfig cfg =
       div "strategy" . pure . pPrintEscaped $ cfg.strategy
     ]
 
--- renderEnv :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Env a c v -> Doc
--- renderEnv cfg env =
---   div "Env" $
---     [ div "sidebar" $
---         [ div "activeGoals" . pure . renderList . fmap renderGoal $ env.activeGoals,
---           div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
---           div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
---           div "sigma" . pure . renderSubst $ env.sigma
---         ],
---       div "main" $
---         [div "steps" . pure . renderStepsGraph cfg . reverse $ env.stepsRev]
---     ]
+renderEnv :: (Pretty a, Pretty c, Pretty v) => Env a c v -> Doc
+renderEnv env =
+  div "Env" $
+    [ div "sidebar" $
+        [ div "activeGoals" . pure . renderList . fmap renderGoal $ env.activeGoals,
+          div "suspendedGoals" . pure . renderList . fmap renderGoal $ env.suspendedGoals,
+          div "failedGoals" . pure . renderList . fmap renderGoal $ env.failedGoals,
+          div "sigma" . pure . renderSubst $ env.sigma
+        ],
+      div "main" $
+        [div "steps" . fmap renderStep . reverse $ env.stepsRev]
+    ]
+
+renderStep :: (Pretty a, Pretty c, Pretty v) => Step a c v -> Doc
+renderStep (ApplyRuleStep {..}) =
+  div "Step success" $
+    [ div "goal" [pPrintEscaped goal],
+      div "ruleName" [pPrintEscaped ruleName],
+      div "sigma" [pPrintEscaped sigma],
+      div "subgoals" $ pPrintEscaped <$> subgoals
+    ]
+renderStep (FailureStep {..}) =
+  div "Step failure" $
+    [ div "label" ["failure"],
+      div "goal" [pPrintEscaped goal],
+      div "reason" ["failed goal because:" <+> reason]
+    ]
+renderStep (SuspendStep {..}) =
+  div "Step suspend" $
+    [ div "label" ["suspend"],
+      div "goal" [pPrintEscaped goal],
+      div "reason" ["suspended goal because:" <+> reason]
+    ]
+renderStep (ResumeStep {..}) =
+  div "Step resume" $
+    [ div "label" ["resume"],
+      div "goal" [pPrintEscaped goal],
+      div "reason" ["resumed goal because:" <+> reason]
+    ]
+renderStep (SolveStep {..}) =
+  div "Step solve" $
+    [ div "label" ["solve"],
+      div "goal" [pPrintEscaped goal],
+      div "reason" ["solved goal because:" <+> reason]
+    ]
 
 renderGoal :: (Pretty v, Pretty c, Pretty a) => Goal a c v -> Doc
 renderGoal g =
@@ -196,7 +250,7 @@ renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pP
 --               div "separator" [],
 --               div "substeps" $
 --                 ss' <&> \case
---                   SuccessStep {..} ->
+--                   ApplyRuleStep {..} ->
 --                     div "Step success" $
 --                       [ div "rule" [renderRuleName rule.name],
 --                         -- we use s0.subgoals here since we want to organize
@@ -207,11 +261,11 @@ renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pP
 --                       ]
 --                   FailureStep {..} ->
 --                     div "Step failure" $
---                       [ div "message" ["failed goal because:" <+> failureReason]
+--                       [ div "message" ["failed goal because:" <+> reason]
 --                       ]
 --                   SuspendStep {..} ->
 --                     div "Step suspend" $
---                       [ div "message" ["failed goal because:" <+> suspendReason]
+--                       [ div "message" ["failed goal because:" <+> reason]
 --                       ]
 --             ]
 --    in div "StepsGraph" . fmap (go . goalIndex) $ cfg.goals
@@ -245,3 +299,6 @@ escapeHtml = concatMap escapeChar
 
 pPrintEscaped :: (Pretty a) => a -> Doc
 pPrintEscaped = text . escapeHtml . prettyShow
+
+escaped :: Doc -> Doc
+escaped = text . escapeHtml . render

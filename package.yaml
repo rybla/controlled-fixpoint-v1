@@ -41,8 +41,8 @@ dependencies:
   - newtype-generics
   - lens
   - listsafe
-  - singletons
-  - singletons-th
+  - singletons # probably can remove this
+  - singletons-th # probably can remove this
 
 ghc-options:
   - -Wall
