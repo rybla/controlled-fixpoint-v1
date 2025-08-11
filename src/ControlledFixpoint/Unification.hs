@@ -23,7 +23,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Text.PrettyPrint (hang, (<+>))
 import Text.PrettyPrint.HughesPJClass (Pretty (pPrint))
-import Utility (bullets, fixpointEqM)
+import Utility (bullets, fixpointEqM, (<&>>=), (=<<$>))
 
 --------------------------------------------------------------------------------
 -- Types
@@ -85,16 +85,32 @@ unifyAtom a1@(Atom c1 es1) a2@(Atom c2 es2) = do
   when ((es1 & length) /= (es2 & length)) do throwError $ AtomsError a1 a2
   let n = c1
   es <- zipWithM unifyExpr es1 es2
-  pure $ Atom n es
+  -- TODO: is this really necessary? seems like it might be...
+  es' <- normExpr =<<$> es
+  pure $ Atom n es'
 
 unifyExpr :: (Monad m, Ord v, Eq c, Pretty v, Pretty c) => Expr c v -> Expr c v -> T a c v m (Expr c v)
-unifyExpr (VarExpr x1) e2 = do
+unifyExpr e1 e2 = do
+  e1' <- normExpr e1
+  e2' <- normExpr e2
+  tell
+    [ (Msg.mk 5 "unifyExpr")
+        { Msg.contents =
+            [ "e1 =" <+> pPrint e1',
+              "e2 =" <+> pPrint e2'
+            ]
+        }
+    ]
+  unifyExpr' e1' e2'
+
+unifyExpr' :: (Monad m, Ord v, Eq c, Pretty v, Pretty c) => Expr c v -> Expr c v -> T a c v m (Expr c v)
+unifyExpr' (VarExpr x1) e2 = do
   setVarM x1 e2
-  normExpr e2
-unifyExpr e1 (VarExpr x2) = do
+  return e2
+unifyExpr' e1 (VarExpr x2) = do
   setVarM x2 e1
-  normExpr e1
-unifyExpr e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
+  return e1
+unifyExpr' e1@(ConExpr (Con c1 es1)) e2@(ConExpr (Con c2 es2)) = do
   ctx <- ask
   -- before normally unifying expressions, try applying an ExprAlias
   case ctx.exprAliases `applyExprAlias` e1 of

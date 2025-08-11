@@ -15,6 +15,7 @@
 
 module ControlledFixpoint.Engine where
 
+import Control.Applicative ((<|>))
 import Control.Lens ((^.))
 import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -348,7 +349,7 @@ loop = do
               }
           ]
 
-      goal' <- normGoal goal
+      goal' <- normAliasesInGoal goal
       if ctx.config.shouldSuspend goal'
         then do
           tellMsgs
@@ -665,19 +666,28 @@ tell_traceGoals goals =
         traceGoals = Map.fromList [(g.goalIndex, g) | g <- goals]
       }
 
-normGoal :: (Monad m) => Goal a c v -> T a c v m (Goal a c v)
-normGoal goal = do
-  atom <- normAtom goal.atom
+normAliasesInGoal :: (Monad m) => Goal a c v -> T a c v m (Goal a c v)
+normAliasesInGoal goal = do
+  atom <- normAliasesInAtom goal.atom
   return goal {atom}
 
-normAtom :: (Monad m) => Atom a c v -> T a c v m (Atom a c v)
-normAtom (Atom a es) = Atom a <$> traverse normExpr es
+normAliasesInAtom :: (Monad m) => Atom a c v -> T a c v m (Atom a c v)
+normAliasesInAtom (Atom a es) = Atom a <$> traverse normAliasesInExpr es
 
-normExpr :: (Monad m) => Expr c v -> T a c v m (Expr c v)
-normExpr e = do
+normAliasesInExpr :: forall a c v m. (Monad m) => Expr c v -> T a c v m (Expr c v)
+normAliasesInExpr e0 = do
   ctx <- ask
-  case ctx.config.exprAliases `applyExprAlias` e of
-    Just e' -> normExpr e'
-    Nothing -> case e of
-      VarExpr x -> return $ VarExpr x
-      ConExpr (Con c es) -> ConExpr . Con c <$> (normExpr `traverse` es)
+  let -- unfolds an alias in the left-most position, if any
+      go :: Expr c v -> Maybe (Expr c v)
+      go e = do
+        case ctx.config.exprAliases `applyExprAlias` e of
+          Just e' -> Just e'
+          Nothing -> case e of
+            VarExpr _ -> Nothing
+            ConExpr (Con c esOrignal) -> ConExpr . Con c <$> go' [] esOrignal
+              where
+                go' _ [] = Nothing
+                go' es_before (e_i : es_after) = (mappend es_before <$> ((:) <$> go e_i <*> return es_after)) <|> go' (es_before <> [e_i]) es_after
+  case go e0 of
+    Nothing -> return e0
+    Just e' -> normAliasesInExpr e'

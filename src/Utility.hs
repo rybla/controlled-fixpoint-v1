@@ -29,6 +29,11 @@ type a ~> b = forall x. a x -> b x
 
 infixr 2 $
 
+(<$$>) :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
+(<$$>) f = fmap (fmap f)
+
+infixl 4 <$$>
+
 (=<<$>) :: (Applicative f, Traversable t) => (a -> f b) -> t a -> f (t b)
 (=<<$>) = traverse
 
