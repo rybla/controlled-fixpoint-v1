@@ -149,7 +149,7 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                         div "TraceStep resume" $
                           [ div "label" ["resume"],
                             div "goal" [renderGoal goal],
-                            div "reason" [escaped $ "suspended goal because:" <+> reason]
+                            div "reason" [escaped $ "resumed goal because:" <+> reason]
                           ]
                       SolveStep {..} ->
                         div "TraceStep solve" $
