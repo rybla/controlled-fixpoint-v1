@@ -55,6 +55,7 @@ renderHtml content =
       "</html>"
     ]
 
+-- TODO: properly account for status of goals that are suspended and never solved (but are not in failed goals either)
 renderTrace :: forall a c v. (Pretty a, Pretty c, Pretty v) => Config a c v -> Trace a c v -> Doc
 renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalIndex
   where
