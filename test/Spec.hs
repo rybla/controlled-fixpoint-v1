@@ -9,12 +9,13 @@ import qualified Spec.Engine.CutRule
 import qualified Spec.Engine.ExprAlias
 import qualified Spec.Engine.Library.AugmentDerivation
 import qualified Spec.Engine.Library.AugmentGoalTrace
+import qualified Spec.Engine.NoFreshenRule
 import qualified Spec.Engine.Proof
 import qualified Spec.Engine.PruneAtRequiredGoalFailure
+import qualified Spec.Engine.RuleSpecificSuspend
 import qualified Spec.Engine.SolutionsCount
 import qualified Spec.Engine.Subtyping
 import qualified Spec.Engine.SuspendAndResume
-import qualified Spec.Engine.RuleSpecificSuspend
 import qualified Spec.Unification
 import System.Environment (setEnv)
 import Test.Tasty (TestTree, defaultMain, testGroup)
@@ -40,5 +41,6 @@ tests =
       Spec.Engine.ExprAlias.tests,
       Spec.Engine.PruneAtRequiredGoalFailure.tests,
       Spec.Engine.CutRule.tests,
+      Spec.Engine.NoFreshenRule.tests,
       Spec.Engine.RuleSpecificSuspend.tests
     ]

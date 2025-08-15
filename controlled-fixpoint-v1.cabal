@@ -114,6 +114,7 @@ test-suite controlled-fixpoint-v1-test
       Spec.Engine.Library.AugmentDerivation
       Spec.Engine.Library.AugmentGoalTrace
       Spec.Engine.Library.Common
+      Spec.Engine.NoFreshenRule
       Spec.Engine.Proof
       Spec.Engine.PruneAtRequiredGoalFailure
       Spec.Engine.RuleSpecificSuspend

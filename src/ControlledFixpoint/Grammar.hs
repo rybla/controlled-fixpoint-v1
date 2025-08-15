@@ -66,7 +66,8 @@ mkRule name hyps conc =
 
 data RuleOpts a c v = RuleOpts
   { cutRuleOpt :: Bool,
-    suspendRuleOpt :: Maybe (Goal a c v -> Bool)
+    suspendRuleOpt :: Maybe (Goal a c v -> Bool),
+    noFreshenRuleOpt :: Bool
   }
 
 instance Pretty (RuleOpts a c v) where
@@ -80,7 +81,8 @@ defaultRuleOpts :: RuleOpts a c v
 defaultRuleOpts =
   RuleOpts
     { cutRuleOpt = False,
-      suspendRuleOpt = Nothing
+      suspendRuleOpt = Nothing,
+      noFreshenRuleOpt = False
     }
 
 -- | Hypothesis.
@@ -314,6 +316,15 @@ setVar x e =
   over Subst $
     fmap (substExpr (Subst (Map.singleton x e)))
       . Map.insert x e
+
+substRule :: (Ord v) => Subst c v -> Rule a c v -> Rule a c v
+substRule sigma rule =
+  Rule
+    { name = rule.name,
+      hyps = rule.hyps <&> substHyp sigma,
+      conc = rule.conc & substAtom sigma,
+      ruleOpts = rule.ruleOpts
+    }
 
 substHyp :: (Ord v) => Subst c v -> Hyp a c v -> Hyp a c v
 substHyp sigma (GoalHyp g) = GoalHyp (substGoal sigma g)
