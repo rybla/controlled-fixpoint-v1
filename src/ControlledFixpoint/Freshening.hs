@@ -29,7 +29,7 @@ freshenRule rule = do
 freshenHyp :: (Ord v) => Hyp a c v -> M c v (Hyp a c v)
 freshenHyp (GoalHyp goal) = GoalHyp <$> freshenGoal goal
 
--- | Only freshens the goal's `freshIndex`.
+-- | Only freshens the goal's `indexVar`.
 freshenGoalIndex :: Goal a c v -> M c v (Goal a c v)
 freshenGoalIndex goal = do
   goalIndex' <- do
@@ -52,16 +52,18 @@ freshenExpr (VarExpr x) = freshenVar x
 freshenExpr (ConExpr (Con c es)) = ConExpr . Con c <$> (es <&>>= freshenExpr)
 
 freshenVar :: (Ord v) => Var v -> M c v (Expr c v)
-freshenVar x@(Var s _) = do
+freshenVar x = do
   env <- get
-  case x & substVar env.sigma of
-    Just x' -> return x'
-    Nothing -> do
-      let freshCounter_vars' = env.freshCounter_vars + 1
-          x' = VarExpr (Var s (Just env.freshCounter_vars))
-      put
-        env
-          { sigma = env.sigma & setVar x x',
-            freshCounter_vars = freshCounter_vars'
-          }
-      return x'
+  if x.noFreshenVar
+    then return $ VarExpr x
+    else case x & substVar env.sigma of
+      Just x' -> return x'
+      Nothing -> do
+        let freshCounter_vars' = env.freshCounter_vars + 1
+            x' = VarExpr x {indexVar = Just env.freshCounter_vars}
+        put
+          env
+            { sigma = env.sigma & setVar x x',
+              freshCounter_vars = freshCounter_vars'
+            }
+        return x'

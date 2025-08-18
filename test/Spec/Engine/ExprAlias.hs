@@ -35,7 +35,7 @@ ex1_tests =
               ]
           }
         ( EngineSuccessWithSubst . Subst . Map.fromList $
-            [ (Var "x" (Just 0), Swap (Tuple A B))
+            [ ("x", Swap (Tuple A B))
             ]
         ),
       mkTest_Engine
@@ -49,8 +49,8 @@ ex1_tests =
               ]
           }
         ( EngineSuccessWithSubst . Subst . Map.fromList $
-            [ (Var "x" (Just 0), B),
-              (Var "y" (Just 1), A)
+            [ ("x", B),
+              ("y", A)
             ]
         )
     ]

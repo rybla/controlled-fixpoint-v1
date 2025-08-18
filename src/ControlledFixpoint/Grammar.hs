@@ -191,14 +191,28 @@ instance (IsString v) => IsString (Expr c v) where fromString x = VarExpr (fromS
 --------------------------------------------------------------------------------
 
 -- | Meta-variable that can be substituted with an expression
-data Var v = Var {label :: v, freshIndex :: Maybe Int}
+data Var v = Var
+  { labelVar :: v,
+    indexVar :: Maybe Int,
+    noFreshenVar :: Bool
+  }
   deriving (Show, Eq, Ord)
 
-instance (IsString v) => IsString (Var v) where fromString s = Var (fromString s) Nothing
+instance (IsString v) => IsString (Var v) where
+  fromString s =
+    Var
+      { labelVar = fromString s,
+        indexVar = Nothing,
+        noFreshenVar = False
+      }
 
 instance (Pretty v) => Pretty (Var v) where
-  pPrint (Var x Nothing) = pPrint x
-  pPrint (Var x (Just i)) = pPrint x <> text (i & subscriptNumber)
+  pPrint x =
+    hcat
+      [ pPrint x.labelVar,
+        x.indexVar & maybe mempty (text . subscriptNumber),
+        if x.noFreshenVar then "{noFreshen}" else mempty
+      ]
 
 mkVarExpr :: Var v -> Expr c v
 mkVarExpr = VarExpr

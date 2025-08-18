@@ -49,7 +49,7 @@ tests =
                   mkRule
                     "R2"
                     []
-                    (Atom "Q" ["x"])
+                    (Atom "Q" [VarExpr ("x" {noFreshenVar = True})])
                 ],
               goals = [Atom "P" [1 :% []] & mkGoal 0]
             }

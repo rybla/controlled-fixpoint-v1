@@ -95,5 +95,5 @@ displayExpr (ConExpr (Con "int" [])) = "int"
 displayExpr (ConExpr (Con "nat" [])) = "nat"
 displayExpr (ConExpr (Con "bool" [])) = "bool"
 displayExpr (ConExpr (Con "arr" [a, b])) = displayExpr a <> " → " <> displayExpr b
-displayExpr (VarExpr (Var x _)) = x
+displayExpr (VarExpr x@(Var {})) = x.labelVar
 displayExpr e = prettyShow e

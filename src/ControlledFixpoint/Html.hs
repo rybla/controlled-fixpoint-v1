@@ -22,7 +22,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Text.PrettyPrint.HughesPJClass (Doc, Pretty, brackets, doubleQuotes, hcat, nest, prettyShow, render, text, vcat, (<+>), (<>))
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty, brackets, doubleQuotes, hcat, hsep, nest, prettyShow, render, text, vcat, (<+>), (<>))
 import Prelude hiding (div, (<>))
 
 el :: String -> String -> [Doc] -> Doc
@@ -243,8 +243,14 @@ renderExpr (ConExpr (Con c es)) = div "Con" (div "ConName" [pPrintEscaped c] : f
 renderExpr (VarExpr v) = renderVar v
 
 renderVar :: (Pretty v) => Var v -> Doc
-renderVar (Var v Nothing) = div "Var" [pPrintEscaped v]
-renderVar (Var v (Just i)) = div "Var" [pPrintEscaped v, div "VarFreshIndex" [pPrintEscaped i]]
+renderVar x =
+  div "Var" $
+    [ hsep
+        [ pPrintEscaped x.labelVar,
+          x.indexVar & maybe mempty \i -> div "VarIndex" [pPrintEscaped i],
+          if x.noFreshenVar then div "VarOpt" [escaped "noFreshen"] else mempty
+        ]
+    ]
 
 -- TODO: remove this cuz it's old
 -- renderStepsGraph :: forall a c v. (Pretty v, Pretty c, Pretty a) => Config a c v -> [Step a c v] -> Doc

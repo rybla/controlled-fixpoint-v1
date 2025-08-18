@@ -368,8 +368,10 @@ tryRules goal = do
 
   rules <-
     ctx.config.rules
-      -- freshen rules
+      -- freshen each rule
       <&>>= (runFreshening . Freshening.freshenRule)
+      -- apply current substitution to each rule (to update any variables with "noFreshen")
+      >>= traverse (\rule -> gets \env -> substRule env.sigma rule)
       -- apply constrained ruleset option if present
       <&> ( case goal.goalOpts.constrainedRulesetGoalOpt of
               Nothing -> id

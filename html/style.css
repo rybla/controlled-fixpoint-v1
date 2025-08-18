@@ -22,7 +22,7 @@
       for their respective blocks, with a distinct background and padding.
   6.  Atoms & Data (`Atom`, `Subst`, `SubstItem`): These rules format the data-heavy
       parts of the trace, ensuring alignment and readability.
-  7.  Tags & Indexes (`GoalIndex`, `VarFreshIndex`, `GoalOpt`): These smaller elements
+  7.  Tags & Indexes (`GoalIndex`, `VarIndex`, `GoalOpt`): These smaller elements
       are styled to look like tags or labels, with unique backgrounds and padding
       to differentiate them from the main content.
 */
@@ -198,7 +198,7 @@ body {
   box-shadow: 4px 4px 0px #e6e68a;
 }
 
-.VarFreshIndex {
+.VarIndex {
   font-size: 0.8em;
   margin-left: 4px;
   background-color: #ffffff;
