@@ -50,7 +50,6 @@ tests =
                     "R2"
                     []
                     (Atom "Q" ["x"])
-                    & \rule -> rule {ruleOpts = rule.ruleOpts {noFreshenRuleOpt = True}}
                 ],
               goals = [Atom "P" [1 :% []] & mkGoal 0]
             }

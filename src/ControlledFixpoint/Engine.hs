@@ -369,13 +369,7 @@ tryRules goal = do
   rules <-
     ctx.config.rules
       -- freshen rules
-      <&>>= ( \rule ->
-                if rule.ruleOpts.noFreshenRuleOpt
-                  then do
-                    env <- get
-                    return . substRule env.sigma $ rule
-                  else runFreshening . Freshening.freshenRule $ rule
-            )
+      <&>>= (runFreshening . Freshening.freshenRule)
       -- apply constrained ruleset option if present
       <&> ( case goal.goalOpts.constrainedRulesetGoalOpt of
               Nothing -> id

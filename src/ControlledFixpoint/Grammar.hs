@@ -66,8 +66,7 @@ mkRule name hyps conc =
 
 data RuleOpts a c v = RuleOpts
   { cutRuleOpt :: Bool,
-    suspendRuleOpt :: Maybe (Goal a c v -> Bool),
-    noFreshenRuleOpt :: Bool
+    suspendRuleOpt :: Maybe (Goal a c v -> Bool)
   }
 
 instance Pretty (RuleOpts a c v) where
@@ -81,8 +80,7 @@ defaultRuleOpts :: RuleOpts a c v
 defaultRuleOpts =
   RuleOpts
     { cutRuleOpt = False,
-      suspendRuleOpt = Nothing,
-      noFreshenRuleOpt = False
+      suspendRuleOpt = Nothing
     }
 
 -- | Hypothesis.
