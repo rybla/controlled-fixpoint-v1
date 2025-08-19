@@ -6,18 +6,22 @@ module ControlledFixpoint.Freshening where
 import Control.Monad.State (MonadState (..), State, modify)
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Utility
 
 data Env c v = Env
   { sigma :: Subst c v,
     freshCounter_vars :: Int,
-    freshCounter_goals :: Int
+    freshCounter_goals :: Int,
+    varsToNotFreshen :: Set v
   }
 
 type M c v = State (Env c v)
 
 freshenRule :: (Ord v) => Rule a c v -> M c v (Rule a c v)
 freshenRule rule = do
+  modify \env -> env {varsToNotFreshen = rule.ruleOpts.varsToNotFreshenRuleOpt <> env.varsToNotFreshen}
   hyps' <- rule.hyps <&>>= freshenHyp
   conc' <- rule.conc & freshenAtom
   return
@@ -54,7 +58,7 @@ freshenExpr (ConExpr (Con c es)) = ConExpr . Con c <$> (es <&>>= freshenExpr)
 freshenVar :: (Ord v) => Var v -> M c v (Expr c v)
 freshenVar x = do
   env <- get
-  if x.noFreshenVar
+  if x.labelVar `Set.member` env.varsToNotFreshen
     then return $ VarExpr x
     else case x & substVar env.sigma of
       Just x' -> return x'

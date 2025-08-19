@@ -64,17 +64,27 @@ mkRule name hyps conc =
       ruleOpts = defaultRuleOpts
     }
 
+mkRule' :: RuleName -> [Hyp a c v] -> Atom a c v -> (RuleOpts a c v -> RuleOpts a c v) -> Rule a c v
+mkRule' name hyps conc f_ruleOpts =
+  Rule
+    { name,
+      hyps,
+      conc,
+      ruleOpts = f_ruleOpts defaultRuleOpts
+    }
+
 data RuleOpts a c v = RuleOpts
   { cutRuleOpt :: Bool,
     suspendRuleOpt :: Maybe (Goal a c v -> Bool),
-    varsToNotFreshenRuleOpt :: [v]
+    varsToNotFreshenRuleOpt :: Set v
   }
 
-instance Pretty (RuleOpts a c v) where
+instance (Pretty v) => Pretty (RuleOpts a c v) where
   pPrint ruleOpts =
     braces . commas . concat $
       [ ["cut" | ruleOpts.cutRuleOpt],
-        ["suspend" | isJust ruleOpts.suspendRuleOpt]
+        ["suspend" | isJust ruleOpts.suspendRuleOpt],
+        ["varsToNotFreshen" <> parens (hsep . punctuate "," . fmap pPrint . Set.toList $ ruleOpts.varsToNotFreshenRuleOpt) | not (Set.null ruleOpts.varsToNotFreshenRuleOpt)]
       ]
 
 defaultRuleOpts :: RuleOpts a c v
@@ -82,7 +92,7 @@ defaultRuleOpts =
   RuleOpts
     { cutRuleOpt = False,
       suspendRuleOpt = Nothing,
-      varsToNotFreshenRuleOpt = []
+      varsToNotFreshenRuleOpt = Set.empty
     }
 
 -- | Hypothesis.
@@ -195,8 +205,7 @@ instance (IsString v) => IsString (Expr c v) where fromString x = VarExpr (fromS
 -- | Meta-variable that can be substituted with an expression
 data Var v = Var
   { labelVar :: v,
-    indexVar :: Maybe Int,
-    noFreshenVar :: Bool
+    indexVar :: Maybe Int
   }
   deriving (Show, Eq, Ord)
 
@@ -204,16 +213,14 @@ instance (IsString v) => IsString (Var v) where
   fromString s =
     Var
       { labelVar = fromString s,
-        indexVar = Nothing,
-        noFreshenVar = False
+        indexVar = Nothing
       }
 
 instance (Pretty v) => Pretty (Var v) where
   pPrint x =
     hcat
       [ pPrint x.labelVar,
-        x.indexVar & maybe mempty (text . subscriptNumber),
-        if x.noFreshenVar then "{noFreshen}" else mempty
+        x.indexVar & maybe mempty (text . subscriptNumber)
       ]
 
 mkVarExpr :: Var v -> Expr c v

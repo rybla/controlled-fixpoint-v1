@@ -159,7 +159,7 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                           ]
                 ]
 
-renderRuleOpts :: RuleOpts a c v -> Doc
+renderRuleOpts :: (Pretty v) => RuleOpts a c v -> Doc
 renderRuleOpts = div "RuleOpts" . pure . pPrintEscaped
 
 renderConfig :: (Pretty a, Pretty c, Pretty v) => Config a c v -> Doc
@@ -247,8 +247,7 @@ renderVar x =
   div "Var" $
     [ hsep
         [ pPrintEscaped x.labelVar,
-          x.indexVar & maybe mempty \i -> div "VarIndex" [pPrintEscaped i],
-          if x.noFreshenVar then div "VarOpt" [escaped "noFreshen"] else mempty
+          x.indexVar & maybe mempty \i -> div "VarIndex" [pPrintEscaped i]
         ]
     ]
 

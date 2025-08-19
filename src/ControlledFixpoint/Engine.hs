@@ -370,7 +370,7 @@ tryRules goal = do
     ctx.config.rules
       -- freshen each rule
       <&>>= (runFreshening . Freshening.freshenRule)
-      -- apply current substitution to each rule (to update any variables with "noFreshen")
+      -- apply current substitution to each rule (to update any variables that were not freshened)
       >>= traverse (\rule -> gets \env -> substRule env.sigma rule)
       -- apply constrained ruleset option if present
       <&> ( case goal.goalOpts.constrainedRulesetGoalOpt of
@@ -610,7 +610,8 @@ runFreshening m = do
       Freshening.Env
         { sigma = emptySubst,
           freshCounter_vars = env.freshCounter_vars,
-          freshCounter_goals = env.freshCounter_goals
+          freshCounter_goals = env.freshCounter_goals,
+          varsToNotFreshen = Set.empty
         }
   let (x, env_freshening') = m `runState` env_freshening
   modify \env ->

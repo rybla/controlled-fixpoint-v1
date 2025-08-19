@@ -1,11 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Redundant bracket" #-}
 
 module Spec.Engine.NoFreshenRule (tests) where
 
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
 import Data.Function ((&))
+import qualified Data.Set as Set
 import Spec.Engine.Common
 import Test.Tasty (TestTree, testGroup)
 
@@ -13,8 +17,7 @@ tests :: TestTree
 tests =
   testGroup
     "NoFreshenRule"
-    [ mkTest_Engine
-        "yesFreshen"
+    [ (mkTest_Engine "yesFreshen")
         ( (defaultConfig @String @Int @String)
             { initialGas = FiniteGas 50,
               rules =
@@ -33,8 +36,7 @@ tests =
             }
         )
         EngineSuccess,
-      mkTest_Engine
-        "noFreshen"
+      (mkTest_Engine "noFreshen")
         ( (defaultConfig @String @Int @String)
             { initialGas = FiniteGas 50,
               rules =
@@ -46,10 +48,11 @@ tests =
                     ]
                     (Atom "P" ["x"]),
                   -- R2 will be able to solve Q(1) since x := 1, but can't solve Q(0), and so engine will fail
-                  mkRule
+                  mkRule'
                     "R2"
                     []
-                    (Atom "Q" [VarExpr ("x" {noFreshenVar = True})])
+                    (Atom "Q" ["x"])
+                    (\opts -> opts {varsToNotFreshenRuleOpt = Set.fromList ["x"]})
                 ],
               goals = [Atom "P" [1 :% []] & mkGoal 0]
             }
