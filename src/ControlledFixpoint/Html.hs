@@ -108,8 +108,8 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
        in case tr.traceSteps Map.!? gi of
             Nothing ->
               div "TraceNode" $
-                [ div "status failed" . concat $
-                    [ [div "message" ["failed"]],
+                [ div "status abandoned" . concat $
+                    [ [div "message" ["abandoned"]],
                       g
                     ]
                 ]
