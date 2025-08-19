@@ -362,7 +362,7 @@ loop = do
 
       loop
 
-tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> T a c v m ()
+tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c, Show v, Show c, Show a) => Goal a c v -> T a c v m ()
 tryRules goal = do
   ctx <- ask
 
@@ -439,7 +439,7 @@ tryRules goal = do
         True -> fromBranches (branches <&> \(_, env) -> ((), env))
 
 -- | Returns a `Bool` indicating whether or not applying the rule was successful.
-tryRule :: forall m a c v. (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c) => Goal a c v -> Rule a c v -> T a c v m Bool
+tryRule :: forall m a c v. (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c, Show a, Show c, Show v) => Goal a c v -> Rule a c v -> T a c v m Bool
 tryRule goal rule = do
   ctx <- ask
   tellMsgs
@@ -479,6 +479,7 @@ tryRule goal rule = do
             { Msg.contents =
                 [ "rule =" <+> pPrint rule.name,
                   "err =" <+> pPrint err,
+                  "show err =" <+> text (show err),
                   "sigma_uni =" <+> pPrint sigma_uni,
                   "goal =" <+> pPrint goal
                 ]
