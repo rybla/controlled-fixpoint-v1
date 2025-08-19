@@ -105,6 +105,43 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                   else
                     div "note impossible" ["impossible"]
               ]
+          renderStep' = \case
+            ApplyRuleStep {..} ->
+              let rule = rulesMap Map.! ruleName
+               in div "TraceStep applyRule" $
+                    [ div "label" ["apply rule"],
+                      div "goal" [renderGoal goal],
+                      div "rule" [renderRuleName ruleName],
+                      div "sigma" [renderSubst sigma],
+                      div "options" [renderRuleOpts rule.ruleOpts],
+                      if null subgoals
+                        then div "solved" ["solved"]
+                        else div "substeps" $ subgoals <&> renderTraceNode . goalIndex
+                    ]
+            FailureStep {..} ->
+              div "TraceStep failure" $
+                [ div "label" ["failure"],
+                  div "goal" [renderGoal goal],
+                  div "reason" [escaped $ "failed goal because:" <+> reason]
+                ]
+            SuspendStep {..} ->
+              div "TraceStep suspend" $
+                [ div "label" ["suspend"],
+                  div "goal" [renderGoal goal],
+                  div "reason" [escaped $ "suspended goal because:" <+> reason]
+                ]
+            ResumeStep {..} ->
+              div "TraceStep resume" $
+                [ div "label" ["resume"],
+                  div "goal" [renderGoal goal],
+                  div "reason" [escaped $ "resumed goal because:" <+> reason]
+                ]
+            SolveStep {..} ->
+              div "TraceStep solve" $
+                [ div "label" ["solve"],
+                  div "goal" [renderGoal goal],
+                  div "reason" [escaped $ "solved goal because:" <+> reason]
+                ]
        in case tr.traceSteps Map.!? gi of
             Nothing ->
               div "TraceNode" $
@@ -113,50 +150,27 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
                       g
                     ]
                 ]
+            -- even if you have some child steps, if they are all just
+            -- suspending and resuming, then we still consider you abandoned
+            Just steps
+              | steps & all \case
+                  SuspendStep {} -> True
+                  ResumeStep {} -> True
+                  _ -> False ->
+                  div "TraceNode" $
+                    [ div "status abandoned" . concat $
+                        [ [div "message" ["abandoned"]],
+                          g
+                        ],
+                      div "steps" $ steps <&> renderStep'
+                    ]
             Just steps ->
               div "TraceNode" $
                 [ div "status processing" . concat $
                     [ [div "message" ["processing"]],
                       g
                     ],
-                  div "steps" $
-                    steps <&> \case
-                      ApplyRuleStep {..} ->
-                        let rule = rulesMap Map.! ruleName
-                         in div "TraceStep applyRule" $
-                              [ div "label" ["apply rule"],
-                                div "goal" [renderGoal goal],
-                                div "rule" [renderRuleName ruleName],
-                                div "sigma" [renderSubst sigma],
-                                div "options" [renderRuleOpts rule.ruleOpts],
-                                if null subgoals
-                                  then div "solved" ["solved"]
-                                  else div "substeps" $ subgoals <&> renderTraceNode . goalIndex
-                              ]
-                      FailureStep {..} ->
-                        div "TraceStep failure" $
-                          [ div "label" ["failure"],
-                            div "goal" [renderGoal goal],
-                            div "reason" [escaped $ "failed goal because:" <+> reason]
-                          ]
-                      SuspendStep {..} ->
-                        div "TraceStep suspend" $
-                          [ div "label" ["suspend"],
-                            div "goal" [renderGoal goal],
-                            div "reason" [escaped $ "suspended goal because:" <+> reason]
-                          ]
-                      ResumeStep {..} ->
-                        div "TraceStep resume" $
-                          [ div "label" ["resume"],
-                            div "goal" [renderGoal goal],
-                            div "reason" [escaped $ "resumed goal because:" <+> reason]
-                          ]
-                      SolveStep {..} ->
-                        div "TraceStep solve" $
-                          [ div "label" ["solve"],
-                            div "goal" [renderGoal goal],
-                            div "reason" [escaped $ "solved goal because:" <+> reason]
-                          ]
+                  div "steps" $ steps <&> renderStep'
                 ]
 
 renderRuleOpts :: (Pretty v) => RuleOpts a c v -> Doc
