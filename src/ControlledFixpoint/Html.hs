@@ -41,13 +41,13 @@ renderList = div "List" . fmap (div "ListItem" . pure)
 
 --------------------------------------------------------------------------------
 
-renderHtml :: Doc -> Doc
-renderHtml content =
+renderHtml :: String -> Doc -> Doc
+renderHtml style_href content =
   vcat
     [ "<!DOCTYPE html>",
       "<html lang=\"en\">",
       "<head>",
-      "  <link rel=\"stylesheet\" href=\"style.css\">",
+      "  <link rel=\"stylesheet\" href=" <> doubleQuotes (text style_href) <> ">",
       "</head>",
       "<body>",
       content,
@@ -61,6 +61,8 @@ renderTrace cfg tr = div "Trace" $ cfg.goals <&> \g -> renderTraceNode g.goalInd
   where
     rulesMap :: Map RuleName (Rule a c v)
     rulesMap = cfg.rules <&> (\r -> (r.name, r)) & Map.fromList
+
+    -- TODO: if i want to consider "possible", "abandoned", and "impossible" goals, then i need to keep track of 3 sets
 
     possibleGoalIndices =
       tr.traceGoals

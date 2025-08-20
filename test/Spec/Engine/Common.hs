@@ -97,7 +97,7 @@ mkTest_Engine_visualization testName fileName cfg = goldenVsString testName ("ht
         Left _err -> "<div>catastrophic error</div>"
         Right (_, tr) -> renderTrace cfg tr
 
-  return . fromString . render . renderHtml $ content
+  return . fromString . render . renderHtml "style.css" $ content
 
 mkTest_Engine :: forall a c v. (Pretty a, Eq a, Show a, Pretty c, Pretty v, Ord v, Eq c, Show c, Show v) => TestName -> Engine.Config a c v -> EngineResult c v -> TestTree
 mkTest_Engine testName cfg result_expected = testCase (render (text testName <+> brackets (pPrint result_expected))) do
