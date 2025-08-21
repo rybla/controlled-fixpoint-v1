@@ -15,6 +15,7 @@ module ControlledFixpoint.Grammar where
 import Control.Applicative ((<|>))
 import Control.Monad (unless)
 import Control.Monad.Error.Class (MonadError (throwError))
+import Control.Monad.Writer (MonadWriter, tell)
 import Control.Newtype.Generics (Newtype, over)
 import ControlledFixpoint.Common.Msg (Msg)
 import qualified ControlledFixpoint.Common.Msg as Msg
@@ -296,6 +297,46 @@ unExprAlias (ExprAlias f) = f
 
 applyExprAlias :: [ExprAlias c v] -> Expr c v -> Maybe (Expr c v)
 applyExprAlias aliases e = foldr (\(ExprAlias f) -> (f e <|>)) Nothing aliases
+
+normAliasesInGoal :: (MonadWriter [Msg] m) => [ExprAlias c v] -> Goal a c v -> m (Goal a c v)
+normAliasesInGoal exprAliases goal = do
+  atom <- normAliasesInAtom exprAliases goal.atom
+  return goal {atom}
+
+normAliasesInAtom :: (MonadWriter [Msg] m) => [ExprAlias c v] -> Atom a c v -> m (Atom a c v)
+normAliasesInAtom exprAliases (Atom a es) = Atom a <$> traverse (normAliasesInExpr exprAliases) es
+
+normAliasesInExpr :: forall c v m. (MonadWriter [Msg] m) => [ExprAlias c v] -> Expr c v -> m (Expr c v)
+normAliasesInExpr exprAliases e0 = do
+  let -- unfolds an alias in the left-most position, if any
+      go :: Expr c v -> Maybe (Expr c v)
+      go e = do
+        case exprAliases `applyExprAlias` e of
+          Just e' -> Just e'
+          Nothing -> case e of
+            VarExpr _ -> Nothing
+            ConExpr (Con c esOrignal) -> ConExpr . Con c <$> go' [] esOrignal
+              where
+                go' _ [] = Nothing
+                go' es_before (e_i : es_after) = (mappend es_before <$> ((:) <$> go e_i <*> return es_after)) <|> go' (es_before <> [e_i]) es_after
+  case go e0 of
+    Nothing -> return e0
+    Just e' -> normAliasesInExpr exprAliases e'
+
+normHeadAliasesInExpr :: forall c v m. (MonadWriter [Msg] m, Pretty c, Pretty v) => [ExprAlias c v] -> Expr c v -> m (Expr c v)
+normHeadAliasesInExpr exprAliases e = do
+  case exprAliases `applyExprAlias` e of
+    Nothing -> return e
+    Just e' -> do
+      tell
+        [ (Msg.mk 3 "unfolded alias")
+            { Msg.contents =
+                [ "before :" <+> pPrint e,
+                  "after  :" <+> pPrint e'
+                ]
+            }
+        ]
+      normHeadAliasesInExpr exprAliases e'
 
 --------------------------------------------------------------------------------
 -- Names
