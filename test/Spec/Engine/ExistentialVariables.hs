@@ -4,7 +4,7 @@
 
 {-# HLINT ignore "Redundant bracket" #-}
 
-module Spec.Engine.NoFreshenRule (tests) where
+module Spec.Engine.ExistentialVariables (tests) where
 
 import ControlledFixpoint.Engine
 import ControlledFixpoint.Grammar
@@ -16,8 +16,8 @@ import Test.Tasty (TestTree, testGroup)
 tests :: TestTree
 tests =
   testGroup
-    "NoFreshenRule"
-    [ (mkTest_Engine "yesFreshen")
+    "ExistentialVariables"
+    [ (mkTest_Engine "example-1")
         ( (defaultConfig @String @Int @String)
             { initialGas = FiniteGas 50,
               rules =
@@ -36,7 +36,7 @@ tests =
             }
         )
         EngineSuccess,
-      (mkTest_Engine "noFreshen")
+      (mkTest_Engine "counter-1")
         ( (defaultConfig @String @Int @String)
             { initialGas = FiniteGas 50,
               rules =
@@ -52,7 +52,7 @@ tests =
                     "R2"
                     []
                     (Atom "Q" ["x"])
-                    (\opts -> opts {varsToNotFreshenRuleOpt = Set.fromList ["x"]})
+                    (\opts -> opts {existentialVarsRuleOpt = Set.fromList ["x"]})
                 ],
               goals = [Atom "P" [1 :% []] & mkGoal 0]
             }

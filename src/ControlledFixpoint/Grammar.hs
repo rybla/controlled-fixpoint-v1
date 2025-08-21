@@ -76,7 +76,7 @@ mkRule' name hyps conc f_ruleOpts =
 data RuleOpts a c v = RuleOpts
   { cutRuleOpt :: Bool,
     suspendRuleOpt :: Maybe (Goal a c v -> Bool),
-    varsToNotFreshenRuleOpt :: Set v
+    existentialVarsRuleOpt :: Set v
   }
 
 instance (Pretty v) => Pretty (RuleOpts a c v) where
@@ -84,7 +84,7 @@ instance (Pretty v) => Pretty (RuleOpts a c v) where
     braces . commas . concat $
       [ ["cut" | ruleOpts.cutRuleOpt],
         ["suspend" | isJust ruleOpts.suspendRuleOpt],
-        ["varsToNotFreshen" <> parens (hsep . punctuate "," . fmap pPrint . Set.toList $ ruleOpts.varsToNotFreshenRuleOpt) | not (Set.null ruleOpts.varsToNotFreshenRuleOpt)]
+        ["existentialVars" <> parens (hsep . punctuate "," . fmap pPrint . Set.toList $ ruleOpts.existentialVarsRuleOpt) | not (Set.null ruleOpts.existentialVarsRuleOpt)]
       ]
 
 defaultRuleOpts :: RuleOpts a c v
@@ -92,7 +92,7 @@ defaultRuleOpts =
   RuleOpts
     { cutRuleOpt = False,
       suspendRuleOpt = Nothing,
-      varsToNotFreshenRuleOpt = Set.empty
+      existentialVarsRuleOpt = Set.empty
     }
 
 -- | Hypothesis.

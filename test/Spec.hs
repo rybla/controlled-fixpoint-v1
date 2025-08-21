@@ -9,7 +9,7 @@ import qualified Spec.Engine.CutRule
 import qualified Spec.Engine.ExprAlias
 import qualified Spec.Engine.Library.AugmentDerivation
 import qualified Spec.Engine.Library.AugmentGoalTrace
-import qualified Spec.Engine.NoFreshenRule
+import qualified Spec.Engine.ExistentialVariables
 import qualified Spec.Engine.Proof
 import qualified Spec.Engine.PruneAtRequiredGoalFailure
 import qualified Spec.Engine.RuleSpecificSuspend
@@ -41,6 +41,6 @@ tests =
       Spec.Engine.ExprAlias.tests,
       Spec.Engine.PruneAtRequiredGoalFailure.tests,
       Spec.Engine.CutRule.tests,
-      Spec.Engine.NoFreshenRule.tests,
+      Spec.Engine.ExistentialVariables.tests,
       Spec.Engine.RuleSpecificSuspend.tests
     ]

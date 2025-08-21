@@ -163,6 +163,7 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Ctx a c v) where
 data Env a c v = Env
   { freshCounter_vars :: Int,
     freshCounter_goals :: Int,
+    rules :: [Rule a c v],
     activeGoals :: [Goal a c v],
     suspendedGoals :: [Goal a c v],
     failedGoals :: [Goal a c v],
@@ -173,7 +174,8 @@ data Env a c v = Env
 instance (Pretty a, Pretty c, Pretty v) => Pretty (Env a c v) where
   pPrint env =
     hang "engine environment:" 2 . bullets $
-      [ "activeGoals =" <+> pPrint env.activeGoals,
+      [ "rules =" <+> "...",
+        "activeGoals =" <+> pPrint env.activeGoals,
         "suspendedGoals =" <+> pPrint env.suspendedGoals,
         "failedGoals =" <+> pPrint env.failedGoals,
         hang "steps =" 2 . bullets $
@@ -181,14 +183,14 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Env a c v) where
         "sigma =" <+> pPrint env.sigma
       ]
 
-substEnv :: Subst c v -> Env a c v -> Env a c v
+substEnv :: (Ord v) => Subst c v -> Env a c v -> Env a c v
 substEnv sigma env =
   env
-    -- TODO: subst
-    { activeGoals = env.activeGoals,
-      suspendedGoals = env.suspendedGoals,
-      failedGoals = env.failedGoals,
-      sigma = env.sigma
+    { rules = substRule sigma <$> env.rules,
+      activeGoals = substGoal sigma <$> env.activeGoals,
+      suspendedGoals = substGoal sigma <$> env.suspendedGoals,
+      failedGoals = substGoal sigma <$> env.failedGoals,
+      sigma = composeSubst_unsafe sigma env.sigma
     }
 
 -- | The proof-search strategy.
@@ -273,7 +275,8 @@ mkCtx cfg =
 mkEnv :: Config a c v -> Env a c v
 mkEnv cfg =
   Env
-    { activeGoals = cfg.goals,
+    { rules = cfg.rules,
+      activeGoals = cfg.goals,
       suspendedGoals = mempty,
       failedGoals = mempty,
       freshCounter_vars = 0,
@@ -377,22 +380,20 @@ tryRules :: (Monad m, Ord v, Pretty v, Pretty c, Pretty a, Eq a, Eq c, Show v, S
 tryRules goal = do
   ctx <- ask
 
-  rules <-
-    ctx.config.rules
+  rules' <-
+    gets (\env -> env.rules)
       -- freshen each rule
-      <&>>= (runFreshening . Freshening.freshenRule)
-      -- apply current substitution to each rule (to update any variables that were not freshened)
+      >>= traverse (runFreshening . Freshening.freshenRule)
+      -- apply current substitution to each rule (to update any existential variables)
       >>= traverse (\rule -> gets \env -> substRule env.sigma rule)
       -- apply constrained ruleset option if present
-      <&> ( case goal.goalOpts.constrainedRulesetGoalOpt of
-              Nothing -> id
-              Just ruleNames -> List.filter \rule -> rule.name `Set.member` ruleNames
-          )
+      <&> case goal.goalOpts.constrainedRulesetGoalOpt of
+        Nothing -> id
+        Just ruleNames -> List.filter \rule -> rule.name `Set.member` ruleNames
 
-  -- TODO: if `goal.goalOpts.constrainedRulesetGoalOpt == Just ruleNames` then need to only try it on those rules
   branches :: [(Rule a c v, Env a c v)] <- do
     env <- get
-    rules
+    rules'
       & filterMapM
         ( \rule ->
             rule
@@ -623,7 +624,7 @@ runFreshening m = do
         { sigma = emptySubst,
           freshCounter_vars = env.freshCounter_vars,
           freshCounter_goals = env.freshCounter_goals,
-          varsToNotFreshen = Set.empty
+          existentialVars = Set.empty
         }
   let (x, env_freshening') = m `runState` env_freshening
   modify \env ->
