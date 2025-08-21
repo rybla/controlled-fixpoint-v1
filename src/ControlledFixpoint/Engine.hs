@@ -181,6 +181,16 @@ instance (Pretty a, Pretty c, Pretty v) => Pretty (Env a c v) where
         "sigma =" <+> pPrint env.sigma
       ]
 
+substEnv :: Subst c v -> Env a c v -> Env a c v
+substEnv sigma env =
+  env
+    -- TODO: subst
+    { activeGoals = env.activeGoals,
+      suspendedGoals = env.suspendedGoals,
+      failedGoals = env.failedGoals,
+      sigma = env.sigma
+    }
+
 -- | The proof-search strategy.
 data Strategy
   = -- |
@@ -357,7 +367,8 @@ loop = do
                 { Msg.contents = ["goal =" <+> pPrint goal]
                 }
             ]
-          modify \env -> env {suspendedGoals = env.suspendedGoals <> [goal]}
+          -- TODO: what is the significance of putting the goal at the beginning or end of this list?
+          modify \env -> env {suspendedGoals = goal : env.suspendedGoals}
         else tryRules goal
 
       loop
