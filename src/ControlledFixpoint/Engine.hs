@@ -16,7 +16,7 @@
 module ControlledFixpoint.Engine where
 
 import Control.Lens ((^.))
-import Control.Monad (foldM, unless, when)
+import Control.Monad (foldM, unless, void, when)
 import Control.Monad.Except (ExceptT, runExceptT, throwError)
 import Control.Monad.Reader (MonadReader (ask), ReaderT (runReaderT))
 import Control.Monad.State (MonadState (..), StateT (..), evalStateT, execStateT, gets, modify, runState, runStateT)
@@ -437,6 +437,13 @@ tryRules goal = do
                   ]
               }
           ]
+        void $
+          env.suspendedGoals <&>>= \goal' ->
+            tell_traceStep
+              FailureStep
+                { goal = goal',
+                  reason = "failed other required goal:" <+> pPrint goal
+                }
         reject
     else do
       let cutBranches =
@@ -584,7 +591,7 @@ tryRule goal rule = do
                         tell_traceStep
                           ResumeStep
                             { goal = suspendedGoal_curr,
-                              reason = "the suspended goal was refined by a new substitution"
+                              reason = "the suspended goal was refined by a new substitution:" <+> pPrint sigma_uni
                             }
                         tellMsgs
                           [ (Msg.mk 2 "resume goal")
